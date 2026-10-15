@@ -1,0 +1,990 @@
+<script async src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const TYPE_LABEL = { PN: 'Penambahan Manpower', PG: 'Penggantian OS', SP: 'Surplus Manpower' };
+const INITIAL_TYPE = window.APP_INITIAL_TYPE || 'PN';
+const SCHEMAS = {
+  PN: [
+    ['nama', 'Nama'], ['domisili', 'Domisili'], ['bidang', 'Bidang'], ['keahlian', 'Keahlian'], ['tglMulai', 'Tanggal Mulai'], ['areaKerja', 'Plotting Area']
+  ],
+  PGOut: [
+    ['nama', 'Nama'], ['keahlian', 'Keahlian'], ['bidang', 'Bidang'], ['foreman', 'Foreman'], ['tglMulai', 'Tanggal Mulai'], ['keterangan', 'Keterangan']
+  ],
+  PGIn: [
+    ['nama', 'Nama Pengganti'], ['keahlian', 'Keahlian'], ['bidang', 'Bidang'], ['foreman', 'Foreman'], ['tglMulai', 'Tanggal Mulai'], ['keterangan', 'Keterangan']
+  ],
+  SP: [
+    ['nama', 'Nama'], ['bidang', 'Bidang'], ['keahlian', 'Keahlian'], ['tglTerakhir', 'Tanggal Terakhir'], ['tujuan', 'Tujuan Proyek']
+  ]
+};
+const TABLE_IDS = { PN: 'tablePN', PGOut: 'tablePGOut', PGIn: 'tablePGIn', SP: 'tableSP' };
+let accessToken = '';
+let pendingPayload = null;
+let currentType = INITIAL_TYPE;
+let currentMainPage = 'MEMO';
+let manpowerRecords = [];
+let memoHistoryRecords = [];
+let historyPage = 0;
+const HISTORY_PAGE_SIZE = 8;
+
+function showApplicationError_(context, error) {
+  const message = error && error.message ? error.message : String(error || 'Kesalahan tidak diketahui.');
+  const status = $('appStatus');
+  if (status) {
+    status.textContent = `${context}: ${message}`;
+    status.classList.add('error');
+  }
+  console.error(`${context}: ${message}`, error);
+}
+
+window.addEventListener('error', (event) => {
+  if (event.target !== window) return;
+  const location = event.lineno ? ` (baris ${event.lineno})` : '';
+  showApplicationError_(`Kesalahan JavaScript${location}`, event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  showApplicationError_('Proses aplikasi gagal', event.reason);
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const button = target && target.closest('button');
+  if (!button) return;
+
+  try {
+    if (button.id === 'btnReconnect') {
+      startApplication();
+    } else if (button.matches('.main-nav-button')) {
+      switchMainPage(button.dataset.main);
+    } else if (button.matches('.subnav [data-type]')) {
+      switchType(button.dataset.type);
+    } else if (button.matches('[data-add]')) {
+      addRow(button.dataset.add);
+    }
+  } catch (error) {
+    showApplicationError_(`Tombol "${button.textContent.trim()}" gagal dijalankan`, error);
+  }
+});
+
+function setDefaultDocumentDates() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
+  ['pn-date', 'pg-date', 'sp-date'].forEach((id) => { $(id).value = today; });
+}
+
+function invokeServer(functionName, args, onSuccess, onFailure) {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    onFailure(new Error('Backend Google Apps Script belum tersedia. Buka URL aplikasi yang sudah di-deploy.'));
+    return;
+  }
+  const runner = google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler((error) => onFailure(new Error(error && error.message ? error.message : String(error))));
+  try {
+    runner[functionName].apply(runner, args);
+  } catch (error) {
+    onFailure(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+function askDeletePin_() {
+  const dialog = $('deletePinDialog');
+  const form = $('deletePinForm');
+  const input = $('deletePinValue');
+  const cancel = $('cancelDeletePin');
+  const submit = $('confirmDeletePin');
+  const errorText = $('deletePinError');
+  input.value = '';
+  errorText.textContent = '';
+  return new Promise((resolve) => {
+    let completed = false;
+    const finish = (pin) => {
+      if (completed) return;
+      completed = true;
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      dialog.removeEventListener('close', onClose);
+      resolve(pin);
+    };
+    const onClose = () => finish(null);
+    const onCancel = () => dialog.close();
+    const onSubmit = (event) => {
+      event.preventDefault();
+      const pin = input.value.trim();
+      if (!/^\d{6}$/.test(pin)) {
+        errorText.textContent = 'Masukkan PIN 6 angka.';
+        input.focus();
+        return;
+      }
+      submit.disabled = true;
+      errorText.textContent = 'Memeriksa PIN...';
+      invokeServer('apiValidateDeletePin', [pin, accessToken], () => {
+        submit.disabled = false;
+        finish(pin);
+        dialog.close();
+      }, (error) => {
+        submit.disabled = false;
+        errorText.textContent = error.message || 'PIN salah. Data tidak dihapus.';
+        input.select();
+      });
+    };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    dialog.addEventListener('close', onClose);
+    dialog.showModal();
+    input.focus();
+  });
+}
+
+function startApplication() {
+  switchMainPage('MEMO');
+  $('btnReconnect').disabled = true;
+  $('appStatus').classList.remove('error');
+  $('appStatus').textContent = 'Menghubungkan ke Google Apps Script...';
+  invokeServer('apiCreateSession', [], (result) => {
+    $('btnReconnect').disabled = false;
+    accessToken = result.token;
+    showApplication(result.owner);
+    const serverVersion = result.version || 'versi server tidak diketahui';
+    $('appStatus').textContent = `Aplikasi siap digunakan sebagai ${result.owner} · UI ${window.APP_BUILD_VERSION || 'lokal'} · Server ${serverVersion}.`;
+    loadCounters();
+    loadHistory();
+    loadManpower();
+  }, (error) => {
+    $('btnReconnect').disabled = false;
+    showApplicationError_('Gagal menghubungkan aplikasi', error);
+  });
+}
+
+function showApplication(owner) {
+  $('userIdentity').textContent = `Akun: ${owner}`;
+  $('counterStatus').textContent = `Pengguna: ${owner}.`;
+  switchMainPage('MEMO');
+}
+
+function loadCounters() {
+  invokeServer('apiGetCounters', [accessToken], (counters) => {
+    $('counterStatus').textContent = `Periode ${counters.period} — PN: ${counters.PN}, PG: ${counters.PG}, SP: ${counters.SP}`;
+  }, (error) => {
+    $('counterStatus').textContent = error.message;
+  });
+}
+
+function buildWhatsAppDraft_(number, project, subject, date, recipient, data, links) {
+  let count = '';
+  if (data.typeKey === 'PN') count = `\nJumlah tambahan: ${(data.workers || []).length} orang`;
+  if (data.typeKey === 'PG') count = `\nJumlah pengganti masuk: ${(data.workersIn || []).length} orang`;
+  if (data.typeKey === 'SP') count = `\nJumlah surplus: ${(data.workers || []).length} orang`;
+  let msg = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${project}\nPerihal: ${subject}\nTanggal: ${formatUiDate_(date)}${count}`;
+  if (links.sheetUrl) msg += `\n\nLink Spreadsheet:\n${links.sheetUrl}`;
+  if (links.pdfUrl) msg += `\n\nLink PDF:\n${links.pdfUrl}`;
+  return msg + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
+}
+
+function formatUiDate_(value) {
+  if (!value) return '';
+  const date = new Date(`${value}T12:00:00`);
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+}
+
+function switchMainPage(page) {
+  if (!['MEMO', 'RPD', 'RPB'].includes(page)) page = 'MEMO';
+  currentMainPage = page;
+  document.querySelectorAll('.main-nav-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.main === page);
+  });
+  document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
+  document.querySelectorAll('.blank-page').forEach((element) => {
+    element.hidden = page !== element.id.replace('blank-', '');
+  });
+  if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
+}
+
+function switchType(type) {
+  if (!['PN', 'PG', 'SP', 'DIRECTORY', 'SETTINGS'].includes(type)) type = 'PN';
+  currentType = type;
+  document.querySelectorAll('.memo-section').forEach((section) => {
+    section.hidden = section.id !== 'section-' + type;
+  });
+  document.querySelectorAll('.subnav .tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.type === type);
+  });
+  const isMemoType = ['PN', 'PG', 'SP'].includes(type);
+  $('common').hidden = !isMemoType;
+  $('projectFields').hidden = !isMemoType;
+  $('preview').hidden = true;
+  $('result').hidden = true;
+  $('formError').textContent = '';
+  pendingPayload = null;
+}
+
+function addRow(kind, values = {}) {
+  const table = $(TABLE_IDS[kind]);
+  const tbody = table.tBodies[0];
+  const row = tbody.insertRow();
+  const num = row.insertCell();
+  num.textContent = tbody.rows.length;
+  SCHEMAS[kind].forEach(([key, label]) => {
+    const cell = row.insertCell();
+    const input = document.createElement('input');
+    const isDate = key === 'tglMulai' || key === 'tglTerakhir';
+    input.type = isDate ? 'date' : 'text';
+    if (isDate) input.className = 'date-input';
+    input.dataset.key = key;
+    input.setAttribute('aria-label', label);
+    input.placeholder = label;
+    input.value = values[key] || '';
+    cell.appendChild(input);
+  });
+  const ktpNameCell = row.insertCell();
+  const ktpName = document.createElement('input');
+  ktpName.type = 'text';
+  ktpName.dataset.key = 'ktpName';
+  ktpName.placeholder = 'Nama pada KTP';
+  ktpName.value = values.ktpName || '';
+  ktpName.setAttribute('aria-label', 'Nama untuk lampiran KTP');
+  ktpNameCell.appendChild(ktpName);
+
+  const ktpFileCell = row.insertCell();
+  ktpFileCell.className = 'ktp-cell';
+  const ktpFile = document.createElement('input');
+  ktpFile.type = 'file';
+  ktpFile.accept = 'image/png,image/jpeg,image/webp';
+  ktpFile.dataset.ktpFile = 'true';
+  ktpFile.setAttribute('aria-label', 'Pilih foto KTP personel ini');
+  ktpFile.addEventListener('change', handleKtpFileSelection_);
+  ktpFileCell.appendChild(ktpFile);
+  const help = document.createElement('span');
+  help.className = 'muted ktp-help';
+  help.textContent = '';
+  ktpFileCell.appendChild(help);
+
+  const action = row.insertCell();
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn red';
+  remove.textContent = 'Hapus';
+  remove.addEventListener('click', async () => {
+    if (!confirm('Hapus baris personel ini dari memo yang sedang disusun?')) return;
+    if (!await askDeletePin_()) return;
+    row.remove();
+    renumber(table);
+  });
+  action.appendChild(remove);
+}
+
+function renumber(table) {
+  Array.from(table.tBodies[0].rows).forEach((row, index) => {
+    row.cells[0].textContent = index + 1;
+  });
+}
+
+function readRows(kind) {
+  return Array.from($(TABLE_IDS[kind]).tBodies[0].rows)
+    .map((row) => {
+      const result = {};
+      row.querySelectorAll('input[data-key]').forEach((input) => {
+        result[input.dataset.key] = input.value.trim();
+      });
+      const fileInput = row.querySelector('input[data-ktp-file]');
+      if (fileInput) {
+        if (fileInput.files.length && !fileInput.dataset.base64) {
+          throw new Error('Tunggu sampai kompresi foto KTP selesai sebelum membuat memo.');
+        }
+        result.ktpBase64 = fileInput.dataset.base64 || '';
+      }
+      return result;
+    })
+    .filter((row) => Object.values(row).some((value) => value !== ''));
+}
+
+function header(prefix) {
+  return {
+    tanggalDoc: $(prefix + '-date').value,
+    berlakuEfektif: $(prefix + '-effective').value,
+    ditujukan: $(prefix + '-to').value.trim()
+  };
+}
+
+let uploadsInProgress = 0;
+function compressKtpImage_(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Gagal membaca ${file.name}.`));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error(`Foto ${file.name} tidak dapat dibuka.`));
+      image.onload = () => {
+        const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error(`Browser tidak dapat memproses foto ${file.name}.`));
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          if ((base64.length - base64.indexOf(',') - 1) * 0.75 <= 700 * 1024) {
+            resolve(base64);
+            return;
+          }
+        }
+        reject(new Error(`Foto ${file.name} tidak dapat dikompresi di bawah 700 KB.`));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleKtpFileSelection_(event) {
+  const input = event.currentTarget;
+  const uploadVersion = Number(input.dataset.uploadVersion || 0) + 1;
+  input.dataset.uploadVersion = String(uploadVersion);
+  const row = input.closest('tr');
+  const help = row.querySelector('.ktp-help');
+  input.dataset.base64 = '';
+  help.textContent = '';
+  $('formError').textContent = '';
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const currentTables = currentType === 'PG'
+    ? [TABLE_IDS.PGOut, TABLE_IDS.PGIn]
+    : [TABLE_IDS[currentType]];
+  const allFileInputs = currentTables
+    .filter(Boolean)
+    .flatMap((tableId) => Array.from($(tableId).querySelectorAll('input[data-ktp-file]')));
+  const selectedCount = allFileInputs.filter((item) => item.files && item.files.length).length;
+  if (selectedCount > 30) {
+    input.value = '';
+    $('formError').textContent = 'Maksimal 30 foto KTP per memo.';
+    return;
+  }
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+    input.value = '';
+    $('formError').textContent = 'Format foto KTP harus JPG, PNG, atau WEBP.';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    input.value = '';
+    $('formError').textContent = 'Ukuran file foto KTP sebelum kompresi maksimal 5 MB.';
+    return;
+  }
+  uploadsInProgress += 1;
+  $('btnSubmit').disabled = true;
+  help.textContent = 'Mengompresi foto...';
+  try {
+    const compressed = await compressKtpImage_(file);
+    if (input.dataset.uploadVersion === String(uploadVersion)) {
+      input.dataset.base64 = compressed;
+      help.textContent = 'Foto siap dilampirkan.';
+    }
+  } catch (error) {
+    if (input.dataset.uploadVersion === String(uploadVersion)) {
+      input.value = '';
+      help.textContent = '';
+      $('formError').textContent = error.message;
+    }
+  } finally {
+    uploadsInProgress -= 1;
+    $('btnSubmit').disabled = uploadsInProgress > 0;
+  }
+}
+
+function buildPayload() {
+  if (uploadsInProgress) throw new Error('Tunggu sampai semua foto KTP selesai dikompresi.');
+  const typeKey = currentType;
+  if (!['PN', 'PG', 'SP'].includes(typeKey)) throw new Error('Pilih jenis memo sebelum membuat dokumen.');
+  const payload = {
+    typeKey,
+    projectName: $('projectName').value.trim(),
+    projectCode: $('projectCode').value.trim(),
+    outputs: {
+      spreadsheet: $('createSpreadsheet').checked,
+      pdf: $('createPdf').checked,
+      whatsapp: $('createWhatsApp').checked
+    },
+    waRecipient: $('waRecipient').value.trim()
+  };
+  if (!payload.projectName || !payload.projectCode) throw new Error('Nama dan kode proyek wajib diisi.');
+  if (!payload.outputs.spreadsheet && !payload.outputs.pdf) throw new Error('Pilih minimal Google Sheets atau PDF untuk arsip memo.');
+  if (typeKey === 'PN') Object.assign(payload, header('pn'), { perihal: TYPE_LABEL.PN, workers: readRows('PN') });
+  if (typeKey === 'PG') Object.assign(payload, header('pg'), { perihal: TYPE_LABEL.PG, workersOut: readRows('PGOut'), workersIn: readRows('PGIn') });
+  if (typeKey === 'SP') Object.assign(payload, header('sp'), { perihal: TYPE_LABEL.SP, workers: readRows('SP') });
+  if (!payload.tanggalDoc || !payload.berlakuEfektif || !payload.ditujukan) {
+    throw new Error('Tanggal dokumen, tanggal efektif, dan penerima memo wajib diisi.');
+  }
+
+  const people = typeKey === 'PG' ? [...(payload.workersOut || []), ...(payload.workersIn || [])] : payload.workers || [];
+  if (!people.length) throw new Error('Isi minimal satu baris personel sebelum membuat memo.');
+  if (people.some((person) => !person.nama)) throw new Error('Setiap baris personel harus memiliki nama.');
+  if (people.filter((person) => person.ktpBase64).length > 30) throw new Error('Maksimal 30 foto KTP per memo.');
+  return payload;
+}
+
+$('btnSubmit').addEventListener('click', () => {
+  $('formError').textContent = '';
+  try {
+    pendingPayload = buildPayload();
+  } catch (error) {
+    $('formError').textContent = error.message;
+    return;
+  }
+
+  const count = pendingPayload.typeKey === 'PG'
+    ? `keluar ${(pendingPayload.workersOut || []).length}, pengganti ${(pendingPayload.workersIn || []).length}`
+    : `${(pendingPayload.workers || []).length} orang`;
+  const people = pendingPayload.typeKey === 'PG'
+    ? [...(pendingPayload.workersOut || []), ...(pendingPayload.workersIn || [])]
+    : pendingPayload.workers || [];
+  const outputNames = [];
+  if (pendingPayload.outputs.spreadsheet) outputNames.push('Google Sheets');
+  if (pendingPayload.outputs.pdf) outputNames.push('PDF');
+  if (pendingPayload.outputs.whatsapp) outputNames.push('draf WhatsApp');
+  $('previewSummary').textContent = [
+    `Jenis memo: ${pendingPayload.perihal}`,
+    `Proyek: ${pendingPayload.projectName} (${pendingPayload.projectCode})`,
+    `Tanggal: ${formatUiDate_(pendingPayload.tanggalDoc)} — efektif ${formatUiDate_(pendingPayload.berlakuEfektif)}`,
+    `Ditujukan kepada: ${pendingPayload.ditujukan}`,
+    `Personel: ${count}`,
+    `Foto KTP: ${people.filter((person) => person.ktpBase64).length}`,
+    `Output: ${outputNames.join(', ')}`,
+    '',
+    'Nomor dokumen akan dialokasikan setelah Anda mengonfirmasi.'
+  ].join('\n');
+  $('preview').hidden = false;
+  $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('cancelPreview').addEventListener('click', () => {
+  pendingPayload = null;
+  $('preview').hidden = true;
+  $('common').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('confirmSubmit').addEventListener('click', () => {
+  if (!pendingPayload) {
+    $('loading').hidden = true;
+    $('formError').textContent = 'Tidak ada preview memo untuk dikonfirmasi. Silakan periksa formulir kembali.';
+    return;
+  }
+  $('confirmSubmit').disabled = true;
+  $('loading').hidden = false;
+  $('preview').hidden = true;
+  $('formError').textContent = '';
+  const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  invokeServer('apiCreateMemo', [pendingPayload, accessToken, requestId], (response) => {
+    $('confirmSubmit').disabled = false;
+    $('loading').hidden = true;
+    $('resNumber').textContent = response.docNumber;
+    $('sheetLink').hidden = !response.sheetUrl;
+    if (response.sheetUrl) $('sheetLink').href = response.sheetUrl;
+    $('pdfLink').hidden = !response.pdfUrl;
+    if (response.pdfUrl) $('pdfLink').href = response.pdfUrl;
+    $('folderLink').href = response.folderUrl;
+    $('whatsAppResult').hidden = !pendingPayload.outputs.whatsapp;
+    if (pendingPayload.outputs.whatsapp) {
+      $('waDraft').textContent = buildWhatsAppDraft_(
+        response.docNumber,
+        pendingPayload.projectName,
+        pendingPayload.perihal,
+        pendingPayload.tanggalDoc,
+        pendingPayload.waRecipient || 'Pak Juwana (PM)',
+        pendingPayload,
+        response
+      );
+    }
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pendingPayload = null;
+    loadCounters();
+    loadHistory();
+    loadManpower();
+  }, (error) => {
+    $('confirmSubmit').disabled = false;
+    $('loading').hidden = true;
+    $('preview').hidden = false;
+    $('formError').textContent = `Gagal membuat memo: ${error.message}`;
+  });
+});
+
+$('copyWA').addEventListener('click', async () => {
+  const text = $('waDraft').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Draf WhatsApp berhasil disalin.');
+  } catch (e) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    alert(ok ? 'Draf WhatsApp berhasil disalin.' : 'Gagal menyalin. Silakan salin teks secara manual.');
+  }
+});
+
+document.querySelectorAll('[data-reset]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const type = button.dataset.reset;
+    if (!confirm('Reset counter ' + (type === 'ALL' ? 'semua jenis memo' : type) + ' untuk bulan berjalan?')) return;
+    button.disabled = true;
+    invokeServer('apiResetCounter', [type, accessToken], (result) => {
+      button.disabled = false;
+      alert(result.message);
+      loadCounters();
+    }, (error) => {
+      button.disabled = false;
+      alert(`Gagal mereset counter: ${error.message}`);
+    });
+  });
+});
+
+$('btnHardReset').addEventListener('click', () => {
+  const confirmed = confirm('PERINGATAN: Seluruh file arsip memo akan dipindahkan ke Sampah, riwayat memo dikosongkan, dan semua counter nomor direset. Data Manpower dan template dipertahankan. Anda akan diminta memasukkan PIN 461999. Lanjutkan?');
+  if (!confirmed) return;
+  askDeletePin_().then((pin) => {
+    if (!pin) return;
+    const button = $('btnHardReset');
+    button.disabled = true;
+    $('hardResetStatus').textContent = 'Hard reset sedang berjalan...';
+    invokeServer('apiHardReset', [pin, accessToken], (result) => {
+      button.disabled = false;
+      $('hardResetStatus').textContent = result.message;
+      loadCounters();
+      loadHistory();
+    }, (error) => {
+      button.disabled = false;
+      $('hardResetStatus').textContent = `Hard reset gagal: ${error.message}`;
+    });
+  });
+});
+
+$('btnClearHistory').addEventListener('click', async () => {
+  if (!confirm('Hapus semua riwayat memo dan pindahkan file memo terkait ke Sampah Google Drive?')) return;
+  const pin = await askDeletePin_();
+  if (!pin) return;
+  const button = $('btnClearHistory');
+  button.disabled = true;
+  $('clearHistoryStatus').textContent = 'Menghapus seluruh riwayat memo...';
+  invokeServer('apiClearMemoHistory', [pin, accessToken], (result) => {
+    button.disabled = false;
+    $('clearHistoryStatus').textContent = result.message;
+    loadHistory();
+  }, (error) => {
+    button.disabled = false;
+    $('clearHistoryStatus').textContent = `Gagal menghapus riwayat: ${error.message}`;
+  });
+});
+
+function loadHistory() {
+  $('historyStatus').textContent = 'Memuat riwayat memo...';
+  invokeServer('apiGetMemoHistory', [accessToken], (history) => {
+    memoHistoryRecords = history;
+    historyPage = 0;
+    renderHistory();
+  }, (error) => {
+    $('historyStatus').textContent = `Gagal memuat riwayat: ${error.message}`;
+  });
+}
+
+function loadManpower() {
+  $('manpowerStatus').textContent = 'Memuat direktori manpower...';
+  invokeServer('apiGetManpower', [accessToken], (records) => {
+    manpowerRecords = records;
+    updateManpowerFilters_();
+    renderManpower();
+  }, (error) => {
+    manpowerRecords = [];
+    $('manpowerStatus').textContent = `Gagal memuat direktori manpower: ${error.message}`;
+    $('manpowerList').replaceChildren();
+  });
+}
+
+function updateManpowerFilters_() {
+  const selections = [
+    { id: 'rosterSkill', field: 'skill', label: 'Semua keahlian' },
+    { id: 'rosterProject', field: 'project', label: 'Semua proyek' }
+  ];
+  selections.forEach(({ id, field, label }) => {
+    const select = $(id);
+    const selected = select.value;
+    const values = Array.from(new Set(manpowerRecords.map((record) => record[field]).filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right, 'id'));
+    select.replaceChildren(new Option(label, ''));
+    values.forEach((value) => select.add(new Option(value, value)));
+    if (values.includes(selected)) select.value = selected;
+  });
+}
+
+function renderManpower() {
+  const query = $('rosterSearch').value.trim().toLocaleLowerCase('id');
+  const status = $('rosterStatus').value;
+  const skill = $('rosterSkill').value;
+  const project = $('rosterProject').value;
+  const startFrom = $('rosterStartFrom').value;
+  const startTo = $('rosterStartTo').value;
+  const records = manpowerRecords.filter((record) => {
+    const searchText = [record.name, record.project, record.department, record.skill, record.domicile]
+      .join(' ').toLocaleLowerCase('id');
+    return (!query || searchText.includes(query)) &&
+      (!status || record.status === status) &&
+      (!skill || record.skill === skill) &&
+      (!project || record.project === project) &&
+      (!startFrom || (record.startDate && record.startDate >= startFrom)) &&
+      (!startTo || (record.startDate && record.startDate <= startTo));
+  });
+  const sort = $('rosterSort').value;
+  records.sort((left, right) => {
+    if (sort === 'name') return left.name.localeCompare(right.name, 'id');
+    const leftDate = left.startDate || left.endDate || '';
+    const rightDate = right.startDate || right.endDate || '';
+    return (sort === 'oldest' ? leftDate.localeCompare(rightDate) : rightDate.localeCompare(leftDate)) ||
+      left.name.localeCompare(right.name, 'id');
+  });
+
+  const container = $('manpowerList');
+  container.replaceChildren();
+  $('manpowerStatus').textContent = `${records.length} dari ${manpowerRecords.length} personel. ${manpowerRecords.filter((record) => record.status === 'AKTIF').length} masih bekerja.`;
+  if (!records.length) {
+    container.textContent = 'Belum ada data yang sesuai filter.';
+    return;
+  }
+  const table = document.createElement('table');
+  const header = table.createTHead().insertRow();
+  ['Nama', 'Status', 'Proyek', 'Tanggal mulai', 'Tanggal selesai', 'Bidang', 'Keahlian', 'Domisili', 'Area kerja', 'Foreman', 'KTP', 'Memo terakhir', 'Aksi'].forEach((label) => {
+    const cell = document.createElement('th');
+    cell.textContent = label;
+    header.appendChild(cell);
+  });
+  const body = table.createTBody();
+  records.forEach((record) => {
+    const row = body.insertRow();
+    [
+      record.name,
+      record.status === 'AKTIF' ? 'Masih bekerja' : 'Tidak aktif',
+      record.project,
+      formatUiDate_(record.startDate),
+      formatUiDate_(record.endDate),
+      record.department,
+      record.skill,
+      record.domicile,
+      record.workArea,
+      record.foreman
+    ].forEach((value) => { row.insertCell().textContent = value || '—'; });
+    const ktpCell = row.insertCell();
+    if (record.ktpUrl) addHistoryLink_(ktpCell, record.ktpUrl, record.ktpName || 'Buka KTP');
+    else ktpCell.textContent = '—';
+    row.insertCell().textContent = record.memoNumber || 'Input manual';
+    const actionCell = row.insertCell();
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn red';
+    deleteButton.textContent = 'Hapus';
+    deleteButton.addEventListener('click', async () => {
+      if (!confirm(`Hapus seluruh data manpower ${record.name} dari proyek ${record.project}?`)) return;
+      const pin = await askDeletePin_();
+      if (!pin) return;
+      deleteButton.disabled = true;
+      invokeServer('apiDeleteManpower', [record.name, record.project, pin, accessToken], (result) => {
+        alert(result.message);
+        loadManpower();
+      }, (error) => {
+        deleteButton.disabled = false;
+        alert(`Gagal menghapus data manpower: ${error.message}`);
+      });
+    });
+    actionCell.appendChild(deleteButton);
+  });
+  container.appendChild(table);
+}
+
+['rosterSearch', 'rosterStatus', 'rosterSkill', 'rosterProject', 'rosterSort', 'rosterStartFrom', 'rosterStartTo']
+  .forEach((id) => $(id).addEventListener('input', renderManpower));
+['rosterStatus', 'rosterSkill', 'rosterProject', 'rosterSort', 'rosterStartFrom', 'rosterStartTo']
+  .forEach((id) => $(id).addEventListener('change', renderManpower));
+$('btnRefreshManpower').addEventListener('click', loadManpower);
+
+$('btnSaveManpower').addEventListener('click', () => {
+  const person = {
+    name: $('manualName').value.trim(),
+    status: $('manualStatus').value,
+    project: $('manualProject').value.trim(),
+    domicile: $('manualDomicile').value.trim(),
+    department: $('manualDepartment').value.trim(),
+    skill: $('manualSkill').value.trim(),
+    foreman: $('manualForeman').value.trim(),
+    workArea: $('manualWorkArea').value.trim(),
+    startDate: $('manualStartDate').value,
+    endDate: $('manualEndDate').value
+  };
+  const button = $('btnSaveManpower');
+  button.disabled = true;
+  $('manualStatusMessage').textContent = 'Menyimpan data personel...';
+  invokeServer('apiSaveManpower', [person, accessToken], (result) => {
+    button.disabled = false;
+    $('manualStatusMessage').textContent = result.message;
+    loadManpower();
+  }, (error) => {
+    button.disabled = false;
+    $('manualStatusMessage').textContent = `Gagal menyimpan: ${error.message}`;
+  });
+});
+
+function renderHistory() {
+  const container = $('historyList');
+  container.replaceChildren();
+  const query = $('historySearch').value.trim().toLocaleLowerCase('id');
+  const type = $('historyType').value;
+  const dateFrom = $('historyDateFrom').value;
+  const dateTo = $('historyDateTo').value;
+  const filtered = memoHistoryRecords.filter((record) => {
+    const search = `${record.number} ${record.project}`.toLocaleLowerCase('id');
+    return (!query || search.includes(query)) && (!type || record.type === type) &&
+      (!dateFrom || record.documentDate >= dateFrom) && (!dateTo || record.documentDate <= dateTo);
+  });
+  const pageCount = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
+  historyPage = Math.min(historyPage, pageCount - 1);
+  const pageRecords = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
+  $('historyStatus').textContent = `${filtered.length} dari ${memoHistoryRecords.length} memo ditampilkan. Riwayat tersimpan di Google Drive.`;
+  $('historyPageStatus').textContent = `Halaman ${historyPage + 1} dari ${pageCount}`;
+  $('historyPrev').disabled = historyPage <= 0;
+  $('historyNext').disabled = historyPage >= pageCount - 1;
+  if (!filtered.length) {
+    container.textContent = memoHistoryRecords.length ? 'Tidak ada memo yang cocok dengan pencarian atau filter.' : 'Belum ada memo dalam riwayat.';
+    return;
+  }
+  container.className = 'memo-history-list';
+  pageRecords.forEach((record) => {
+    const card = document.createElement('article');
+    card.className = 'memo-history-card';
+    const previewLink = document.createElement('a');
+    previewLink.className = 'memo-history-preview';
+    previewLink.href = record.pdfUrl || record.sheetUrl || record.folderUrl || '#';
+    previewLink.target = '_blank';
+    previewLink.rel = 'noopener';
+    previewLink.setAttribute('aria-label', `Buka memo ${record.number}`);
+    const placeholder = document.createElement('span');
+    placeholder.className = 'memo-history-placeholder';
+    placeholder.textContent = record.type || 'MEMO';
+    previewLink.appendChild(placeholder);
+    const previewId = getDriveIdFromUrlUi_(record.pdfUrl || record.sheetUrl);
+    if (previewId) {
+      const thumbnail = document.createElement('img');
+      thumbnail.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(previewId) + '&sz=w480';
+      thumbnail.alt = `Thumbnail memo ${record.number}`;
+      thumbnail.addEventListener('load', () => { placeholder.hidden = true; });
+      thumbnail.addEventListener('error', () => { thumbnail.hidden = true; });
+      previewLink.appendChild(thumbnail);
+    }
+
+    const details = document.createElement('div');
+    details.className = 'memo-history-details';
+    const title = document.createElement('h3');
+    title.textContent = record.number || 'Memo';
+    details.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'memo-history-meta';
+    meta.textContent = `${TYPE_LABEL[record.type] || record.type} · ${record.project || 'Proyek tidak tersedia'} · Tanggal memo ${formatUiDate_(record.documentDate) || '—'} · Dibuat ${formatHistoryTimestamp_(record.createdAt)}`;
+    details.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'memo-history-actions';
+    appendHistoryButton_(actions, record.sheetUrl, 'Lihat Sheets', 'btn green');
+    if (record.pdfUrl) appendHistoryButton_(actions, record.pdfUrl, 'Lihat PDF', 'btn primary');
+    else {
+      const pdfButton = document.createElement('button');
+      pdfButton.type = 'button';
+      pdfButton.className = 'btn primary';
+      pdfButton.textContent = 'Buat PDF';
+      pdfButton.disabled = !record.sheetUrl;
+      pdfButton.title = record.sheetUrl ? 'Buat PDF dari spreadsheet memo' : 'Tidak ada spreadsheet sumber untuk membuat PDF';
+      pdfButton.addEventListener('click', () => {
+        pdfButton.disabled = true;
+        pdfButton.textContent = 'Membuat PDF...';
+        invokeServer('apiGenerateHistoryPdf', [record.number, record.rowIndex, accessToken], (result) => {
+          record.pdfUrl = result.pdfUrl;
+          renderHistory();
+          alert('PDF berhasil dibuat. Klik tombol Lihat PDF pada riwayat memo.');
+        }, (error) => {
+          pdfButton.disabled = false;
+          pdfButton.textContent = 'Buat PDF';
+          alert(`Gagal membuat PDF: ${error.message}`);
+        });
+      });
+      actions.appendChild(pdfButton);
+    }
+    appendHistoryButton_(actions, record.folderUrl, 'Folder Arsip', 'btn');
+    const waDraft = record.waDraft || buildHistoryWhatsAppDraft_(record);
+    const waButton = document.createElement('a');
+    waButton.className = 'btn green';
+    waButton.href = 'https://wa.me/?text=' + encodeURIComponent(waDraft);
+    waButton.target = '_blank';
+    waButton.rel = 'noopener';
+    waButton.textContent = 'Draft WhatsApp';
+    actions.appendChild(waButton);
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn red';
+    deleteButton.textContent = 'Hapus Riwayat';
+    deleteButton.addEventListener('click', async () => {
+      if (!confirm(`Hapus riwayat memo ${record.number} dan pindahkan file terkait ke Sampah Google Drive?`)) return;
+      const pin = await askDeletePin_();
+      if (!pin) return;
+      deleteButton.disabled = true;
+      invokeServer('apiDeleteMemoHistory', [record.rowIndex, record.number, pin, accessToken], (result) => {
+        alert(result.message);
+        loadHistory();
+      }, (error) => {
+        deleteButton.disabled = false;
+        alert(`Gagal menghapus riwayat: ${error.message}`);
+      });
+    });
+    actions.appendChild(deleteButton);
+    details.appendChild(actions);
+
+    const attachments = Array.isArray(record.files)
+      ? record.files.filter((file) => /\.(jpe?g|png|webp)$/i.test(file.name))
+      : [];
+    if (attachments.length) {
+      const fileList = document.createElement('div');
+      fileList.className = 'memo-history-files';
+      fileList.append('Lampiran KTP: ');
+      attachments.forEach((file, index) => {
+        if (index) fileList.append(', ');
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = file.name;
+        fileList.appendChild(link);
+      });
+      details.appendChild(fileList);
+    }
+
+    card.append(previewLink, details);
+    container.appendChild(card);
+  });
+}
+
+['historySearch', 'historyType', 'historyDateFrom', 'historyDateTo'].forEach((id) => {
+  $(id).addEventListener(id === 'historySearch' ? 'input' : 'change', () => { historyPage = 0; renderHistory(); });
+});
+$('historyPrev').addEventListener('click', () => { historyPage = Math.max(0, historyPage - 1); renderHistory(); });
+$('historyNext').addEventListener('click', () => { historyPage += 1; renderHistory(); });
+
+function appendHistoryButton_(container, url, label, className) {
+  if (!url) return;
+  const button = document.createElement('a');
+  button.className = className;
+  button.href = url;
+  button.target = '_blank';
+  button.rel = 'noopener';
+  button.textContent = label;
+  container.appendChild(button);
+}
+
+function getDriveIdFromUrlUi_(url) {
+  const match = String(url || '').match(/\/(?:d|folders)\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
+function buildHistoryWhatsAppDraft_(record) {
+  let draft = `Yth. Pak Juwana (PM),\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal: ${formatUiDate_(record.documentDate)}`;
+  if (record.sheetUrl) draft += `\n\nLink Spreadsheet:\n${record.sheetUrl}`;
+  if (record.pdfUrl) draft += `\n\nLink PDF:\n${record.pdfUrl}`;
+  if (record.folderUrl) draft += `\n\nFolder Arsip:\n${record.folderUrl}`;
+  return draft + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
+}
+
+function addHistoryLink_(container, url, label) {
+  if (!url) return;
+  if (container.childNodes.length) container.appendChild(document.createTextNode(' '));
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = label;
+  container.appendChild(link);
+}
+
+function formatHistoryTimestamp_(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+$('btnRefreshHistory').addEventListener('click', loadHistory);
+
+$('btnStatus').addEventListener('click', () => {
+  loadCounters();
+});
+
+$('btnSetWebhook').addEventListener('click', () => {
+  if (!confirm('Hubungkan bot Telegram pribadi ke aplikasi ini sekarang?')) return;
+  $('btnSetWebhook').disabled = true;
+  invokeServer('apiSetWebhook', [accessToken], (message) => {
+    $('btnSetWebhook').disabled = false;
+    $('counterStatus').textContent = message;
+    loadTelegramStatus_();
+  }, (error) => {
+    $('btnSetWebhook').disabled = false;
+    $('counterStatus').textContent = `Gagal menghubungkan bot: ${error.message}`;
+  });
+});
+
+function loadTelegramStatus_() {
+  $('telegramStatus').textContent = 'Memeriksa koneksi Telegram...';
+  invokeServer('apiTelegramStatus', [accessToken], (status) => {
+    const lines = [
+      `Bot: @${status.botUsername || '(username belum tersedia)'}`,
+      `URL webhook terdaftar untuk deployment ini: ${status.webhookActive ? 'Ya' : 'Tidak'}`,
+      `OWNER_TELEGRAM_ID: ${status.ownerConfigured ? 'sudah diisi' : 'BELUM DIISI'}`,
+      `Pesan tertunda: ${status.pendingUpdates}`
+    ];
+    if (status.lastError) lines.push(`Error Telegram terakhir: ${status.lastError}`);
+    else lines.push('Error webhook terbaru: tidak ada.');
+    if (!status.ownerConfigured) lines.push('Kirim /start ke bot untuk melihat ID Telegram, lalu simpan ID itu sebagai OWNER_TELEGRAM_ID.');
+    $('telegramStatus').textContent = lines.join('\n');
+  }, (error) => {
+    $('telegramStatus').textContent = `Diagnostik gagal: ${error.message}`;
+  });
+}
+
+$('btnTelegramStatus').addEventListener('click', loadTelegramStatus_);
+
+addRow('PN');
+addRow('PGOut');
+addRow('PGIn');
+addRow('SP');
+setDefaultDocumentDates();
+const telegramApp = window.Telegram && window.Telegram.WebApp;
+if (telegramApp) {
+  telegramApp.ready();
+  telegramApp.expand();
+}
+startApplication();
+</script>
