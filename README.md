@@ -60,11 +60,13 @@ Script.
 - Ukuran font pada isi lembar memo diseragamkan menjadi 12. Perubahan pada
   desain/template Google Sheets sumber akan dipakai oleh memo baru, kecuali
   sel data yang memang diisi otomatis oleh aplikasi.
-- Google Sheets dan PDF dapat dipilih terpisah. Draf WhatsApp hanya dibuat
-  untuk disalin dan tidak dikirim otomatis.
+- Google Sheets dan PDF dapat dipilih terpisah. Draf WhatsApp merangkum tanggal
+  pengajuan/efektif dan perubahan manpower tanpa tautan arsip; tautan Sheets,
+  PDF, dan folder tetap tersedia di dalam aplikasi. Draf tidak dikirim otomatis.
 - Memo PN, PG, dan SP dibuat dari salinan template baku masing-masing. Format,
   warna, logo, dan tanda tangan pada template dipertahankan; data header dan
-  jumlah baris personel diisi oleh aplikasi.
+  jumlah baris personel diisi oleh aplikasi. Isi tabel personel disejajarkan ke
+  tengah pada semua jenis memo.
 - Maksimal 30 foto KTP per memo. Setiap foto maksimal 2 MB tanpa kompresi
   karena batas gambar yang dapat dimasukkan ke Google Sheets.
 - Direktori manpower tersimpan di spreadsheet terpisah bernama

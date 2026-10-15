@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.16.3',
+  version: '2026.10.16.4',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -869,9 +869,6 @@ function buildMemoWhatsAppDraft_(data, number, documentDate, sheetFile, pdfFile,
   const reductionSummary = includeZeroManpowerGroups_(summarizeManpowerGroups_(reductions), currentSummary);
   const additionSummary = includeZeroManpowerGroups_(summarizeManpowerGroups_(additions), currentSummary);
   let draft = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${data.projectName}\nPerihal: ${APP.types[data.typeKey].label}\nTanggal pengajuan: ${applicationDate}\nTanggal efektif: ${effectiveDate}\n\nManpower saat ini (sebelum perubahan):\n${formatManpowerSummaryLines_(currentSummary, 'Belum ada data manpower aktif untuk proyek ini.')}\n\nPengurangan:\n${formatManpowerSummaryLines_(reductionSummary, 'Tidak ada pengurangan.')}\n\nPenambahan:\n${formatManpowerSummaryLines_(additionSummary, 'Tidak ada penambahan.')}`;
-  if (sheetFile) draft += `\n\nLink Spreadsheet:\n${sheetFile.getUrl()}`;
-  if (pdfFile) draft += `\n\nLink PDF:\n${pdfFile.getUrl()}`;
-  draft += `\n\nFolder Arsip:\n${folder.getUrl()}`;
   return draft + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
 }
 
@@ -1192,6 +1189,9 @@ function populatePeopleTemplate_(sheet, data) {
     ...(isAddition ? [person.areaKerja] : [])
   ]);
   sheet.getRange(dataStart, 4, values.length, values[0].length).setValues(values);
+  sheet.getRange(dataStart, 4, values.length, values[0].length)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
   const bodyText = sheet.getRange('D16').getDisplayValue();
   sheet.getRange('D16').setValue(replaceTemplateProject_(bodyText, data.projectName));
 }
@@ -1231,6 +1231,9 @@ function setTemplatePeople_(sheet, startRow, people, schemaKey) {
     person.keterangan
   ]);
   sheet.getRange(startRow, 4, rows.length, schema.length + 1).setValues(rows);
+  sheet.getRange(startRow, 4, rows.length, schema.length + 1)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
 }
 
 function resizeTemplateRows_(sheet, dataStart, templateCount, desiredCount, formatSourceRow) {

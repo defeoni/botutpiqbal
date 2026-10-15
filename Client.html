@@ -183,9 +183,8 @@ function buildWhatsAppDraft_(number, project, subject, date, recipient, data, li
   if (data.typeKey === 'PN') count = `\nJumlah tambahan: ${(data.workers || []).length} orang`;
   if (data.typeKey === 'PG') count = `\nJumlah pengganti masuk: ${(data.workersIn || []).length} orang`;
   if (data.typeKey === 'SP') count = `\nJumlah surplus: ${(data.workers || []).length} orang`;
-  let msg = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${project}\nPerihal: ${subject}\nTanggal: ${formatUiDate_(date)}${count}`;
-  if (links.sheetUrl) msg += `\n\nLink Spreadsheet:\n${links.sheetUrl}`;
-  if (links.pdfUrl) msg += `\n\nLink PDF:\n${links.pdfUrl}`;
+  const effectiveDate = data.berlakuEfektif ? formatUiDate_(data.berlakuEfektif) : formatUiDate_(date);
+  const msg = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${project}\nPerihal: ${subject}\nTanggal pengajuan: ${formatUiDate_(date)}\nTanggal efektif: ${effectiveDate}${count}`;
   return msg + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
 }
 
@@ -828,7 +827,7 @@ function renderHistory() {
     appendHistoryButton_(actions, record.folderUrl, 'Folder Arsip', 'btn');
     const ktpPdf = recordFiles.find((file) => /Lampiran-KTP\.pdf$/i.test(file.name));
     if (ktpPdf) appendHistoryButton_(actions, ktpPdf.url, 'PDF KTP', 'btn');
-    const waDraft = record.waDraft || buildHistoryWhatsAppDraft_(record);
+    const waDraft = removeInternalArchiveLinks_(record.waDraft || buildHistoryWhatsAppDraft_(record));
     const waButton = document.createElement('a');
     waButton.className = 'btn green';
     waButton.href = 'https://wa.me/?text=' + encodeURIComponent(waDraft);
@@ -901,11 +900,15 @@ function getDriveIdFromUrlUi_(url) {
 }
 
 function buildHistoryWhatsAppDraft_(record) {
-  let draft = `Yth. Pak Juwana (PM),\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal: ${formatUiDate_(record.documentDate)}`;
-  if (record.sheetUrl) draft += `\n\nLink Spreadsheet:\n${record.sheetUrl}`;
-  if (record.pdfUrl) draft += `\n\nLink PDF:\n${record.pdfUrl}`;
-  if (record.folderUrl) draft += `\n\nFolder Arsip:\n${record.folderUrl}`;
-  return draft + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
+  return `Yth. Pak Juwana (PM),\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal pengajuan: ${formatUiDate_(record.documentDate)}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.`;
+}
+
+function removeInternalArchiveLinks_(draft) {
+  return String(draft || '')
+    .replace(/\n{0,2}Link Spreadsheet:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{0,2}Link PDF:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{0,2}Folder Arsip:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{3,}/g, '\n\n');
 }
 
 function addHistoryLink_(container, url, label) {
