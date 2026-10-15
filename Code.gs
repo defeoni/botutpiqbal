@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.16.4',
+  version: '2026.10.16.7',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -150,7 +150,7 @@ function apiCreateMemo(payload, token, requestId) {
     let manpowerRecord = null;
 
     try {
-      const folder = getArchiveFolder_(validated.projectCode, period);
+      const folder = getArchiveFolder_(validated.projectName, validated.typeKey, period, validated.projectCode);
       const imageFiles = saveKtpImages_(validated, folder, number, createdFileIds);
       const workingSpreadsheetFile = createSpreadsheet_(validated, number, folder, imageFiles, createdFileIds);
       const workingSpreadsheet = SpreadsheetApp.openById(workingSpreadsheetFile.getId());
@@ -261,6 +261,11 @@ function apiGetMemoHistory(token) {
   lock.waitLock(30000);
   try {
     const sheet = getMemoHistorySheet_(true);
+    try {
+      migrateExistingMemoArchiveFolders_(getArchiveRootFolder_());
+    } catch (error) {
+      console.error(`Penataan folder arsip lama gagal: ${error.message}`);
+    }
     if (!sheet || sheet.getLastRow() < 2) return [];
     const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
     return values.map((row, index) => ({
@@ -659,24 +664,162 @@ function getCounters_(requestedPeriod) {
   return result;
 }
 
-function getArchiveFolder_(projectCode, period) {
+function getArchiveFolder_(projectName, typeKey, period, projectCode) {
   const root = getArchiveRootFolder_();
-  const projectFolders = root.getFoldersByName(safeFileName_(projectCode));
-  const project = projectFolders.hasNext() ? projectFolders.next() : root.createFolder(safeFileName_(projectCode));
-  const periodName = period.replace('_', '-');
-  const periodFolders = project.getFoldersByName(periodName);
-  return periodFolders.hasNext() ? periodFolders.next() : project.createFolder(periodName);
+  migrateExistingMemoArchiveFolders_(root);
+  return getMemoArchiveTargetFolder_(root, projectName, typeKey, period, projectCode);
 }
 
 function getArchiveRootFolder_() {
   const props = PropertiesService.getScriptProperties();
   let rootId = props.getProperty('DRIVE_ROOT_FOLDER_ID');
   if (rootId) {
-    return DriveApp.getFolderById(rootId);
+    const root = DriveApp.getFolderById(rootId);
+    if (root.getName() !== 'Arsip UTP') root.setName('Arsip UTP');
+    return root;
   }
-  const root = DriveApp.createFolder('Arsip Memo UTP');
+  const root = DriveApp.createFolder('Arsip UTP');
   props.setProperty('DRIVE_ROOT_FOLDER_ID', root.getId());
   return root;
+}
+
+function getMemoArchiveTargetFolder_(root, projectName, typeKey, period, projectCode) {
+  const projectBaseName = String(projectName || projectCode || 'Tanpa Nama').replace(/^Project\s+/i, '').trim();
+  const projectLabel = safeFileName_(`Project ${projectBaseName}`);
+  const projectFolder = getOrCreateArchiveSubfolder_(root, projectLabel);
+  const sectionFolder = getOrCreateArchiveSubfolder_(projectFolder, 'Memo');
+  const typeNames = {
+    PN: 'Memo Penambahan Manpower',
+    SP: 'Memo Surplus OS',
+    PG: 'Memo Penggantian OS'
+  };
+  if (!typeNames[typeKey]) throw new Error(`Jenis memo ${typeKey} tidak dikenal untuk arsip.`);
+  const typeFolder = getOrCreateArchiveSubfolder_(sectionFolder, typeNames[typeKey]);
+  const parts = String(period || '').split('_');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  if (!year || month < 1 || month > 12) throw new Error('Periode arsip memo tidak valid.');
+  return getOrCreateArchiveSubfolder_(typeFolder, `${monthNames[month - 1]} ${year}`);
+}
+
+function getOrCreateArchiveSubfolder_(parent, name) {
+  const safeName = safeFileName_(name);
+  const matches = parent.getFoldersByName(safeName);
+  return matches.hasNext() ? matches.next() : parent.createFolder(safeName);
+}
+
+function migrateExistingMemoArchiveFolders_(root) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ARCHIVE_STRUCTURE_V2_MIGRATED') === 'true') return;
+  const historyId = props.getProperty('MEMO_HISTORY_SHEET_ID');
+  if (!historyId) {
+    props.setProperty('ARCHIVE_STRUCTURE_V2_MIGRATED', 'true');
+    return;
+  }
+  const history = SpreadsheetApp.openById(historyId).getSheets()[0];
+  const lastRow = history.getLastRow();
+  if (lastRow < 2) {
+    props.setProperty('ARCHIVE_STRUCTURE_V2_MIGRATED', 'true');
+    return;
+  }
+
+  const rows = history.getRange(2, 1, lastRow - 1, 10).getValues();
+  let failures = 0;
+  const legacyMonthFolders = new Map();
+  const legacyProjectFolders = new Map();
+  rows.forEach((row, index) => {
+    const number = String(row[1] || '').trim();
+    const typeKey = String(row[2] || '').trim();
+    const projectName = String(row[3] || '').trim();
+    const period = archivePeriodFromValue_(row[4]);
+    if (!number || !projectName || !period || !APP.types[typeKey]) return;
+    try {
+      const target = getMemoArchiveTargetFolder_(root, projectName, typeKey, period, '');
+      const filesById = new Map();
+      try {
+        JSON.parse(String(row[8] || '[]')).forEach((item) => {
+          if (item && item.id) filesById.set(String(item.id), item);
+        });
+      } catch (error) {
+        console.error(`Daftar berkas memo ${number} tidak valid: ${error.message}`);
+      }
+      [row[5], row[6]].forEach((url) => {
+        const id = getDriveIdFromUrl_(url);
+        if (id && !filesById.has(id)) filesById.set(id, { id });
+      });
+      const oldFolderId = getDriveIdFromUrl_(row[7]);
+      if (oldFolderId) {
+        try {
+          const oldFolder = DriveApp.getFolderById(oldFolderId);
+          const parents = oldFolder.getParents();
+          if (parents.hasNext()) {
+            const parent = parents.next();
+            const grandparents = parent.getParents();
+            if (grandparents.hasNext() && grandparents.next().getId() === root.getId()) {
+              legacyMonthFolders.set(oldFolder.getId(), oldFolder);
+              legacyProjectFolders.set(parent.getId(), parent);
+            }
+          }
+          const oldFiles = oldFolder.getFiles();
+          while (oldFiles.hasNext()) {
+            const file = oldFiles.next();
+            const name = file.getName();
+            if (name === `${number}.pdf` || name.startsWith(`${number} -`) || name.startsWith(`${number}-`)) {
+              filesById.set(file.getId(), { id: file.getId(), name, url: file.getUrl() });
+            }
+          }
+        } catch (error) {
+          console.error(`Folder lama memo ${number} tidak dapat dibaca: ${error.message}`);
+        }
+      }
+
+      const migratedFiles = [];
+      filesById.forEach((item, id) => {
+        try {
+          const file = DriveApp.getFileById(id);
+          if (!file.isTrashed()) {
+            let alreadyInTarget = false;
+            const parents = file.getParents();
+            while (parents.hasNext()) if (parents.next().getId() === target.getId()) alreadyInTarget = true;
+            if (!alreadyInTarget) file.moveTo(target);
+            migratedFiles.push({ id, name: file.getName(), url: file.getUrl() });
+          }
+        } catch (error) {
+          failures += 1;
+          console.error(`Berkas memo ${number} (${id}) tidak dapat dipindahkan: ${error.message}`);
+        }
+      });
+      history.getRange(index + 2, 8, 1, 2).setValues([[target.getUrl(), JSON.stringify(migratedFiles)]]);
+    } catch (error) {
+      failures += 1;
+      console.error(`Arsip memo ${number} gagal dipindahkan: ${error.message}`);
+    }
+  });
+  if (!failures) {
+    legacyMonthFolders.forEach((folder) => trashEmptyArchiveFolder_(folder));
+    legacyProjectFolders.forEach((folder) => trashEmptyArchiveFolder_(folder));
+    props.setProperty('ARCHIVE_STRUCTURE_V2_MIGRATED', 'true');
+  }
+  else console.error(`Penataan arsip UTP belum selesai; ${failures} berkas akan dicoba kembali pada pemanggilan berikutnya.`);
+}
+
+function trashEmptyArchiveFolder_(folder) {
+  try {
+    if (folder.getFiles().hasNext() || folder.getFolders().hasNext()) return;
+    folder.setTrashed(true);
+  } catch (error) {
+    console.error(`Folder arsip lama ${folder.getName()} tidak dapat dibersihkan: ${error.message}`);
+  }
+}
+
+function archivePeriodFromValue_(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return Utilities.formatDate(value, APP.timezone, 'yyyy_MM');
+  }
+  const iso = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}_${iso[2]}`;
+  return '';
 }
 
 function getMemoHistorySheet_(createIfMissing) {

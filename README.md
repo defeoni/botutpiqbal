@@ -75,9 +75,13 @@ Script.
   Jika ada dua pekerja bernama sama di proyek yang sama, tinjau roster agar
   status terbaru tidak tertukar.
 - Struktur Drive:
-  - `Arsip Memo UTP/<kode proyek>/<YYYY-MM>/`: Spreadsheet memo, PDF, dan foto
-    KTP dikelompokkan bersama per proyek dan bulan.
-  - `Arsip Memo UTP/Riwayat Memo UTP`: spreadsheet indeks riwayat.
+  - `Arsip UTP/Project <nama proyek>/Memo/<jenis memo>/<Bulan YYYY>/`:
+    Spreadsheet memo, PDF, dan foto KTP dikelompokkan per proyek, jenis memo,
+    dan bulan/tahun. Folder jenis memo: `Memo Penambahan Manpower`,
+    `Memo Penggantian OS`, dan `Memo Surplus OS`.
+  - Arsip lama yang tercatat di riwayat dipindahkan ke struktur tersebut saat
+    aplikasi memuat riwayat setelah versi baru dipasang.
+  - `Arsip UTP/Riwayat Memo UTP`: spreadsheet indeks riwayat.
   - `Data Manpower UTP`: spreadsheet terpisah agar data roster tidak tercampur
     dengan file memo.
 
