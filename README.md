@@ -23,7 +23,7 @@ Script.
 
 ## Fungsi
 
-- Form web dan Telegram Mini App untuk memo PN, PG, dan SP.
+- Form web untuk memo PN, PG, dan SP. Tombol bot Telegram membuka form di browser.
 - Navigasi utama MEMO, RPD, dan RPB; RPD/RPB disediakan sebagai halaman kosong.
 - Direktori manpower persisten, dengan status aktif/nonaktif dan filter nama,
   proyek, bidang, keahlian, dan rentang tanggal mulai. Data yang sudah ada
@@ -134,8 +134,8 @@ hanya jika memang sudah dipastikan tidak akan menimbulkan nomor duplikat.
 9. Kirim `/start` ke bot. Saat `OWNER_TELEGRAM_ID` masih kosong, bot membalas
    dengan ID akun Telegram yang mengirim pesan. Masukkan ID itu sebagai Script
    Property `OWNER_TELEGRAM_ID`, lalu kirim `/start` sekali lagi. Jangan gunakan
-   ID orang lain. Tombol **Buka formulir memo** membuka Mini App.
-   Perintah `/pn`, `/pg`, dan `/sp` membuka form dengan jenis yang dipilih.
+   ID orang lain. Tombol dan perintah untuk membuat memo membuka form di browser
+   biasa, bukan di Telegram Mini App.
 10. Untuk memeriksa tampilan dan navigasi tanpa backend, jalankan
    `python tools/build_local_preview.py`, lalu buka `Index-demo-lokal.html`.
    Operasi yang menyimpan data hanya dapat diuji melalui URL `/exec` Apps

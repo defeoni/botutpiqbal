@@ -1507,11 +1507,11 @@ function processTelegramUpdate_(update) {
     const menu = {
       inline_keyboard: [
         [{ text: '🌐 Buka Dashboard Website', url: webUrl }],
-        [{ text: '➕ Buat Memo', web_app: { url: getWebAppUrl_() } }],
+        [{ text: '➕ Buat Memo', url: getWebAppUrl_() }],
         [
-          { text: '📄 Penambahan', web_app: { url: getWebAppUrl_('PN') } },
-          { text: '🔁 Penggantian', web_app: { url: getWebAppUrl_('PG') } },
-          { text: '📉 Surplus', web_app: { url: getWebAppUrl_('SP') } }
+          { text: '📄 Penambahan', url: getWebAppUrl_('PN') },
+          { text: '🔁 Penggantian', url: getWebAppUrl_('PG') },
+          { text: '📉 Surplus', url: getWebAppUrl_('SP') }
         ],
         [{ text: '📊 Cek Nomor Memo', callback_data: 'status' }]
       ]
@@ -1522,7 +1522,7 @@ function processTelegramUpdate_(update) {
     const type = command === '/pn' ? 'PN' : command === '/pg' ? 'PG' : command === '/sp' ? 'SP' : '';
     sendTelegramMessage_(chatId, 'Buka formulir memo:', { inline_keyboard: [[{
       text: type ? `Buat ${APP.types[type].label}` : 'Buka formulir memo',
-      web_app: { url: getWebAppUrl_(type) }
+      url: getWebAppUrl_(type)
     }]] });
   } else if (command === '/status') {
     const counters = getCounters_();
