@@ -208,10 +208,11 @@ function switchMainPage(page) {
     button.classList.toggle('active', button.dataset.main === page);
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.blank-page').forEach((element) => {
+  document.querySelectorAll('.blank-page, .rpb-page').forEach((element) => {
     element.hidden = page !== element.id.replace('blank-', '');
   });
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
+  if (page === 'RPB' && accessToken && typeof loadRpbData_ === 'function') loadRpbData_();
 }
 
 function switchType(type) {
