@@ -1185,7 +1185,7 @@ function processTelegramUpdate_(update) {
       const counters = getCounters_();
       sendTelegramMessage_(chatId, `📊 STATUS NOMOR MEMO\nPeriode: ${counters.period}\nPN: ${counters.PN}\nPG: ${counters.PG}\nSP: ${counters.SP}`);
     } else {
-      sendTelegramMessage_(chatId, 'Buka dashboard Web untuk mengelola memo. Setiap penghapusan memerlukan PIN 461999.');
+      sendTelegramMessage_(chatId, 'Buka dashboard Web untuk mengelola memo. Penghapusan memerlukan kode konfirmasi.');
     }
     return;
   }
@@ -1218,7 +1218,7 @@ function processTelegramUpdate_(update) {
     const counters = getCounters_();
     sendTelegramMessage_(chatId, `Periode ${counters.period}\nPN: ${counters.PN}\nPG: ${counters.PG}\nSP: ${counters.SP}`);
   } else if (command === '/reset') {
-    sendTelegramMessage_(chatId, 'Buka website lalu pilih menu Pengaturan. Penghapusan arsip atau riwayat dan Hard Reset memerlukan PIN 461999.');
+    sendTelegramMessage_(chatId, 'Buka website lalu pilih menu Pengaturan. Penghapusan arsip atau riwayat dan Hard Reset memerlukan kode konfirmasi.');
   } else if (command === '/setwebhook') {
     sendTelegramMessage_(chatId, setTelegramWebhook_());
   } else {

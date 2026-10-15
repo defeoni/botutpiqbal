@@ -560,7 +560,7 @@ document.querySelectorAll('[data-reset]').forEach((button) => {
 });
 
 $('btnHardReset').addEventListener('click', () => {
-  const confirmed = confirm('PERINGATAN: Seluruh file arsip memo akan dipindahkan ke Sampah, riwayat memo dikosongkan, dan semua counter nomor direset. Data Manpower dan template dipertahankan. Anda akan diminta memasukkan PIN 461999. Lanjutkan?');
+  const confirmed = confirm('PERINGATAN: Seluruh file arsip memo akan dipindahkan ke Sampah, riwayat memo dikosongkan, dan semua counter nomor direset. Data Manpower dan template dipertahankan. Lanjutkan?');
   if (!confirmed) return;
   askDeletePin_().then((pin) => {
     if (!pin) return;
@@ -765,7 +765,7 @@ function renderHistory() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
   historyPage = Math.min(historyPage, pageCount - 1);
   const pageRecords = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
-  $('historyStatus').textContent = `${filtered.length} dari ${memoHistoryRecords.length} memo ditampilkan. Riwayat tersimpan di Google Drive.`;
+  $('historyStatus').textContent = '';
   $('historyPageStatus').textContent = `Halaman ${historyPage + 1} dari ${pageCount}`;
   $('historyPrev').disabled = historyPage <= 0;
   $('historyNext').disabled = historyPage >= pageCount - 1;

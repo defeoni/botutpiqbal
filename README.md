@@ -31,7 +31,7 @@ Script.
 - Perintah privat Telegram: `/start`, `/new`, `/pn`, `/pg`, `/sp`, `/status`,
   `/reset`, dan `/setwebhook`.
 - Setiap penghapusan riwayat memo, manpower, baris personel, dan Hard Reset
-  meminta PIN konfirmasi `461999`; server memeriksa PIN sebelum menghapus.
+  meminta kode konfirmasi; server memeriksa kode sebelum menghapus.
 - Preview wajib sebelum nomor dialokasikan. Counter bulanan ada di server,
   dikunci saat penomoran, dan hanya bertambah setelah arsip berhasil dibuat.
 - Penomoran berjalan dengan counter terpisah untuk PN, PG, dan SP; counter
@@ -195,7 +195,7 @@ tetap berada di project yang sama.
    Perubahan desain dan teks statis pada file template sumber digunakan oleh
    memo baru. Sel isian seperti nomor, tanggal, nama proyek, penerima, dan tabel
    personel tetap ditulis oleh aplikasi. Reset counter hanya mengatur nomor
-   selanjutnya. **Hard Reset** pada Web App meminta PIN konfirmasi `461999`.
+   selanjutnya. **Hard Reset** pada Web App meminta kode konfirmasi.
    Hard reset
    memindahkan file di dalam folder arsip ke Sampah Google Drive, mengosongkan
    riwayat, serta mereset counter dari semua periode. Tiga file template, spreadsheet
