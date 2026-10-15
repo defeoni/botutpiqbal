@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administrasi Memo — PT Unicorn Tosan Perkasa</title>
+<?!= include('Styles'); ?>
+<?!= include('RPBStyles'); ?>
+</head>
+<body>
+<main>
+  <header class="header">
+    <h1>PT. UNICORN TOSAN PERKASA</h1>
+    <div class="muted">Dashboard Administrasi Memo dan Arsip Proyek</div>
+    <div class="app-status-row">
+      <p id="appStatus" class="muted" role="status" aria-live="polite">Menghubungkan aplikasi...</p>
+      <button class="btn" type="button" id="btnReconnect">Coba Hubungkan Ulang</button>
+    </div>
+  </header>
+
+  <nav class="main-nav" aria-label="Menu utama">
+    <button type="button" class="tab main-nav-button active" data-main="MEMO">MEMO</button>
+    <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
+    <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
+    <span class="identity" id="userIdentity"></span>
+  </nav>
+
+  <section class="panel memo-area">
+    <h2>Jenis Memo dan Proyek</h2>
+    <nav class="tabs subnav" aria-label="Menu Memo">
+      <button type="button" class="tab active" data-type="PN">Memo Penambahan</button>
+      <button type="button" class="tab" data-type="PG">Memo Penggantian OS</button>
+      <button type="button" class="tab" data-type="SP">Memo Surplus</button>
+      <button type="button" class="tab" data-type="DIRECTORY">Data Manpower</button>
+      <button type="button" class="tab" data-type="SETTINGS">Pengaturan</button>
+    </nav>
+    <div class="grid" id="projectFields">
+      <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value="TerraSentra Soreang, Bandung"></div>
+      <div class="field"><label for="projectCode">Kode Proyek</label><input id="projectCode" value="TS"></div>
+    </div>
+  </section>
+
+  <section id="section-PN" class="section memo-section memo-area">
+    <div class="card"><h2>Data Header — Penambahan Manpower</h2><div class="grid">
+      <div class="field"><label for="pn-date">Tanggal Dokumen</label><input class="date-input" id="pn-date" type="date"></div>
+      <div class="field"><label for="pn-effective">Berlaku Efektif</label><input class="date-input" id="pn-effective" type="date"></div>
+      <div class="field"><label for="pn-to">Ditujukan Kepada</label><input id="pn-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Daftar Personel yang Ditambahkan</h2><div class="tablewrap"><table id="tablePN"><thead><tr><th>No.</th><th>Nama</th><th>Domisili</th><th>Bidang</th><th>Keahlian</th><th>Tanggal Mulai</th><th>Plotting Area</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead>
+    <tbody></tbody></table></div><button type="button" class="btn" data-add="PN">+ Tambah Personel</button></div>
+  </section>
+
+  <section id="section-PG" class="section memo-section memo-area" hidden>
+    <div class="card"><h2>Data Header — Penggantian OS</h2><div class="grid">
+      <div class="field"><label for="pg-date">Tanggal Dokumen</label><input class="date-input" id="pg-date" type="date"></div>
+      <div class="field"><label for="pg-effective">Berlaku Efektif</label><input class="date-input" id="pg-effective" type="date"></div>
+      <div class="field"><label for="pg-to">Ditujukan Kepada</label><input id="pg-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Personel Keluar / Digantikan</h2><div class="tablewrap"><table id="tablePGOut"><thead><tr><th>No.</th><th>Nama</th><th>Keahlian</th><th>Bidang</th><th>Foreman</th><th>Tanggal Mulai</th><th>Keterangan</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="PGOut">+ Tambah Personel Keluar</button></div>
+    <div class="card"><h2>Personel Pengganti / Masuk</h2><div class="tablewrap"><table id="tablePGIn"><thead><tr><th>No.</th><th>Nama</th><th>Keahlian</th><th>Bidang</th><th>Foreman</th><th>Tanggal Mulai</th><th>Keterangan</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="PGIn">+ Tambah Personel Pengganti</button></div>
+  </section>
+
+  <section id="section-SP" class="section memo-section memo-area" hidden>
+    <div class="card"><h2>Data Header — Surplus Manpower</h2><div class="grid">
+      <div class="field"><label for="sp-date">Tanggal Dokumen</label><input class="date-input" id="sp-date" type="date"></div>
+      <div class="field"><label for="sp-effective">Berlaku Efektif</label><input class="date-input" id="sp-effective" type="date"></div>
+      <div class="field"><label for="sp-to">Ditujukan Kepada</label><input id="sp-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Daftar Personel Surplus</h2><div class="tablewrap"><table id="tableSP"><thead><tr><th>No.</th><th>Nama</th><th>Bidang</th><th>Keahlian</th><th>Tanggal Terakhir</th><th>Tujuan Proyek</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="SP">+ Tambah Personel</button></div>
+  </section>
+
+  <section id="section-DIRECTORY" class="memo-section memo-area" hidden>
+    <div class="card"><h2>Data Manpower</h2>
+      <p class="muted">Direktori disimpan di Google Sheets terpisah dari arsip memo. Status terbaru ditentukan dari memo masuk, penggantian, atau surplus.</p>
+      <div class="roster-filters">
+        <div class="field"><label for="rosterSearch">Cari nama / proyek / bidang</label><input id="rosterSearch" type="search" placeholder="Ketik untuk mencari"></div>
+        <div class="field"><label for="rosterStatus">Status</label><select id="rosterStatus"><option value="">Semua status</option><option value="AKTIF">Masih bekerja</option><option value="NONAKTIF">Sudah tidak aktif</option></select></div>
+        <div class="field"><label for="rosterSkill">Keahlian</label><select id="rosterSkill"><option value="">Semua keahlian</option></select></div>
+        <div class="field"><label for="rosterProject">Proyek</label><select id="rosterProject"><option value="">Semua proyek</option></select></div>
+        <div class="field"><label for="rosterSort">Urutkan</label><select id="rosterSort"><option value="recent">Tanggal terbaru</option><option value="oldest">Tanggal terlama</option><option value="name">Nama A-Z</option></select></div>
+        <div class="field"><label for="rosterStartFrom">Tanggal mulai dari</label><input id="rosterStartFrom" type="date"></div>
+        <div class="field"><label for="rosterStartTo">Tanggal mulai sampai</label><input id="rosterStartTo" type="date"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="button" id="btnRefreshManpower">Muat Ulang Data</button></div>
+      <p id="manpowerStatus" class="muted"></p>
+      <div id="manpowerList" class="tablewrap"></div>
+    </div>
+    <div class="card"><h2>Tambah Data Personel Manual</h2>
+      <p class="muted">Gunakan untuk mencatat personel yang sudah bekerja sebelum aplikasi ini digunakan.</p>
+      <div class="grid">
+        <div class="field"><label for="manualName">Nama</label><input id="manualName"></div>
+        <div class="field"><label for="manualStatus">Status</label><select id="manualStatus"><option value="AKTIF">Masih bekerja</option><option value="NONAKTIF">Sudah tidak aktif</option></select></div>
+        <div class="field"><label for="manualProject">Proyek</label><input id="manualProject"></div>
+        <div class="field"><label for="manualDomicile">Domisili</label><input id="manualDomicile"></div>
+        <div class="field"><label for="manualDepartment">Bidang</label><input id="manualDepartment"></div>
+        <div class="field"><label for="manualSkill">Keahlian</label><input id="manualSkill"></div>
+        <div class="field"><label for="manualForeman">Foreman</label><input id="manualForeman"></div>
+        <div class="field"><label for="manualWorkArea">Area kerja</label><input id="manualWorkArea"></div>
+        <div class="field"><label for="manualStartDate">Tanggal mulai</label><input id="manualStartDate" type="date"></div>
+        <div class="field"><label for="manualEndDate">Tanggal selesai (jika nonaktif)</label><input id="manualEndDate" type="date"></div>
+      </div>
+      <button class="btn green" type="button" id="btnSaveManpower">Simpan Personel</button>
+      <p id="manualStatusMessage" class="muted" role="status"></p>
+    </div>
+  </section>
+
+  <section id="section-SETTINGS" class="section memo-section memo-area" hidden>
+    <div class="notice">Beberapa tindakan memerlukan kode konfirmasi. Bagikan URL aplikasi hanya kepada orang yang berhak mengaksesnya.</div>
+    <div class="card"><h2>Hapus Semua Riwayat Memo</h2><p class="error">Tindakan ini menghapus seluruh riwayat memo dan memindahkan file memo terkait ke Sampah Google Drive.</p>
+      <button class="btn red" type="button" id="btnClearHistory">Hapus Semua Riwayat Memo</button>
+      <p id="clearHistoryStatus" class="muted" role="status"></p>
+    </div>
+    <div class="card"><h2>Reset Counter Penomoran</h2><p class="muted">Reset hanya berlaku untuk periode bulan berjalan. Gunakan dengan hati-hati agar tidak menimbulkan nomor dokumen duplikat.</p>
+      <div class="actions"><button class="btn" type="button" data-reset="PN">Reset Penambahan</button><button class="btn" type="button" data-reset="PG">Reset Penggantian</button><button class="btn" type="button" data-reset="SP">Reset Surplus</button><button class="btn red" type="button" data-reset="ALL">Reset Semua</button></div>
+      <button class="btn primary" type="button" id="btnStatus">Cek Counter Saat Ini</button>
+      <button class="btn" type="button" id="btnSetWebhook">Hubungkan Bot Telegram</button>
+      <button class="btn" type="button" id="btnTelegramStatus">Diagnostik Telegram</button>
+      <p id="counterStatus"></p>
+      <p id="telegramStatus" class="muted" role="status"></p>
+    </div>
+    <div class="card"><h2>Hard Reset Arsip dan Nomor</h2>
+      <p class="error">Tindakan ini memindahkan seluruh file arsip ke Sampah Google Drive, mengosongkan riwayat, dan menghapus semua counter nomor. File template dan Data Manpower tetap dipertahankan.</p>
+      <button class="btn red" type="button" id="btnHardReset">Hard Reset: Hapus Semua Arsip, Riwayat, dan Nomor</button>
+      <p id="hardResetStatus" class="error" role="alert"></p>
+    </div>
+  </section>
+
+  <section id="common" class="card memo-area">
+    <h2>Lampiran dan Output</h2>
+    <p class="notice">Foto KTP diisi langsung pada baris setiap personel. Setiap lampiran akan diberi nama sesuai kolom “Nama untuk KTP” dan masuk ke sheet kedua. Maksimal 30 foto per memo.</p>
+    <div class="output-grid">
+      <label class="output-choice" for="createSpreadsheet"><input id="createSpreadsheet" type="checkbox" checked> <span>Buat Google Sheets</span></label>
+      <label class="output-choice" for="createPdf"><input id="createPdf" type="checkbox" checked> <span>Buat PDF berwarna</span></label>
+      <label class="output-choice" for="createWhatsApp"><input id="createWhatsApp" type="checkbox" checked> <span>Buat draf WhatsApp</span></label>
+      <div class="field output-recipient"><label for="waRecipient">Penerima draf WhatsApp</label><input id="waRecipient" value="Pak Juwana (PM)"></div>
+    </div>
+    <button type="button" class="btn primary" id="btnSubmit">Buat Memo dan Arsipkan</button>
+    <div id="loading" hidden class="notice">Sedang memproses dokumen. Jangan tutup halaman ini.</div>
+    <p id="formError" class="error"></p>
+  </section>
+
+  <section id="preview" class="card memo-area">
+    <h2>Periksa Memo Sebelum Membuat Arsip</h2>
+    <p class="notice">Nomor belum digunakan. Counter baru bertambah setelah arsip berhasil dibuat.</p>
+    <pre id="previewSummary"></pre>
+    <div class="actions">
+      <button type="button" class="btn" id="cancelPreview">Kembali ke Formulir</button>
+      <button type="button" class="btn primary" id="confirmSubmit">Konfirmasi dan Buat Memo</button>
+    </div>
+  </section>
+
+  <section id="result" class="result memo-area">
+    <h2>Dokumen Berhasil Dibuat</h2><p><strong>Nomor Dokumen:</strong> <span id="resNumber"></span></p>
+    <div class="actions"><a id="sheetLink" class="btn green" target="_blank" rel="noopener" hidden>Buka Spreadsheet</a><a id="pdfLink" class="btn primary" target="_blank" rel="noopener" hidden>Buka PDF Memo</a><a id="ktpPdfLink" class="btn primary" target="_blank" rel="noopener" hidden>Buka PDF KTP</a><a id="folderLink" class="btn" target="_blank" rel="noopener">Buka Folder Arsip</a></div>
+    <div id="whatsAppResult" hidden><label for="waDraft">Draf WhatsApp siap salin</label><pre id="waDraft"></pre><button type="button" class="btn green" id="copyWA">Salin Draf WhatsApp</button></div>
+  </section>
+
+  <section id="historyPanel" class="card memo-area">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <h2>Riwayat Memo</h2>
+      <button class="btn" type="button" id="btnRefreshHistory">Muat Ulang Riwayat</button>
+    </div>
+    <div class="history-filters">
+      <div class="field"><label for="historySearch">Cari nomor / proyek</label><input id="historySearch" type="search" placeholder="Cari memo"></div>
+      <div class="field"><label for="historyType">Jenis memo</label><select id="historyType"><option value="">Semua jenis</option><option value="PN">Penambahan</option><option value="PG">Penggantian</option><option value="SP">Surplus</option></select></div>
+      <div class="field"><label for="historyDateFrom">Dari tanggal</label><input id="historyDateFrom" type="date"></div>
+      <div class="field"><label for="historyDateTo">Sampai tanggal</label><input id="historyDateTo" type="date"></div>
+    </div>
+    <p id="historyStatus" class="muted"></p>
+    <div id="historyList" class="tablewrap"></div>
+    <div class="history-pagination"><button class="btn" type="button" id="historyPrev">Sebelumnya</button><span id="historyPageStatus" class="muted"></span><button class="btn" type="button" id="historyNext">Berikutnya</button></div>
+  </section>
+
+  <?!= include('RPD'); ?>
+  <?!= include('RPBView'); ?>
+</main>
+
+<dialog id="deletePinDialog" class="pin-dialog" aria-labelledby="deletePinTitle">
+  <form id="deletePinForm">
+    <h2 id="deletePinTitle">Konfirmasi Penghapusan</h2>
+    <p class="muted">Masukkan PIN untuk melanjutkan penghapusan.</p>
+    <label id="deletePinLabel" for="deletePinValue">PIN untuk penghapusan</label>
+    <input id="deletePinValue" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+    <p id="deletePinError" class="error" role="alert"></p>
+    <div class="actions"><button type="button" class="btn" id="cancelDeletePin">Batal</button><button type="submit" class="btn red" id="confirmDeletePin">Lanjutkan Hapus</button></div>
+  </form>
+</dialog>
+
+<script>
+  window.APP_INITIAL_TYPE = '<?= initialType ?>';
+  window.APP_BUILD_VERSION = '<?= appVersion ?>';
+</script>
+<?!= include('MemoClient'); ?>
+<?!= include('RPBClient'); ?>
+</body>
+</html>

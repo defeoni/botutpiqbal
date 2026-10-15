@@ -5,26 +5,46 @@ menjalankan halaman dan bot webhook tanpa laptop yang selalu hidup. Penggunaan
 tetap bergantung pada kuota, kebijakan, dan ketersediaan Google Apps Script;
 layanan gratis tidak menjamin SLA atau uptime 24/7.
 
-## Struktur file project
+## Struktur folder project
 
-- `Code.gs`: API server, penyimpanan, pembuatan memo, Drive, dan Telegram.
-- `Index.html`: struktur halaman dan komponen antarmuka.
-- `Styles.html`: seluruh aturan tampilan dan responsif.
-- `Client.html`: navigasi, formulir, interaksi tombol, dan pemanggilan API.
-- `appsscript.json`: izin dan pengaturan deployment Apps Script.
-- `tools/build_local_preview.py`: menyatukan tiga file HTML untuk pratinjau
-  lokal; `Index-demo-lokal.html` adalah hasil generate dan tidak disalin ke
-  project Apps Script.
+Folder `memo/` berisi `Memo.gs` dan `MemoClient.html`. Folder `rpb/` berisi
+`RPB.gs`, `RPBView.html`, `RPBClient.html`, dan `RPBStyles.html`. Folder `rpd/`
+berisi placeholder `RPD.html`; RPD belum memiliki backend atau fitur aktif.
+Folder `shared/` berisi `Index.html`, `Styles.html`, dan `appsscript.json`
+yang dipakai bersama kedua modul.
 
-Apps Script menampilkan file project dalam satu daftar, bukan folder. Pemisahan
-menjadi `Index`, `Styles`, dan `Client` menjaga struktur antarmuka lebih mudah
-ditelusuri tanpa memerlukan folder project yang tidak didukung editor Apps
-Script.
+`tools/build_local_preview.py` menyatukan partial HTML dari folder modul.
+Hasilnya disimpan di `preview/Index-demo-lokal.html`, bukan diunggah ke Apps
+Script. `legacy/Client.html` adalah client lama mandiri dan bukan bagian dari
+build utama. File panduan tetap di root agar mudah ditemukan.
+
+Struktur folder ini memudahkan kerja di VS Code. `tools/build_clasp_source.js`
+menyalin file sumber yang dipakai ke `.clasp-src/` dengan nama datar yang
+dikenali Google Apps Script. Folder hasil tersebut tidak dilacak Git. Jangan
+menyalin `legacy/Client.html` atau `preview/Index-demo-lokal.html` ke project
+Apps Script.
+
+Untuk memeriksa koneksi dan daftar file lokal yang akan dikirim, jalankan dari
+root repository:
+
+```powershell
+node tools/build_clasp_source.js
+clasp status
+```
+
+`clasp status` tidak mengirim perubahan. Tinjau hasilnya sebelum menjalankan
+`clasp push`; `clasp push` menyinkronkan file project, bukan membuat versi
+deployment Web App. Deployment aktif hanya berubah setelah proses deployment
+tersendiri yang dilakukan secara sengaja.
 
 ## Fungsi
 
 - Form web untuk memo PN, PG, dan SP. Tombol bot Telegram membuka form di browser.
-- Navigasi utama MEMO, RPD, dan RPB; RPD/RPB disediakan sebagai halaman kosong.
+- Navigasi utama MEMO, RPD, dan RPB. RPB memakai master, arsip, Excel/PDF,
+  draf WhatsApp, dan tracking; RPD masih berupa halaman kosong.
+- Excel RPB mempertahankan tab template `Rekap`, `Detail Budget`, dan
+  `Asset & Perlengkapan`, ditambah snapshot `Master Barang`. PDF berwarna
+  portrait A5 dibuat dari tab Rekap.
 - Direktori manpower persisten, dengan status aktif/nonaktif dan filter nama,
   proyek, bidang, keahlian, dan rentang tanggal mulai. Data yang sudah ada
   sebelum aplikasi digunakan dapat dimasukkan lewat formulir personel manual.
@@ -93,17 +113,27 @@ hanya jika memang sudah dipastikan tidak akan menimbulkan nomor duplikat.
 1. Buat bot melalui `@BotFather` dan simpan token secara privat.
 2. Buka [Google Apps Script](https://script.google.com/) dengan akun Google yang
    akan menjadi pemilik arsip. Buat project baru.
-3. Di project Apps Script, buat tiga file HTML bernama `Index`, `Styles`, dan
-   `Client`, lalu salin masing-masing file `.html` dengan nama yang sesuai dari
-   folder ini. Ganti isi file `Code.gs` bawaan dengan `Code.gs` dari folder ini.
-   Di Project Settings, aktifkan tampilan file `appsscript.json`, lalu salin
-   manifest yang disertakan.
-4. Unggah tiga file Excel template PN, PG, dan SP ke Google Drive. Buka setiap
+3. Di project Apps Script, pertahankan satu project yang sama. Ganti nama file
+   backend memo yang saat ini ada (misalnya `kode.gs`) menjadi `Memo.gs`, lalu
+   salin isinya dari `memo/Memo.gs`. Tambahkan file script `RPB.gs` dan salin
+   isinya dari `rpb/RPB.gs`. Apps Script menampilkan file dalam satu daftar
+   tanpa folder, tetapi fungsi semua file `.gs` tetap berada dalam project yang
+   sama dan dapat saling memanggil. Jangan menyimpan salinan kedua fungsi memo.
+4. Buat file HTML bernama `Index`, `Styles`, `RPBStyles`, `MemoClient`, `RPD`,
+   `RPBView`, `RPBClient`, lalu salin isi file bernama sama dari folder `shared/`,
+   `memo/`, `rpd/`, atau `rpb/`. `shared/Index.html` memuat partial lain.
+   RPD hanya halaman placeholder. Di Project Settings, aktifkan tampilan file
+   `appsscript.json`, lalu salin `shared/appsscript.json`.
+5. Pastikan akun pemilik Apps Script memiliki akses edit ke spreadsheet sumber
+   RPB yang ID-nya tercantum di `RPB.gs`. File itu berisi template `Rekap`,
+   `Detail Budget`, dan `Asset & Perlengkapan`; aplikasi menambah `Master Barang`
+   di sana agar pilihan barang dan harga dapat dikelola langsung.
+6. Unggah tiga file Excel template PN, PG, dan SP ke Google Drive. Buka setiap
    file dengan Google Sheets, lalu pilih **File → Save as Google Sheets**.
    Gunakan file hasil konversi (bukan `.xlsx`) sebagai template sumber. Buka
    setiap file hasil konversi dan salin ID dari URL di antara `/d/` dan
    `/edit`.
-5. Pada **Project Settings → Script Properties**, tambahkan:
+7. Pada **Project Settings → Script Properties**, tambahkan:
 
    | Nama | Nilai |
    | --- | --- |
@@ -118,29 +148,30 @@ hanya jika memang sudah dipastikan tidak akan menimbulkan nomor duplikat.
    layar. ID template bukan token rahasia, tetapi pastikan akun
    deployment memiliki akses ke ketiga file. Biarkan `OWNER_TELEGRAM_ID`
    kosong dahulu.
-6. Di editor Apps Script, pilih fungsi `checkMemoTemplates`, lalu klik
+8. Di editor Apps Script, pilih fungsi `checkMemoTemplates`, lalu klik
    **Run/Jalankan**. Pastikan ketiga template dilaporkan siap digunakan.
    Biarkan `OWNER_TELEGRAM_ID` kosong untuk langkah pengenalan awal.
-7. Pilih **Deploy → New deployment → Web app**. Gunakan **Execute as: Me** dan
+9. Pilih **Deploy → New deployment → Web app**. Gunakan **Execute as: Me** dan
    **Who has access: Anyone**, lalu deploy dan setujui izin Google. Endpoint
    perlu dapat menerima webhook Telegram. Karena aplikasi Web tidak memakai
    login, akses **Anyone** membuat semua fiturnya dapat dipakai siapa pun yang
    memiliki URL. Simpan dan jangan sebarkan URL `/exec` deployment.
-8. Buka URL `/exec`; aplikasi langsung terbuka tanpa PIN. Pilih
+10. Buka URL `/exec`; aplikasi langsung terbuka tanpa PIN. Pilih
    **Pengaturan**, lalu tekan **Hubungkan Bot Telegram**. Tindakan ini memasang
    URL webhook pada deployment. Tombol **Diagnostik Telegram** menunjukkan
    apakah URL terpasang dan apakah Telegram melaporkan error saat mencoba
    mengirim update. URL terpasang belum berarti pengiriman berhasil.
-9. Kirim `/start` ke bot. Saat `OWNER_TELEGRAM_ID` masih kosong, bot membalas
+11. Kirim `/start` ke bot. Saat `OWNER_TELEGRAM_ID` masih kosong, bot membalas
    dengan ID akun Telegram yang mengirim pesan. Masukkan ID itu sebagai Script
    Property `OWNER_TELEGRAM_ID`, lalu kirim `/start` sekali lagi. Jangan gunakan
    ID orang lain. Tombol dan perintah untuk membuat memo membuka form di browser
    biasa, bukan di Telegram Mini App.
-10. Untuk memeriksa tampilan dan navigasi tanpa backend, jalankan
-   `python tools/build_local_preview.py`, lalu buka `Index-demo-lokal.html`.
+12. Untuk memeriksa tampilan dan navigasi tanpa backend, jalankan
+   `python tools/build_local_preview.py`, lalu buka
+   `preview/Index-demo-lokal.html`.
    Operasi yang menyimpan data hanya dapat diuji melalui URL `/exec` Apps
    Script.
-11. Uji dengan data non-sensitif terlebih dahulu. Pastikan file uji muncul pada
+13. Uji dengan data non-sensitif terlebih dahulu. Pastikan file uji muncul pada
    folder Drive privat dan nomor sesuai. Hapus data uji secara manual jika
    memang tidak diperlukan.
 
@@ -172,14 +203,15 @@ tetap berada di project yang sama.
    diperbarui. Buat salinan project atau simpan salinan kode lama sebelum
    mengganti apa pun. Pastikan juga akun Google yang menjalankan project masih
    memiliki akses ke folder arsip di Drive.
-2. Di editor Apps Script, ganti isi file HTML `Index` dengan `Index.html` dari
-   folder ini, lalu buat/perbarui file HTML `Styles` dan `Client` dari berkas
-   yang sesuai. Ganti isi `Code.gs` dengan `Code.gs` dari folder ini. Jika
-   file `Styles` atau `Client` belum ada, buat file HTML dengan nama tersebut.
-   Jangan unggah `Index-demo-lokal.html` ke Apps Script; itu hanya pratinjau
-   mandiri untuk komputer.
-3. Periksa manifest `appsscript.json` dan sesuaikan dengan manifest dari folder
-   ini. Jika project lama memiliki konfigurasi atau cakupan izin tambahan yang
+2. Di editor Apps Script, perbarui file HTML `Index`, `Styles`, `RPBStyles`,
+   `MemoClient`, `RPD`, `RPBView`, dan `RPBClient` dari berkas bernama sama di
+   folder `shared/`, `memo/`, `rpd/`, atau `rpb/`. Ganti nama backend memo lama
+   (misalnya `kode.gs`) menjadi `Memo.gs`, lalu salin `memo/Memo.gs`. Tambahkan
+   `rpb/RPB.gs` sebagai file `.gs` terpisah. Hindari menyimpan dua salinan
+   fungsi memo yang sama. Jangan unggah
+   `preview/Index-demo-lokal.html` atau `legacy/Client.html` ke Apps Script.
+3. Periksa manifest `shared/appsscript.json` dan sesuaikan dengan manifest ini.
+   Jika project lama memiliki konfigurasi atau cakupan izin tambahan yang
    masih digunakan, tinjau sebelum menggantinya; jangan menghapus kebutuhan
    project lama tanpa memastikan dampaknya.
 4. Buka **Project Settings → Script Properties**. Pertahankan properti lama

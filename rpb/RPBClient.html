@@ -1,0 +1,315 @@
+<script>
+let rpbState_ = { categories: [], items: [], statuses: [], history: [], nextSequence: 1 };
+let rpbRevisionOf_ = '';
+let rpbDraftTimer_ = null;
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const button = target && target.closest('button');
+  if (!button) return;
+  try {
+    if (button.id === 'rpbAddLine') addRpbLine_();
+    else if (button.id === 'rpbSaveDraft') saveRpbDraft_();
+    else if (button.id === 'rpbSubmit') submitRpb_();
+    else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
+    else if (button.id === 'rpbAddMaster') addRpbMasterItem_();
+    else if (button.id === 'rpbCopyWa') {
+      navigator.clipboard.writeText($('rpbWaDraft').textContent)
+        .then(() => { $('rpbDraftStatus').textContent = 'Draf WhatsApp disalin.'; })
+        .catch((error) => { $('rpbDraftStatus').textContent = `Draf WhatsApp gagal disalin: ${error.message}`; });
+    } else if (button.matches('[data-rpb-remove]')) {
+      button.closest('tr').remove(); updateRpbTotal_(); scheduleRpbDraft_();
+    } else if (button.matches('[data-rpb-price]')) saveRpbPrice_(button.dataset.rpbPrice);
+    else if (button.matches('[data-rpb-delete]')) deleteRpbItem_(button.dataset.rpbDelete);
+    else if (button.matches('[data-rpb-reactivate]')) setRpbItemActive_(button.dataset.rpbReactivate, true);
+    else if (button.matches('[data-rpb-track]')) saveRpbTracking_(button.dataset.rpbTrack);
+    else if (button.matches('[data-rpb-revise]')) beginRpbRevision_(button.dataset.rpbRevise);
+    else if (button.matches('[data-rpb-copy]')) copyRpbToDraft_(button.dataset.rpbCopy);
+  } catch (error) { showApplicationError_('Tombol RPB gagal dijalankan', error); }
+});
+
+function loadRpbData_() {
+  invokeServer('apiGetRpbData', [accessToken], (data) => {
+    rpbState_ = data;
+    $('rpbMasterLink').href = data.masterUrl || '#';
+    $('rpbMasterLink').hidden = !data.masterUrl;
+    ['rpbCategoryFilter', 'rpbNewCategory', 'rpbMasterCategoryFilter'].forEach((id) => {
+      const select = $(id);
+      const keepAll = id !== 'rpbNewCategory';
+      const previousValue = select.value;
+      select.innerHTML = keepAll ? '<option value="">Semua kategori</option>' : '';
+      data.categories.forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        select.appendChild(option);
+      });
+      if (Array.from(select.options).some((option) => option.value === previousValue)) select.value = previousValue;
+    });
+    $('rpbMasterCategoryFilter').onchange = renderRpbMaster_;
+    renderRpbMaster_();
+    renderRpbHistory_();
+    if (!$('rpbItemsTable').tBodies[0].rows.length) {
+      invokeServer('apiLoadRpbDraft', [accessToken], (draft) => {
+        if (draft) populateRpbForm_(draft);
+        else addRpbLine_();
+      }, () => addRpbLine_());
+    } else refreshRpbItemChoices_();
+    $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
+  }, (error) => { $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
+}
+
+function addRpbLine_(data = {}) {
+  const row = $('rpbItemsTable').tBodies[0].insertRow();
+  const categoryCell = row.insertCell();
+  const category = document.createElement('select');
+  category.dataset.rpbField = 'category';
+  category.innerHTML = '<option value="">Pilih kategori</option>';
+  rpbState_.categories.forEach((value) => { const o = new Option(value, value); category.add(o); });
+  category.value = data.category || $('rpbCategoryFilter').value || '';
+  categoryCell.appendChild(category);
+  const itemCell = row.insertCell();
+  const item = document.createElement('select');
+  item.dataset.rpbField = 'itemId';
+  itemCell.appendChild(item);
+  const quantity = document.createElement('input');
+  quantity.type = 'number'; quantity.min = '0.01'; quantity.step = 'any'; quantity.placeholder = 'Jumlah'; quantity.dataset.rpbField = 'quantity'; quantity.value = data.quantity || '';
+  row.insertCell().appendChild(quantity);
+  const unit = document.createElement('input'); unit.readOnly = true; unit.dataset.rpbField = 'unit'; row.insertCell().appendChild(unit);
+  const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.dataset.rpbField = 'unitPrice'; row.insertCell().appendChild(price);
+  const week = document.createElement('select'); week.dataset.rpbField = 'week'; week.innerHTML = '<option value="M1-M2">M1-M2</option><option value="M3-M4">M3-M4</option>'; week.value = data.week || 'M1-M2'; row.insertCell().appendChild(week);
+  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn red'; remove.textContent = 'Hapus baris'; remove.dataset.rpbRemove = '1'; row.insertCell().appendChild(remove);
+  category.addEventListener('change', () => { fillRpbItemOptions_(row, data.itemId || ''); scheduleRpbDraft_(); });
+  item.addEventListener('change', () => { applyRpbSelectedItem_(row); scheduleRpbDraft_(); });
+  [quantity, price, week].forEach((el) => el.addEventListener('input', () => { updateRpbTotal_(); scheduleRpbDraft_(); }));
+  fillRpbItemOptions_(row, data.itemId || '');
+  if (data.itemId) { item.value = data.itemId; applyRpbSelectedItem_(row, data.unitPrice); }
+  updateRpbTotal_();
+}
+
+function fillRpbItemOptions_(row, selectedId) {
+  const category = row.querySelector('[data-rpb-field="category"]').value;
+  const select = row.querySelector('[data-rpb-field="itemId"]');
+  const active = rpbState_.items.filter((item) => (item.active || item.id === selectedId) && (!category || item.category === category));
+  select.innerHTML = '<option value="">Pilih barang</option>';
+  active.forEach((item) => { const inactive = !item.active; const o = new Option(`${item.name}${inactive ? ' (nonaktif; dari RPB lama)' : ''} — Rp ${Number(item.price || 0).toLocaleString('id-ID')}`, item.id); select.add(o); });
+  if (selectedId && active.some((item) => item.id === selectedId)) select.value = selectedId;
+  const priceInput = row.querySelector('[data-rpb-field="unitPrice"]');
+  const preservePrice = select.value === selectedId && selectedId ? priceInput.value : undefined;
+  applyRpbSelectedItem_(row, preservePrice);
+}
+
+function refreshRpbItemChoices_() {
+  document.querySelectorAll('#rpbItemsTable tbody tr').forEach((row) => fillRpbItemOptions_(row, row.querySelector('[data-rpb-field="itemId"]').value));
+}
+
+function applyRpbSelectedItem_(row, explicitPrice) {
+  const item = rpbState_.items.find((candidate) => candidate.id === row.querySelector('[data-rpb-field="itemId"]').value);
+  const category = row.querySelector('[data-rpb-field="category"]');
+  if (item && Array.from(category.options).some((option) => option.value === item.category)) category.value = item.category;
+  row.querySelector('[data-rpb-field="unit"]').value = item ? item.unit : '';
+  const price = row.querySelector('[data-rpb-field="unitPrice"]');
+  if (explicitPrice != null) price.value = explicitPrice;
+  else if (item) price.value = item.price == null || item.price === '' ? 0 : item.price;
+  else price.value = '';
+  updateRpbTotal_();
+}
+
+function applyRpbCategoryFilter_() {
+  const filter = $('rpbCategoryFilter').value;
+  document.querySelectorAll('#rpbItemsTable tbody tr').forEach((row) => {
+    const itemId = row.querySelector('[data-rpb-field="itemId"]').value;
+    const selectedItem = rpbState_.items.find((item) => item.id === itemId);
+    const category = row.querySelector('[data-rpb-field="category"]');
+    if (selectedItem) category.value = selectedItem.category;
+    else if (filter) category.value = filter;
+    fillRpbItemOptions_(row, itemId);
+  });
+}
+
+function collectRpbForm_() {
+  const items = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).map((row) => ({
+    itemId: row.querySelector('[data-rpb-field="itemId"]').value,
+    category: row.querySelector('[data-rpb-field="category"]').value,
+    quantity: row.querySelector('[data-rpb-field="quantity"]').value,
+    unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
+    week: row.querySelector('[data-rpb-field="week"]').value
+  })).filter((item) => item.itemId);
+  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, items };
+}
+
+function populateRpbForm_(data) {
+  $('rpbRequestDate').value = data.requestDate || todayJakarta_();
+  $('rpbLpdMonth').value = data.lpdReceivedMonth || '';
+  $('rpbLpdConfirmed').checked = false;
+  $('rpbItemsTable').tBodies[0].innerHTML = '';
+  (data.items || []).forEach((item) => addRpbLine_(item));
+  if (!data.items || !data.items.length) addRpbLine_();
+  rpbRevisionOf_ = data.revisionOf || '';
+}
+
+function todayJakarta_() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function scheduleRpbDraft_() {
+  clearTimeout(rpbDraftTimer_);
+  rpbDraftTimer_ = setTimeout(saveRpbDraft_, 1000);
+}
+
+function saveRpbDraft_() {
+  const payload = collectRpbForm_();
+  if (!payload.requestDate) payload.requestDate = todayJakarta_();
+  $('rpbDraftStatus').textContent = 'Menyimpan draf...';
+  invokeServer('apiSaveRpbDraft', [payload, accessToken], () => { $('rpbDraftStatus').textContent = 'Draf tersimpan otomatis.'; }, (error) => { $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`; });
+}
+
+function updateRpbTotal_() {
+  const total = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).reduce((sum, row) => sum + (Number(row.querySelector('[data-rpb-field="quantity"]').value) || 0) * (Number(row.querySelector('[data-rpb-field="unitPrice"]').value) || 0), 0);
+  $('rpbTotal').textContent = `Perkiraan total: Rp ${total.toLocaleString('id-ID')}`;
+}
+
+function submitRpb_() {
+  $('rpbFormError').textContent = '';
+  const payload = collectRpbForm_();
+  if (!payload.requestDate || !payload.items.length) { $('rpbFormError').textContent = 'Isi tanggal pengajuan dan pilih minimal satu barang.'; return; }
+  const invalidQuantity = payload.items.find((item) => !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0);
+  if (invalidQuantity) { $('rpbFormError').textContent = 'Isi jumlah yang lebih besar dari nol untuk setiap barang.'; return; }
+  const invalidPrice = payload.items.find((item) => item.unitPrice !== '' && (!Number.isFinite(Number(item.unitPrice)) || Number(item.unitPrice) < 0));
+  if (invalidPrice) { $('rpbFormError').textContent = 'Harga acuan harus berupa angka nol atau lebih.'; return; }
+  if (!payload.lpdReceivedMonth || !$('rpbLpdConfirmed').checked) { $('rpbFormError').textContent = 'RPB baru dapat dibuat setelah LPD bulan sebelumnya diterima dan dikonfirmasi.'; return; }
+  const expectedPrev = new Date(`${payload.requestDate.slice(0, 7)}-01T12:00:00`); expectedPrev.setMonth(expectedPrev.getMonth() - 1);
+  const prevMonth = `${expectedPrev.getFullYear()}-${String(expectedPrev.getMonth() + 1).padStart(2, '0')}`;
+  if (payload.lpdReceivedMonth !== prevMonth) { $('rpbFormError').textContent = `Pilih bulan LPD sebelumnya (${prevMonth}).`; return; }
+  clearTimeout(rpbDraftTimer_);
+  const wasRevision = Boolean(rpbRevisionOf_);
+  const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
+  invokeServer('apiCreateRpb', [payload, accessToken, rpbRevisionOf_], (result) => {
+    button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
+    $('rpbResult').hidden = false; $('rpbResultNumber').textContent = `Nomor: ${result.number}${wasRevision ? ' (revisi baru; nomor versi sebelumnya tetap)' : ''}`;
+    $('rpbExcelLink').href = result.excelUrl; $('rpbPdfLink').href = result.pdfUrl; $('rpbSheetLink').href = result.spreadsheetUrl; $('rpbFolderLink').href = result.folderUrl; $('rpbWaDraft').textContent = result.waDraft;
+    rpbRevisionOf_ = '';
+    $('rpbItemsTable').tBodies[0].replaceChildren();
+    $('rpbLpdMonth').value = '';
+    $('rpbLpdConfirmed').checked = false;
+    $('rpbFormError').textContent = '';
+    loadRpbData_();
+  }, (error) => { button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan'; $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`; });
+}
+
+function renderRpbMaster_() {
+  const container = $('rpbMasterList');
+  const selectedCategory = $('rpbMasterCategoryFilter').value;
+  const table = document.createElement('table');
+  table.innerHTML = '<thead><tr><th>Kategori</th><th>Nama barang</th><th>Satuan</th><th>Harga acuan</th><th>Status</th><th>Aksi</th></tr></thead>';
+  const body = table.createTBody();
+  const items = rpbState_.items.filter((item) => !selectedCategory || item.category === selectedCategory);
+  if (!items.length) {
+    const row = body.insertRow();
+    const cell = row.insertCell();
+    cell.colSpan = 6;
+    cell.textContent = 'Tidak ada barang pada kategori ini.';
+  }
+  items.forEach((item) => {
+    const row = body.insertRow();
+    [item.category, item.name, item.unit].forEach((value) => row.insertCell().textContent = value);
+    const priceCell = row.insertCell(); const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.value = item.price == null || item.price === '' ? 0 : item.price; price.dataset.priceInput = item.id; priceCell.appendChild(price);
+    row.insertCell().textContent = item.active ? 'Aktif' : 'Nonaktif';
+    const actions = row.insertCell();
+    const save = document.createElement('button'); save.className = 'btn'; save.type = 'button'; save.textContent = 'Simpan harga'; save.dataset.rpbPrice = item.id; actions.appendChild(save);
+    if (item.active) { const del = document.createElement('button'); del.className = 'btn red'; del.type = 'button'; del.textContent = 'Nonaktifkan'; del.dataset.rpbDelete = item.id; actions.appendChild(del); }
+    else { const on = document.createElement('button'); on.className = 'btn green'; on.type = 'button'; on.textContent = 'Aktifkan kembali'; on.dataset.rpbReactivate = item.id; actions.appendChild(on); }
+  });
+  container.replaceChildren(table);
+}
+
+function addRpbMasterItem_() {
+  const payload = { category: $('rpbNewCategory').value, name: $('rpbNewName').value, unit: $('rpbNewUnit').value, price: $('rpbNewPrice').value, note: $('rpbNewNote').value };
+  $('rpbMasterStatus').textContent = 'Menambahkan barang...';
+  invokeServer('apiAddRpbMasterItem', [payload, accessToken], (result) => {
+    $('rpbMasterStatus').textContent = result.message; $('rpbNewName').value = ''; $('rpbNewUnit').value = ''; $('rpbNewPrice').value = ''; $('rpbNewNote').value = ''; loadRpbData_();
+  }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+}
+
+function saveRpbPrice_(id) {
+  const input = document.querySelector(`[data-price-input="${CSS.escape(id)}"]`);
+  const item = rpbState_.items.find((entry) => entry.id === id);
+  const next = input.value;
+  const changedExisting = item && item.price !== '' && (next === '' || String(Number(item.price)) !== String(Number(next)));
+  const send = (pin) => invokeServer('apiSaveRpbMasterPrice', [id, next, pin || '', accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+  if (!changedExisting) { send(''); return; }
+  askDeletePin_('perubahan harga').then((pin) => { if (pin) send(pin); });
+}
+
+function deleteRpbItem_(id) {
+  if (!confirm('Nonaktifkan barang ini dari pilihan pengajuan baru? Riwayat lama tetap disimpan.')) return;
+  askDeletePin_('penonaktifan barang').then((pin) => { if (!pin) return; invokeServer('apiDeleteRpbMasterItem', [id, pin, accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; }); });
+}
+
+function setRpbItemActive_(id, active) {
+  const run = (pin) => invokeServer('apiSetRpbMasterItemActive', [id, active, pin || '', accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+  if (active) run(''); else askDeletePin_('penonaktifan barang').then((pin) => { if (pin) run(pin); });
+}
+
+function renderRpbHistory_() {
+  const root = $('rpbHistoryList'); root.innerHTML = '';
+  if (!rpbState_.history.length) { root.textContent = 'Belum ada riwayat RPB.'; return; }
+  rpbState_.history.forEach((record) => {
+    const card = document.createElement('article'); card.className = 'card rpb-history-card';
+    const title = document.createElement('h3'); title.textContent = record.number; card.appendChild(title);
+    const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);
+    const actions = document.createElement('div'); actions.className = 'actions';
+    [['excelUrl','Excel'],['pdfUrl','PDF'],['spreadsheetUrl','Google Sheets'],['folderUrl','Folder Arsip']].forEach(([key,label]) => { if (!record[key]) return; const a=document.createElement('a');a.className='btn';a.href=record[key];a.target='_blank';a.rel='noopener';a.textContent=label;actions.appendChild(a); });
+    const revise = document.createElement('button'); revise.type='button'; revise.className='btn primary'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
+    const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy); card.appendChild(actions);
+    const track = document.createElement('div'); track.className='rpb-tracking-row';
+    const status = document.createElement('select'); status.dataset.status=record.id; rpbState_.statuses.forEach((value)=>status.add(new Option(value,value))); status.value=record.status; track.appendChild(status);
+    const note=document.createElement('input');note.placeholder='Catatan tracking';note.dataset.note=record.id;track.appendChild(note);
+    const evidence=document.createElement('input');evidence.placeholder='Link bukti (opsional)';evidence.dataset.evidence=record.id;track.appendChild(evidence);
+    const save=document.createElement('button');save.type='button';save.className='btn';save.textContent='Simpan status';save.dataset.rpbTrack=record.id;track.appendChild(save);card.appendChild(track);
+    (record.tracking||[]).forEach((entry)=>{const line=document.createElement('p');line.className='muted';line.textContent=`${new Date(entry.at).toLocaleString('id-ID')} — ${entry.status}${entry.note ? ': '+entry.note : ''}`;if(entry.evidenceUrl){line.append(' ');const a=document.createElement('a');a.href=entry.evidenceUrl;a.target='_blank';a.rel='noopener';a.textContent='Bukti';line.appendChild(a);}card.appendChild(line);});
+    root.appendChild(card);
+  });
+}
+
+function saveRpbTracking_(id) {
+  const status=document.querySelector(`[data-status="${CSS.escape(id)}"]`).value;
+  const note=document.querySelector(`[data-note="${CSS.escape(id)}"]`).value;
+  const evidence=document.querySelector(`[data-evidence="${CSS.escape(id)}"]`).value;
+  invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,'',accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+}
+
+function beginRpbRevision_(id) {
+  const record=rpbState_.history.find((entry)=>entry.id===id);if(!record)return;
+  populateRpbForm_(record.data);rpbRevisionOf_=id;$('rpbResult').hidden=true;$('rpbFormError').textContent=`Mode revisi aktif: revisi lama tetap tersimpan. Nomor baru akan memakai urutan yang sama dengan Rev berikutnya.`;$('rpbSubmit').textContent='Simpan Revisi RPB';window.scrollTo({top:0,behavior:'smooth'});
+  scheduleRpbDraft_();
+}
+
+function copyRpbToDraft_(id) {
+  const record = rpbState_.history.find((entry) => entry.id === id);
+  if (!record) return;
+  populateRpbForm_(record.data);
+  rpbRevisionOf_ = '';
+  const today = todayJakarta_();
+  $('rpbRequestDate').value = today;
+  const [year, month] = today.split('-').map(Number);
+  const previous = new Date(year, month - 2, 1, 12);
+  $('rpbLpdMonth').value = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
+  $('rpbLpdConfirmed').checked = false;
+  $('rpbResult').hidden = true;
+  $('rpbFormError').textContent = 'Salinan RPB dimuat sebagai draf baru. Periksa barang, tanggal, dan konfirmasi LPD sebelum mengajukan.';
+  $('rpbSubmit').textContent = 'Buat RPB / Kirim Pengajuan';
+  scheduleRpbDraft_();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('change', (event) => {
+  if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
+  if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
+  if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
+});
+
+</script>

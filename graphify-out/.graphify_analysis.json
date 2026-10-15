@@ -1,0 +1,313 @@
+{
+  "communities": {
+    "0": [
+      "conversation",
+      "conversation_15_oktober_2026_akses_lintas_perangkat_dan_backup_proyek",
+      "conversation_codex",
+      "conversation_codex_26",
+      "conversation_codex_49",
+      "conversation_codex_68",
+      "conversation_codex_90",
+      "conversation_pengguna",
+      "conversation_pengguna_129",
+      "conversation_pengguna_22",
+      "conversation_pengguna_45",
+      "conversation_pengguna_64",
+      "conversation_pengguna_86",
+      "conversation_riwayat_percakapan_codex_utp_memo_cloud_app",
+      "pathlib",
+      "re",
+      "tools_build_local_preview",
+      "tools_build_local_preview_main"
+    ],
+    "1": [
+      "memo_apiclearmemohistory",
+      "memo_apideletemanpower",
+      "memo_apideletememohistory",
+      "memo_apigeneratehistorypdf",
+      "memo_apigetmemohistory",
+      "memo_apihardreset",
+      "memo_apivalidatedeletepin",
+      "memo_deletememohistoryrecords",
+      "memo_getarchiverootfolder",
+      "memo_getdriveidfromurl",
+      "memo_getmemohistorysheet",
+      "memo_infermemotype",
+      "memo_migrateexistingmemorequests",
+      "memo_requireauthorized",
+      "memo_requiredeletepin",
+      "memo_requiredtext",
+      "memo_trashanddeletememohistoryrows",
+      "memo_trasharchivefiles"
+    ],
+    "2": [
+      "rpb",
+      "rpb_apiloadrpbdraft",
+      "rpb_buildrpbtemplate",
+      "rpb_clearrpbgroupedinputrows",
+      "rpb_clearrpbinputrows",
+      "rpb_createrpbfiles",
+      "rpb_getrpbcategorysections",
+      "rpb_normalizerpbcategory",
+      "rpb_readrpbitemsfromtemplate",
+      "rpb_rpb_categories",
+      "rpb_rpb_config",
+      "rpb_rpb_history_headers",
+      "rpb_rpb_statuses",
+      "rpb_rpbitemkey",
+      "rpb_setrpbrecapformulas",
+      "rpb_writerpbgroupeditems",
+      "rpb_writerpbtemplateitems"
+    ],
+    "3": [
+      "memo",
+      "memo_answertelegramcallback",
+      "memo_apicreatesession",
+      "memo_apigetcounters",
+      "memo_apiresetcounter",
+      "memo_app",
+      "memo_doget",
+      "memo_dopost",
+      "memo_getcounters",
+      "memo_getwebappurl",
+      "memo_include",
+      "memo_processtelegramupdate",
+      "memo_resetcounter",
+      "memo_sendtelegrammessage"
+    ],
+    "4": [
+      "memo_addktpattachmentsheet",
+      "memo_createspreadsheet",
+      "memo_datefromiso",
+      "memo_formatlongdate",
+      "memo_formatshortdate",
+      "memo_populatepeopletemplate",
+      "memo_populatereplacementtemplate",
+      "memo_replacetemplatelogowithcolor",
+      "memo_replacetemplateproject",
+      "memo_resizetemplaterows",
+      "memo_settemplatepeople",
+      "memo_trimmemotocolumnk"
+    ],
+    "5": [
+      "rpb_apiaddrpbmasteritem",
+      "rpb_apideleterpbmasteritem",
+      "rpb_apigetrpbmaster",
+      "rpb_apisaverpbmasterprice",
+      "rpb_apisetrpbmasteritemactive",
+      "rpb_findrpbmasterrow",
+      "rpb_getrpbmasteritems",
+      "rpb_getrpbmastersheet",
+      "rpb_getrpbmasterspreadsheet",
+      "rpb_rpbmasteritemfromrow",
+      "rpb_stylerpbmasterrow",
+      "rpb_validaterpbmasteritem"
+    ],
+    "6": [
+      "memo_apicreatememo",
+      "memo_appendmemohistory",
+      "memo_buildmemowhatsappdraft",
+      "memo_createpdf",
+      "memo_formatdocnumber",
+      "memo_formatmanpowersummarylines",
+      "memo_includezeromanpowergroups",
+      "memo_summarizemanpowergroups",
+      "memo_trimmemorequests",
+      "memo_validatepayload",
+      "memo_validatepeople"
+    ],
+    "7": [
+      "memo_apiuploadktpimage",
+      "memo_archiveperiodfromvalue",
+      "memo_cleanuppendingktpfiles",
+      "memo_getarchivefolder",
+      "memo_getmemoarchivetargetfolder",
+      "memo_getorcreatearchivesubfolder",
+      "memo_getpendingktpfolder",
+      "memo_migrateexistingmemoarchivefolders",
+      "memo_safefilename",
+      "memo_savektpimages",
+      "memo_trashemptyarchivefolder"
+    ],
+    "8": [
+      "appsscript",
+      "appsscript_dependencies",
+      "appsscript_exceptionlogging",
+      "appsscript_oauthscopes",
+      "appsscript_runtimeversion",
+      "appsscript_timezone",
+      "appsscript_webapp",
+      "appsscript_webapp_access",
+      "appsscript_webapp_executeas"
+    ],
+    "9": [
+      "memo_apigetmanpower",
+      "memo_apisavemanpower",
+      "memo_appendmanpowerevents",
+      "memo_appendmanpowerrow",
+      "memo_getcurrentmanpowerforproject",
+      "memo_getlatestmanpowerrows",
+      "memo_getmanpowersheet",
+      "memo_normalizepersonkey",
+      "memo_normalizepersonname"
+    ],
+    "10": [
+      "memo_checkmemotemplates",
+      "readme",
+      "readme_administrasi_memo_utp",
+      "readme_fungsi",
+      "readme_memperbarui_project_apps_script_yang_sudah_ada",
+      "readme_menelusuri_error",
+      "readme_operasional_dan_batasan",
+      "readme_persiapan_dan_deploy_pertama",
+      "readme_struktur_file_project"
+    ],
+    "11": [
+      "rpb_apicreaterpb",
+      "rpb_apisaverpbdraft",
+      "rpb_appendrpbrecord",
+      "rpb_buildrpbwhatsappdraft",
+      "rpb_getrpbarchivefolder",
+      "rpb_getrpbhighestrevision",
+      "rpb_getrpbsequencefromnumber",
+      "rpb_validaterpbpayload"
+    ],
+    "12": [
+      "rpb_apigetrpbdata",
+      "rpb_apiupdaterpbtracking",
+      "rpb_findrpbrecordrow",
+      "rpb_getrpbhistory",
+      "rpb_getrpbhistorysheet",
+      "rpb_getrpbnextsequence",
+      "rpb_getrpbrecordbyid"
+    ],
+    "13": [
+      "memo_apisetwebhook",
+      "memo_apitelegramstatus",
+      "memo_gettelegramsetupinfo",
+      "memo_gettelegramstatus",
+      "memo_settelegramwebhook",
+      "memo_telegramapiget"
+    ],
+    "14": [
+      "agents",
+      "agents_graphify"
+    ]
+  },
+  "cohesion": {
+    "0": 0.11764705882352941,
+    "1": 0.20915032679738563,
+    "2": 0.19852941176470587,
+    "3": 0.21978021978021978,
+    "4": 0.24242424242424243,
+    "5": 0.30303030303030304,
+    "6": 0.2,
+    "7": 0.23636363636363636,
+    "8": 0.2222222222222222,
+    "9": 0.3888888888888889,
+    "10": 0.25,
+    "11": 0.2857142857142857,
+    "12": 0.38095238095238093,
+    "13": 0.3333333333333333,
+    "14": 1.0
+  },
+  "gods": [
+    {
+      "id": "memo_requireauthorized",
+      "label": "requireAuthorized_()",
+      "degree": 16
+    },
+    {
+      "id": "memo_apicreatememo",
+      "label": "apiCreateMemo()",
+      "degree": 14
+    },
+    {
+      "id": "conversation_15_oktober_2026_akses_lintas_perangkat_dan_backup_proyek",
+      "label": "15 Oktober 2026 — Akses lintas perangkat dan backup proyek",
+      "degree": 12
+    },
+    {
+      "id": "rpb_apicreaterpb",
+      "label": "apiCreateRpb()",
+      "degree": 11
+    },
+    {
+      "id": "rpb_getrpbmastersheet",
+      "label": "getRpbMasterSheet_()",
+      "degree": 11
+    },
+    {
+      "id": "memo_getmemohistorysheet",
+      "label": "getMemoHistorySheet_()",
+      "degree": 10
+    },
+    {
+      "id": "rpb_getrpbmasteritems",
+      "label": "getRpbMasterItems_()",
+      "degree": 10
+    },
+    {
+      "id": "memo_apisavemanpower",
+      "label": "apiSaveManpower()",
+      "degree": 8
+    },
+    {
+      "id": "memo_buildmemowhatsappdraft",
+      "label": "buildMemoWhatsAppDraft_()",
+      "degree": 8
+    },
+    {
+      "id": "memo_createspreadsheet",
+      "label": "createSpreadsheet_()",
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Codex",
+      "target": "main()",
+      "source_files": [
+        "CONVERSATION.md",
+        "tools/build_local_preview.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories"
+    },
+    {
+      "source": "Memperbarui project Apps Script yang sudah ada",
+      "target": "checkMemoTemplates()",
+      "source_files": [
+        "README.md",
+        "Memo.gs"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source"
+    },
+    {
+      "source": "Persiapan dan deploy pertama",
+      "target": "checkMemoTemplates()",
+      "source_files": [
+        "README.md",
+        "Memo.gs"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `checkMemoTemplates()` connect `Community 10` to `Community 3`?",
+      "why": "High betweenness centrality (0.050) - this node is a cross-community bridge."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

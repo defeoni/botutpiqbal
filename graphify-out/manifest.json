@@ -1,0 +1,88 @@
+{
+  "appsscript.json": {
+    "mtime": 1791939334.4288409,
+    "seen": 1792039575.9460285,
+    "ast_hash": "418340248cff3207de0489c40c27ea8f",
+    "semantic_hash": "418340248cff3207de0489c40c27ea8f"
+  },
+  "tools/build_local_preview.py": {
+    "mtime": 1792038732.7891898,
+    "seen": 1792039575.9460285,
+    "ast_hash": "7918625cda321bd62af4e34f85527768",
+    "semantic_hash": "7918625cda321bd62af4e34f85527768"
+  },
+  "AGENTS.md": {
+    "mtime": 1792039563.773768,
+    "seen": 1792039606.4826424,
+    "ast_hash": "f36539ecc9af68f33ebd72770ce4a19e",
+    "semantic_hash": ""
+  },
+  "CONVERSATION.md": {
+    "mtime": 1792037706.1160135,
+    "seen": 1792039606.4826424,
+    "ast_hash": "0dd552ff1f2d81a44c6ea8a48a9d5596",
+    "semantic_hash": ""
+  },
+  "Index-demo-lokal.html": {
+    "mtime": 1791973904.5927205,
+    "seen": 1792039606.4826424,
+    "ast_hash": "4503e0773381d4ed96cb1fbfdbd342f2",
+    "semantic_hash": ""
+  },
+  "Index.html": {
+    "mtime": 1792038835.209385,
+    "seen": 1792039606.4826424,
+    "ast_hash": "3781f0135982e9e5083c1460f848a5b7",
+    "semantic_hash": ""
+  },
+  "MemoClient.html": {
+    "mtime": 1792038833.529984,
+    "seen": 1792039606.4826424,
+    "ast_hash": "5e5863a62088a927a1da5ad948595d33",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1792038868.7282689,
+    "seen": 1792039606.4826424,
+    "ast_hash": "b676a14403ca08458fd8315e78bc3152",
+    "semantic_hash": ""
+  },
+  "RPB.html": {
+    "mtime": 1792038694.3166564,
+    "seen": 1792039606.4826424,
+    "ast_hash": "97d4edd9442547268952b0766e9e7532",
+    "semantic_hash": ""
+  },
+  "RPBClient.html": {
+    "mtime": 1792039038.0171063,
+    "seen": 1792039606.4826424,
+    "ast_hash": "3100a23c8cc3a18888e13c57d04f700f",
+    "semantic_hash": ""
+  },
+  "RPBStyles.html": {
+    "mtime": 1792038729.0994353,
+    "seen": 1792039606.4826424,
+    "ast_hash": "100bcf77a5a68c4c967691f93892f465",
+    "semantic_hash": ""
+  },
+  "Styles.html": {
+    "mtime": 1792026958.6581209,
+    "seen": 1792039606.4826424,
+    "ast_hash": "878694d3a5cb6b0c7dfd1091214b4270",
+    "semantic_hash": ""
+  },
+  "Memo.gs": {
+    "mtime": 1792034962.6997893,
+    "seen": 1792039623.4431047,
+    "ast_hash": "a16b457d9cac48db1fc9069bdf71e80a",
+    "semantic_hash": "",
+    "language": "language=.js"
+  },
+  "RPB.gs": {
+    "mtime": 1792039067.7317522,
+    "seen": 1792039623.4431047,
+    "ast_hash": "4336dd2b9a019642bc256916b913a50f",
+    "semantic_hash": "",
+    "language": "language=.js"
+  }
+}

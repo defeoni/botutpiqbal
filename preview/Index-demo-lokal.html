@@ -1,0 +1,1585 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administrasi Memo — PT Unicorn Tosan Perkasa</title>
+<style>
+:root{--blue:#1d4ed8;--navy:#1e3a8a;--bg:#f1f5f9;--line:#cbd5e1;--ink:#0f172a}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Arial,sans-serif;padding:16px}
+main{max-width:1100px;margin:auto}.header,.panel,.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+h1{font-size:21px;color:var(--navy);margin:0 0 4px}h2{font-size:16px;margin:0 0 14px;color:var(--navy)}
+.muted{color:#64748b;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.tab{border:1px solid var(--line);border-radius:7px;padding:10px 13px;background:#e2e8f0;cursor:pointer;font-weight:700;color:#334155}
+.tab.active{background:var(--blue);color:white;border-color:var(--blue)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label{display:block;font-weight:700;font-size:13px;margin-bottom:5px}input,select{width:100%;padding:9px;border:1px solid #94a3b8;border-radius:6px;background:#fff;font:inherit}
+.date-input{min-height:44px;min-width:190px;padding:10px 12px;font-size:15px;cursor:pointer}
+.field{margin-bottom:12px}.section[hidden],#common[hidden],#result[hidden],#loading[hidden]{display:none!important}
+.tablewrap{overflow:auto;overscroll-behavior-x:contain}table{width:100%;border-collapse:collapse;min-width:760px}th,td{border:1px solid var(--line);padding:7px;text-align:left;vertical-align:middle}th{background:#e2e8f0}td input{min-width:95px}
+#tablePN,#tablePGOut,#tablePGIn,#tableSP{min-width:1120px}
+#tablePN th,#tablePN td,#tablePGOut th,#tablePGOut td,#tablePGIn th,#tablePGIn td,#tableSP th,#tableSP td{text-align:center}
+#tablePN td input:not([type=file]),#tablePGOut td input:not([type=file]),#tablePGIn td input:not([type=file]),#tableSP td input:not([type=file]){text-align:center}
+#tablePN th:last-child,#tablePN td:last-child,#tablePGOut th:last-child,#tablePGOut td:last-child,#tablePGIn th:last-child,#tablePGIn td:last-child,#tableSP th:last-child,#tableSP td:last-child{position:sticky;right:0;z-index:2;background:#fff;min-width:100px}
+#tablePN th:last-child,#tablePGOut th:last-child,#tablePGIn th:last-child,#tableSP th:last-child{background:#e2e8f0;z-index:3}
+.output-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px;align-items:stretch}
+.output-choice{display:flex;align-items:center;gap:12px;min-height:58px;margin:0;padding:13px 15px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;font-size:15px;font-weight:700;cursor:pointer}
+.output-choice:hover{border-color:#93c5fd;background:#eff6ff}
+.output-choice input[type=checkbox]{width:21px;height:21px;margin:0;flex:0 0 auto;accent-color:var(--blue)}
+.output-recipient{align-self:stretch;margin:0}
+.memo-history-list{display:grid;gap:14px}
+.memo-history-card{display:grid;grid-template-columns:190px minmax(0,1fr);gap:18px;padding:15px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+.memo-history-preview{display:block;position:relative;overflow:hidden;min-height:140px;border:1px solid #dbe3ef;border-radius:8px;background:#f1f5f9;text-decoration:none}
+.memo-history-preview img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.memo-history-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#1e3a8a;font-weight:800;font-size:22px;background:linear-gradient(135deg,#eff6ff,#dbeafe)}
+.memo-history-details{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.memo-history-details h3{font-size:16px;color:var(--navy);margin:0;overflow-wrap:anywhere}
+.memo-history-meta{color:#475569;font-size:13px}
+.memo-history-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px}
+.memo-history-actions .btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;margin:0}
+.memo-history-files{font-size:12px;color:#64748b;overflow-wrap:anywhere}
+.history-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0}
+.history-pagination{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px}
+.history-pagination .btn{margin:0}
+.pin-dialog{width:min(420px,calc(100% - 28px));border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(15,23,42,.24)}
+.pin-dialog::backdrop{background:rgba(15,23,42,.48)}
+.pin-dialog h2{margin-bottom:8px}
+.pin-dialog input{margin:0 0 8px;letter-spacing:.3em;font-size:20px}
+.pin-dialog .actions{justify-content:flex-end;margin-top:12px}
+button{font:inherit}.btn{border:0;border-radius:6px;padding:10px 14px;background:#64748b;color:white;font-weight:700;cursor:pointer;margin:3px 3px 3px 0}
+.btn.primary{background:var(--blue)}.btn.green{background:#15803d}.btn.red{background:#b91c1c}.btn:disabled{opacity:.55;cursor:wait}
+.actions{display:flex;flex-wrap:wrap;gap:7px}.notice{padding:12px;border-radius:7px;background:#eff6ff;margin:12px 0}.result{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid var(--line);border-radius:6px;padding:12px}
+.error{color:#b91c1c;white-space:pre-wrap}
+.app-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.app-status-row p{margin:0;overflow-wrap:anywhere}
+.app-status-row .error{font-weight:700}
+.main-nav{display:flex;gap:10px;margin:14px 0}.main-nav .tab{flex:1;text-align:center}
+.identity{margin-left:auto;font-weight:700;color:var(--navy);align-self:center}
+.subnav{border-bottom:1px solid var(--line);padding-bottom:12px}
+.roster-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.blank-page{min-height:260px;display:flex;align-items:center;justify-content:center;text-align:center}
+.ktp-help{min-width:190px}.ktp-cell input[type=file]{font-size:12px}
+@media(max-width:600px){body{padding:8px}.header,.panel,.card{padding:13px}.main-nav{gap:5px}.main-nav .tab{padding:10px 5px}.output-grid{grid-template-columns:1fr}.output-choice{min-height:56px}}
+@media(max-width:620px){.memo-history-card{grid-template-columns:1fr}.memo-history-preview{min-height:190px}.memo-history-actions .btn{flex:1 1 135px}}
+@media(max-width:520px){.app-status-row{align-items:stretch;flex-direction:column}.app-status-row .btn{margin:0}}
+</style>
+<style>
+.rpb-page:not([hidden]) { display: block; }
+.rpb-history-list { display: grid; gap: 1rem; }
+.rpb-history-card { text-align: left; }
+.rpb-tracking-row { display: grid; grid-template-columns: minmax(150px, 0.8fr) minmax(180px, 1.4fr) minmax(180px, 1.4fr) auto; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+.rpb-tracking-row input, .rpb-tracking-row select { width: 100%; min-width: 0; }
+.rpb-page pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .rpb-tracking-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="header">
+    <h1>PT. UNICORN TOSAN PERKASA</h1>
+    <div class="muted">Dashboard Administrasi Memo dan Arsip Proyek</div>
+    <div class="app-status-row">
+      <p id="appStatus" class="muted" role="status" aria-live="polite">Menghubungkan aplikasi...</p>
+      <button class="btn" type="button" id="btnReconnect">Coba Hubungkan Ulang</button>
+    </div>
+  </header>
+
+  <nav class="main-nav" aria-label="Menu utama">
+    <button type="button" class="tab main-nav-button active" data-main="MEMO">MEMO</button>
+    <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
+    <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
+    <span class="identity" id="userIdentity"></span>
+  </nav>
+
+  <section class="panel memo-area">
+    <h2>Jenis Memo dan Proyek</h2>
+    <nav class="tabs subnav" aria-label="Menu Memo">
+      <button type="button" class="tab active" data-type="PN">Memo Penambahan</button>
+      <button type="button" class="tab" data-type="PG">Memo Penggantian OS</button>
+      <button type="button" class="tab" data-type="SP">Memo Surplus</button>
+      <button type="button" class="tab" data-type="DIRECTORY">Data Manpower</button>
+      <button type="button" class="tab" data-type="SETTINGS">Pengaturan</button>
+    </nav>
+    <div class="grid" id="projectFields">
+      <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value="TerraSentra Soreang, Bandung"></div>
+      <div class="field"><label for="projectCode">Kode Proyek</label><input id="projectCode" value="TS"></div>
+    </div>
+  </section>
+
+  <section id="section-PN" class="section memo-section memo-area">
+    <div class="card"><h2>Data Header — Penambahan Manpower</h2><div class="grid">
+      <div class="field"><label for="pn-date">Tanggal Dokumen</label><input class="date-input" id="pn-date" type="date"></div>
+      <div class="field"><label for="pn-effective">Berlaku Efektif</label><input class="date-input" id="pn-effective" type="date"></div>
+      <div class="field"><label for="pn-to">Ditujukan Kepada</label><input id="pn-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Daftar Personel yang Ditambahkan</h2><div class="tablewrap"><table id="tablePN"><thead><tr><th>No.</th><th>Nama</th><th>Domisili</th><th>Bidang</th><th>Keahlian</th><th>Tanggal Mulai</th><th>Plotting Area</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead>
+    <tbody></tbody></table></div><button type="button" class="btn" data-add="PN">+ Tambah Personel</button></div>
+  </section>
+
+  <section id="section-PG" class="section memo-section memo-area" hidden>
+    <div class="card"><h2>Data Header — Penggantian OS</h2><div class="grid">
+      <div class="field"><label for="pg-date">Tanggal Dokumen</label><input class="date-input" id="pg-date" type="date"></div>
+      <div class="field"><label for="pg-effective">Berlaku Efektif</label><input class="date-input" id="pg-effective" type="date"></div>
+      <div class="field"><label for="pg-to">Ditujukan Kepada</label><input id="pg-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Personel Keluar / Digantikan</h2><div class="tablewrap"><table id="tablePGOut"><thead><tr><th>No.</th><th>Nama</th><th>Keahlian</th><th>Bidang</th><th>Foreman</th><th>Tanggal Mulai</th><th>Keterangan</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="PGOut">+ Tambah Personel Keluar</button></div>
+    <div class="card"><h2>Personel Pengganti / Masuk</h2><div class="tablewrap"><table id="tablePGIn"><thead><tr><th>No.</th><th>Nama</th><th>Keahlian</th><th>Bidang</th><th>Foreman</th><th>Tanggal Mulai</th><th>Keterangan</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="PGIn">+ Tambah Personel Pengganti</button></div>
+  </section>
+
+  <section id="section-SP" class="section memo-section memo-area" hidden>
+    <div class="card"><h2>Data Header — Surplus Manpower</h2><div class="grid">
+      <div class="field"><label for="sp-date">Tanggal Dokumen</label><input class="date-input" id="sp-date" type="date"></div>
+      <div class="field"><label for="sp-effective">Berlaku Efektif</label><input class="date-input" id="sp-effective" type="date"></div>
+      <div class="field"><label for="sp-to">Ditujukan Kepada</label><input id="sp-to" value="Dept. Project"></div>
+    </div></div>
+    <div class="card"><h2>Daftar Personel Surplus</h2><div class="tablewrap"><table id="tableSP"><thead><tr><th>No.</th><th>Nama</th><th>Bidang</th><th>Keahlian</th><th>Tanggal Terakhir</th><th>Tujuan Proyek</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="SP">+ Tambah Personel</button></div>
+  </section>
+
+  <section id="section-DIRECTORY" class="memo-section memo-area" hidden>
+    <div class="card"><h2>Data Manpower</h2>
+      <p class="muted">Direktori disimpan di Google Sheets terpisah dari arsip memo. Status terbaru ditentukan dari memo masuk, penggantian, atau surplus.</p>
+      <div class="roster-filters">
+        <div class="field"><label for="rosterSearch">Cari nama / proyek / bidang</label><input id="rosterSearch" type="search" placeholder="Ketik untuk mencari"></div>
+        <div class="field"><label for="rosterStatus">Status</label><select id="rosterStatus"><option value="">Semua status</option><option value="AKTIF">Masih bekerja</option><option value="NONAKTIF">Sudah tidak aktif</option></select></div>
+        <div class="field"><label for="rosterSkill">Keahlian</label><select id="rosterSkill"><option value="">Semua keahlian</option></select></div>
+        <div class="field"><label for="rosterProject">Proyek</label><select id="rosterProject"><option value="">Semua proyek</option></select></div>
+        <div class="field"><label for="rosterSort">Urutkan</label><select id="rosterSort"><option value="recent">Tanggal terbaru</option><option value="oldest">Tanggal terlama</option><option value="name">Nama A-Z</option></select></div>
+        <div class="field"><label for="rosterStartFrom">Tanggal mulai dari</label><input id="rosterStartFrom" type="date"></div>
+        <div class="field"><label for="rosterStartTo">Tanggal mulai sampai</label><input id="rosterStartTo" type="date"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="button" id="btnRefreshManpower">Muat Ulang Data</button></div>
+      <p id="manpowerStatus" class="muted"></p>
+      <div id="manpowerList" class="tablewrap"></div>
+    </div>
+    <div class="card"><h2>Tambah Data Personel Manual</h2>
+      <p class="muted">Gunakan untuk mencatat personel yang sudah bekerja sebelum aplikasi ini digunakan.</p>
+      <div class="grid">
+        <div class="field"><label for="manualName">Nama</label><input id="manualName"></div>
+        <div class="field"><label for="manualStatus">Status</label><select id="manualStatus"><option value="AKTIF">Masih bekerja</option><option value="NONAKTIF">Sudah tidak aktif</option></select></div>
+        <div class="field"><label for="manualProject">Proyek</label><input id="manualProject"></div>
+        <div class="field"><label for="manualDomicile">Domisili</label><input id="manualDomicile"></div>
+        <div class="field"><label for="manualDepartment">Bidang</label><input id="manualDepartment"></div>
+        <div class="field"><label for="manualSkill">Keahlian</label><input id="manualSkill"></div>
+        <div class="field"><label for="manualForeman">Foreman</label><input id="manualForeman"></div>
+        <div class="field"><label for="manualWorkArea">Area kerja</label><input id="manualWorkArea"></div>
+        <div class="field"><label for="manualStartDate">Tanggal mulai</label><input id="manualStartDate" type="date"></div>
+        <div class="field"><label for="manualEndDate">Tanggal selesai (jika nonaktif)</label><input id="manualEndDate" type="date"></div>
+      </div>
+      <button class="btn green" type="button" id="btnSaveManpower">Simpan Personel</button>
+      <p id="manualStatusMessage" class="muted" role="status"></p>
+    </div>
+  </section>
+
+  <section id="section-SETTINGS" class="section memo-section memo-area" hidden>
+    <div class="notice">Beberapa tindakan memerlukan kode konfirmasi. Bagikan URL aplikasi hanya kepada orang yang berhak mengaksesnya.</div>
+    <div class="card"><h2>Hapus Semua Riwayat Memo</h2><p class="error">Tindakan ini menghapus seluruh riwayat memo dan memindahkan file memo terkait ke Sampah Google Drive.</p>
+      <button class="btn red" type="button" id="btnClearHistory">Hapus Semua Riwayat Memo</button>
+      <p id="clearHistoryStatus" class="muted" role="status"></p>
+    </div>
+    <div class="card"><h2>Reset Counter Penomoran</h2><p class="muted">Reset hanya berlaku untuk periode bulan berjalan. Gunakan dengan hati-hati agar tidak menimbulkan nomor dokumen duplikat.</p>
+      <div class="actions"><button class="btn" type="button" data-reset="PN">Reset Penambahan</button><button class="btn" type="button" data-reset="PG">Reset Penggantian</button><button class="btn" type="button" data-reset="SP">Reset Surplus</button><button class="btn red" type="button" data-reset="ALL">Reset Semua</button></div>
+      <button class="btn primary" type="button" id="btnStatus">Cek Counter Saat Ini</button>
+      <button class="btn" type="button" id="btnSetWebhook">Hubungkan Bot Telegram</button>
+      <button class="btn" type="button" id="btnTelegramStatus">Diagnostik Telegram</button>
+      <p id="counterStatus"></p>
+      <p id="telegramStatus" class="muted" role="status"></p>
+    </div>
+    <div class="card"><h2>Hard Reset Arsip dan Nomor</h2>
+      <p class="error">Tindakan ini memindahkan seluruh file arsip ke Sampah Google Drive, mengosongkan riwayat, dan menghapus semua counter nomor. File template dan Data Manpower tetap dipertahankan.</p>
+      <button class="btn red" type="button" id="btnHardReset">Hard Reset: Hapus Semua Arsip, Riwayat, dan Nomor</button>
+      <p id="hardResetStatus" class="error" role="alert"></p>
+    </div>
+  </section>
+
+  <section id="common" class="card memo-area">
+    <h2>Lampiran dan Output</h2>
+    <p class="notice">Foto KTP diisi langsung pada baris setiap personel. Setiap lampiran akan diberi nama sesuai kolom “Nama untuk KTP” dan masuk ke sheet kedua. Maksimal 30 foto per memo.</p>
+    <div class="output-grid">
+      <label class="output-choice" for="createSpreadsheet"><input id="createSpreadsheet" type="checkbox" checked> <span>Buat Google Sheets</span></label>
+      <label class="output-choice" for="createPdf"><input id="createPdf" type="checkbox" checked> <span>Buat PDF berwarna</span></label>
+      <label class="output-choice" for="createWhatsApp"><input id="createWhatsApp" type="checkbox" checked> <span>Buat draf WhatsApp</span></label>
+      <div class="field output-recipient"><label for="waRecipient">Penerima draf WhatsApp</label><input id="waRecipient" value="Pak Juwana (PM)"></div>
+    </div>
+    <button type="button" class="btn primary" id="btnSubmit">Buat Memo dan Arsipkan</button>
+    <div id="loading" hidden class="notice">Sedang memproses dokumen. Jangan tutup halaman ini.</div>
+    <p id="formError" class="error"></p>
+  </section>
+
+  <section id="preview" class="card memo-area">
+    <h2>Periksa Memo Sebelum Membuat Arsip</h2>
+    <p class="notice">Nomor belum digunakan. Counter baru bertambah setelah arsip berhasil dibuat.</p>
+    <pre id="previewSummary"></pre>
+    <div class="actions">
+      <button type="button" class="btn" id="cancelPreview">Kembali ke Formulir</button>
+      <button type="button" class="btn primary" id="confirmSubmit">Konfirmasi dan Buat Memo</button>
+    </div>
+  </section>
+
+  <section id="result" class="result memo-area">
+    <h2>Dokumen Berhasil Dibuat</h2><p><strong>Nomor Dokumen:</strong> <span id="resNumber"></span></p>
+    <div class="actions"><a id="sheetLink" class="btn green" target="_blank" rel="noopener" hidden>Buka Spreadsheet</a><a id="pdfLink" class="btn primary" target="_blank" rel="noopener" hidden>Buka PDF Memo</a><a id="ktpPdfLink" class="btn primary" target="_blank" rel="noopener" hidden>Buka PDF KTP</a><a id="folderLink" class="btn" target="_blank" rel="noopener">Buka Folder Arsip</a></div>
+    <div id="whatsAppResult" hidden><label for="waDraft">Draf WhatsApp siap salin</label><pre id="waDraft"></pre><button type="button" class="btn green" id="copyWA">Salin Draf WhatsApp</button></div>
+  </section>
+
+  <section id="historyPanel" class="card memo-area">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <h2>Riwayat Memo</h2>
+      <button class="btn" type="button" id="btnRefreshHistory">Muat Ulang Riwayat</button>
+    </div>
+    <div class="history-filters">
+      <div class="field"><label for="historySearch">Cari nomor / proyek</label><input id="historySearch" type="search" placeholder="Cari memo"></div>
+      <div class="field"><label for="historyType">Jenis memo</label><select id="historyType"><option value="">Semua jenis</option><option value="PN">Penambahan</option><option value="PG">Penggantian</option><option value="SP">Surplus</option></select></div>
+      <div class="field"><label for="historyDateFrom">Dari tanggal</label><input id="historyDateFrom" type="date"></div>
+      <div class="field"><label for="historyDateTo">Sampai tanggal</label><input id="historyDateTo" type="date"></div>
+    </div>
+    <p id="historyStatus" class="muted"></p>
+    <div id="historyList" class="tablewrap"></div>
+    <div class="history-pagination"><button class="btn" type="button" id="historyPrev">Sebelumnya</button><span id="historyPageStatus" class="muted"></span><button class="btn" type="button" id="historyNext">Berikutnya</button></div>
+  </section>
+
+  <section id="blank-RPD" class="card blank-page" hidden><div><h2>RPD</h2><p class="muted">Menu RPD disiapkan dan belum diisi.</p></div></section>
+  <section id="blank-RPB" class="rpb-page" hidden>
+    <div class="card">
+      <div class="actions" style="justify-content:space-between;align-items:center"><h2>Rencana Pengeluaran Bulanan (RPB)</h2><a id="rpbMasterLink" class="btn" target="_blank" rel="noopener" hidden>Buka Master di Google Sheets</a></div>
+      <p class="muted">Pilih barang dari master. File Excel, PDF, dan draf WhatsApp dibuat setelah pengajuan dikonfirmasi. Data master tetap dapat Anda edit langsung di Google Sheets.</p>
+      <div class="grid">
+        <div class="field"><label for="rpbRequestDate">Tanggal pengajuan</label><input id="rpbRequestDate" type="date"></div>
+        <div class="field"><label for="rpbLpdMonth">Bulan LPD sebelumnya yang sudah diterima</label><input id="rpbLpdMonth" type="month"></div>
+        <div class="field"><label for="rpbCategoryFilter">Filter kategori barang</label><select id="rpbCategoryFilter"><option value="">Semua kategori</option></select></div>
+      </div>
+      <div class="actions"><button class="btn" type="button" id="rpbAddLine">+ Tambah Barang</button><button class="btn" type="button" id="rpbSaveDraft">Simpan Draf</button><span id="rpbDraftStatus" class="muted" role="status"></span></div>
+      <div class="tablewrap"><table id="rpbItemsTable"><thead><tr><th>Kategori</th><th>Barang</th><th>Jumlah</th><th>Satuan</th><th>Harga acuan (Rp)</th><th>Periode</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+      <p id="rpbFormError" class="error" role="alert"></p>
+      <label class="output-choice" for="rpbLpdConfirmed"><input id="rpbLpdConfirmed" type="checkbox"> <span>Saya memastikan LPD bulan sebelumnya sudah diterima oleh Project HO</span></label>
+      <div class="actions"><button class="btn primary" type="button" id="rpbSubmit">Buat RPB / Kirim Pengajuan</button><span id="rpbTotal" class="muted"></span></div>
+    </div>
+    <div id="rpbResult" class="card" hidden><h2>RPB Berhasil Diarsipkan</h2><p id="rpbResultNumber"></p><div class="actions"><a id="rpbExcelLink" class="btn green" target="_blank" rel="noopener">Unduh Excel</a><a id="rpbPdfLink" class="btn primary" target="_blank" rel="noopener">Unduh PDF</a><a id="rpbSheetLink" class="btn" target="_blank" rel="noopener">Buka Spreadsheet</a><a id="rpbFolderLink" class="btn" target="_blank" rel="noopener">Buka Folder Arsip</a></div><label for="rpbWaDraft">Draf WhatsApp (barang yang diajukan saja)</label><pre id="rpbWaDraft"></pre><button type="button" class="btn green" id="rpbCopyWa">Salin Draf WhatsApp</button></div>
+    <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Master Barang RPB</h2><button class="btn" type="button" id="rpbReload">Muat Ulang</button></div><p class="muted">Harga baru dapat ditambahkan tanpa PIN. Mengubah atau menghapus harga yang sudah ada dan menonaktifkan barang memerlukan PIN melalui aplikasi. Barang lama tetap tercatat di RPB sebelumnya.</p>
+      <div class="field"><label for="rpbMasterCategoryFilter">Filter kategori master</label><select id="rpbMasterCategoryFilter"><option value="">Semua kategori</option></select></div>
+      <div class="grid"><div class="field"><label for="rpbNewCategory">Kategori</label><select id="rpbNewCategory"></select></div><div class="field"><label for="rpbNewName">Nama barang</label><input id="rpbNewName"></div><div class="field"><label for="rpbNewUnit">Satuan</label><input id="rpbNewUnit" placeholder="contoh: pcs, box, bulan"></div><div class="field"><label for="rpbNewPrice">Harga acuan awal (boleh kosong)</label><input id="rpbNewPrice" type="number" min="0"></div><div class="field"><label for="rpbNewNote">Keterangan</label><input id="rpbNewNote"></div></div><button type="button" class="btn primary" id="rpbAddMaster">Tambah ke Master</button><p id="rpbMasterStatus" class="muted" role="status"></p><div id="rpbMasterList" class="tablewrap"></div>
+    </div>
+    <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Riwayat dan Tracking RPB</h2><button class="btn" type="button" id="rpbRefreshHistory">Muat Ulang Riwayat</button></div><div id="rpbHistoryList" class="rpb-history-list"></div></div>
+  </section>
+</main>
+
+<dialog id="deletePinDialog" class="pin-dialog" aria-labelledby="deletePinTitle">
+  <form id="deletePinForm">
+    <h2 id="deletePinTitle">Konfirmasi Penghapusan</h2>
+    <p class="muted">Masukkan PIN untuk melanjutkan penghapusan.</p>
+    <label id="deletePinLabel" for="deletePinValue">PIN untuk penghapusan</label>
+    <input id="deletePinValue" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+    <p id="deletePinError" class="error" role="alert"></p>
+    <div class="actions"><button type="button" class="btn" id="cancelDeletePin">Batal</button><button type="submit" class="btn red" id="confirmDeletePin">Lanjutkan Hapus</button></div>
+  </form>
+</dialog>
+
+<script>
+  window.APP_INITIAL_TYPE = 'PN';
+  window.APP_BUILD_VERSION = 'LOCAL-PREVIEW';
+</script>
+<script async src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const TYPE_LABEL = { PN: 'Penambahan Manpower', PG: 'Penggantian OS', SP: 'Surplus Manpower' };
+const INITIAL_TYPE = window.APP_INITIAL_TYPE || 'PN';
+const SCHEMAS = {
+  PN: [
+    ['nama', 'Nama'], ['domisili', 'Domisili'], ['bidang', 'Bidang'], ['keahlian', 'Keahlian'], ['tglMulai', 'Tanggal Mulai'], ['areaKerja', 'Plotting Area']
+  ],
+  PGOut: [
+    ['nama', 'Nama'], ['keahlian', 'Keahlian'], ['bidang', 'Bidang'], ['foreman', 'Foreman'], ['tglMulai', 'Tanggal Mulai'], ['keterangan', 'Keterangan']
+  ],
+  PGIn: [
+    ['nama', 'Nama Pengganti'], ['keahlian', 'Keahlian'], ['bidang', 'Bidang'], ['foreman', 'Foreman'], ['tglMulai', 'Tanggal Mulai'], ['keterangan', 'Keterangan']
+  ],
+  SP: [
+    ['nama', 'Nama'], ['bidang', 'Bidang'], ['keahlian', 'Keahlian'], ['tglTerakhir', 'Tanggal Terakhir'], ['tujuan', 'Tujuan Proyek']
+  ]
+};
+const TABLE_IDS = { PN: 'tablePN', PGOut: 'tablePGOut', PGIn: 'tablePGIn', SP: 'tableSP' };
+let accessToken = '';
+let pendingPayload = null;
+let currentType = INITIAL_TYPE;
+let currentMainPage = 'MEMO';
+let manpowerRecords = [];
+let memoHistoryRecords = [];
+let historyPage = 0;
+const HISTORY_PAGE_SIZE = 8;
+
+function showApplicationError_(context, error) {
+  const message = error && error.message ? error.message : String(error || 'Kesalahan tidak diketahui.');
+  const status = $('appStatus');
+  if (status) {
+    status.textContent = `${context}: ${message}`;
+    status.classList.add('error');
+  }
+  console.error(`${context}: ${message}`, error);
+}
+
+window.addEventListener('error', (event) => {
+  if (event.target !== window) return;
+  const location = event.lineno ? ` (baris ${event.lineno})` : '';
+  showApplicationError_(`Kesalahan JavaScript${location}`, event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  showApplicationError_('Proses aplikasi gagal', event.reason);
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const button = target && target.closest('button');
+  if (!button) return;
+
+  try {
+    if (button.id === 'btnReconnect') {
+      startApplication();
+    } else if (button.matches('.main-nav-button')) {
+      switchMainPage(button.dataset.main);
+    } else if (button.matches('.subnav [data-type]')) {
+      switchType(button.dataset.type);
+    } else if (button.matches('[data-add]')) {
+      addRow(button.dataset.add);
+    }
+  } catch (error) {
+    showApplicationError_(`Tombol "${button.textContent.trim()}" gagal dijalankan`, error);
+  }
+});
+
+function setDefaultDocumentDates() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
+  ['pn-date', 'pg-date', 'sp-date'].forEach((id) => { $(id).value = today; });
+}
+
+function invokeServer(functionName, args, onSuccess, onFailure) {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    onFailure(new Error('Backend Google Apps Script belum tersedia. Buka URL aplikasi yang sudah di-deploy.'));
+    return;
+  }
+  const runner = google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler((error) => onFailure(new Error(error && error.message ? error.message : String(error))));
+  try {
+    runner[functionName].apply(runner, args);
+  } catch (error) {
+    onFailure(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+function askDeletePin_(purpose = 'penghapusan') {
+  const dialog = $('deletePinDialog');
+  const form = $('deletePinForm');
+  const input = $('deletePinValue');
+  const cancel = $('cancelDeletePin');
+  const submit = $('confirmDeletePin');
+  const errorText = $('deletePinError');
+  $('deletePinTitle').textContent = purpose === 'penghapusan' ? 'Konfirmasi Penghapusan' : `Konfirmasi ${purpose.charAt(0).toUpperCase()}${purpose.slice(1)}`;
+  $('deletePinLabel').textContent = `PIN untuk ${purpose}`;
+  input.value = '';
+  errorText.textContent = '';
+  return new Promise((resolve) => {
+    let completed = false;
+    const finish = (pin) => {
+      if (completed) return;
+      completed = true;
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      dialog.removeEventListener('close', onClose);
+      resolve(pin);
+    };
+    const onClose = () => finish(null);
+    const onCancel = () => dialog.close();
+    const onSubmit = (event) => {
+      event.preventDefault();
+      const pin = input.value.trim();
+      if (!/^\d{6}$/.test(pin)) {
+        errorText.textContent = 'Masukkan PIN 6 angka.';
+        input.focus();
+        return;
+      }
+      submit.disabled = true;
+      errorText.textContent = 'Memeriksa PIN...';
+      invokeServer('apiValidateDeletePin', [pin, accessToken], () => {
+        submit.disabled = false;
+        finish(pin);
+        dialog.close();
+      }, (error) => {
+        submit.disabled = false;
+        errorText.textContent = error.message || 'PIN salah. Data tidak dihapus.';
+        input.select();
+      });
+    };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    dialog.addEventListener('close', onClose);
+    dialog.showModal();
+    input.focus();
+  });
+}
+
+function startApplication() {
+  switchMainPage('MEMO');
+  $('btnReconnect').disabled = true;
+  $('appStatus').classList.remove('error');
+  $('appStatus').textContent = 'Menghubungkan ke Google Apps Script...';
+  invokeServer('apiCreateSession', [], (result) => {
+    $('btnReconnect').disabled = false;
+    accessToken = result.token;
+    showApplication(result.owner);
+    const serverVersion = result.version || 'versi server tidak diketahui';
+    $('appStatus').textContent = `Aplikasi siap digunakan sebagai ${result.owner} · UI ${window.APP_BUILD_VERSION || 'lokal'} · Server ${serverVersion}.`;
+    loadCounters();
+    loadHistory();
+    loadManpower();
+  }, (error) => {
+    $('btnReconnect').disabled = false;
+    showApplicationError_('Gagal menghubungkan aplikasi', error);
+  });
+}
+
+function showApplication(owner) {
+  $('userIdentity').textContent = `Akun: ${owner}`;
+  $('counterStatus').textContent = `Pengguna: ${owner}.`;
+  switchMainPage('MEMO');
+}
+
+function loadCounters() {
+  invokeServer('apiGetCounters', [accessToken], (counters) => {
+    $('counterStatus').textContent = `Periode ${counters.period} — PN: ${counters.PN}, PG: ${counters.PG}, SP: ${counters.SP}`;
+  }, (error) => {
+    $('counterStatus').textContent = error.message;
+  });
+}
+
+function buildWhatsAppDraft_(number, project, subject, date, recipient, data, links) {
+  let count = '';
+  if (data.typeKey === 'PN') count = `\nJumlah tambahan: ${(data.workers || []).length} orang`;
+  if (data.typeKey === 'PG') count = `\nJumlah pengganti masuk: ${(data.workersIn || []).length} orang`;
+  if (data.typeKey === 'SP') count = `\nJumlah surplus: ${(data.workers || []).length} orang`;
+  const effectiveDate = data.berlakuEfektif ? formatUiDate_(data.berlakuEfektif) : formatUiDate_(date);
+  const msg = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${project}\nPerihal: ${subject}\nTanggal pengajuan: ${formatUiDate_(date)}\nTanggal efektif: ${effectiveDate}${count}`;
+  return msg + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
+}
+
+function formatUiDate_(value) {
+  if (!value) return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return '';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+}
+
+function switchMainPage(page) {
+  if (!['MEMO', 'RPD', 'RPB'].includes(page)) page = 'MEMO';
+  currentMainPage = page;
+  document.querySelectorAll('.main-nav-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.main === page);
+  });
+  document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
+  document.querySelectorAll('.blank-page, .rpb-page').forEach((element) => {
+    element.hidden = page !== element.id.replace('blank-', '');
+  });
+  if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
+  if (page === 'RPB' && accessToken) loadRpbData_();
+}
+
+function switchType(type) {
+  if (!['PN', 'PG', 'SP', 'DIRECTORY', 'SETTINGS'].includes(type)) type = 'PN';
+  currentType = type;
+  document.querySelectorAll('.memo-section').forEach((section) => {
+    section.hidden = section.id !== 'section-' + type;
+  });
+  document.querySelectorAll('.subnav .tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.type === type);
+  });
+  const isMemoType = ['PN', 'PG', 'SP'].includes(type);
+  $('common').hidden = !isMemoType;
+  $('projectFields').hidden = !isMemoType;
+  $('preview').hidden = true;
+  $('result').hidden = true;
+  $('formError').textContent = '';
+  pendingPayload = null;
+}
+
+function addRow(kind, values = {}) {
+  const table = $(TABLE_IDS[kind]);
+  const tbody = table.tBodies[0];
+  const row = tbody.insertRow();
+  const num = row.insertCell();
+  num.textContent = tbody.rows.length;
+  SCHEMAS[kind].forEach(([key, label]) => {
+    const cell = row.insertCell();
+    const input = document.createElement('input');
+    const isDate = key === 'tglMulai' || key === 'tglTerakhir';
+    input.type = isDate ? 'date' : 'text';
+    if (isDate) input.className = 'date-input';
+    input.dataset.key = key;
+    input.setAttribute('aria-label', label);
+    input.placeholder = label;
+    input.value = values[key] || '';
+    cell.appendChild(input);
+  });
+  const ktpNameCell = row.insertCell();
+  const ktpName = document.createElement('input');
+  ktpName.type = 'text';
+  ktpName.dataset.key = 'ktpName';
+  ktpName.placeholder = 'Nama pada KTP';
+  ktpName.value = values.ktpName || '';
+  ktpName.setAttribute('aria-label', 'Nama untuk lampiran KTP');
+  ktpNameCell.appendChild(ktpName);
+
+  const ktpFileCell = row.insertCell();
+  ktpFileCell.className = 'ktp-cell';
+  const ktpFile = document.createElement('input');
+  ktpFile.type = 'file';
+  ktpFile.accept = 'image/png,image/jpeg';
+  ktpFile.dataset.ktpFile = 'true';
+  ktpFile.setAttribute('aria-label', 'Pilih foto KTP personel ini');
+  ktpFile.addEventListener('change', handleKtpFileSelection_);
+  ktpFileCell.appendChild(ktpFile);
+  const help = document.createElement('span');
+  help.className = 'muted ktp-help';
+  help.textContent = '';
+  ktpFileCell.appendChild(help);
+
+  const action = row.insertCell();
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn red';
+  remove.textContent = 'Hapus';
+  remove.addEventListener('click', async () => {
+    if (!confirm('Hapus baris personel ini dari memo yang sedang disusun?')) return;
+    if (!await askDeletePin_()) return;
+    row.remove();
+    renumber(table);
+  });
+  action.appendChild(remove);
+}
+
+function renumber(table) {
+  Array.from(table.tBodies[0].rows).forEach((row, index) => {
+    row.cells[0].textContent = index + 1;
+  });
+}
+
+function readRows(kind) {
+  return Array.from($(TABLE_IDS[kind]).tBodies[0].rows)
+    .map((row) => {
+      const result = {};
+      row.querySelectorAll('input[data-key]').forEach((input) => {
+        result[input.dataset.key] = input.value.trim();
+      });
+      const fileInput = row.querySelector('input[data-ktp-file]');
+      if (fileInput) {
+        if (fileInput.files.length && !fileInput.dataset.fileId) {
+          throw new Error('Tunggu sampai unggahan foto KTP selesai sebelum membuat memo.');
+        }
+        result.ktpFileId = fileInput.dataset.fileId || '';
+      }
+      return result;
+    })
+    .filter((row) => Object.values(row).some((value) => value !== ''));
+}
+
+function header(prefix) {
+  return {
+    tanggalDoc: $(prefix + '-date').value,
+    berlakuEfektif: $(prefix + '-effective').value,
+    ditujukan: $(prefix + '-to').value.trim()
+  };
+}
+
+let uploadsInProgress = 0;
+function readKtpImage_(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Gagal membaca ${file.name}.`));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadKtpImage_(dataUrl, fileName) {
+  return new Promise((resolve, reject) => {
+    invokeServer('apiUploadKtpImage', [dataUrl, fileName, accessToken], resolve, reject);
+  });
+}
+
+async function handleKtpFileSelection_(event) {
+  const input = event.currentTarget;
+  const uploadVersion = Number(input.dataset.uploadVersion || 0) + 1;
+  input.dataset.uploadVersion = String(uploadVersion);
+  const row = input.closest('tr');
+  const help = row.querySelector('.ktp-help');
+  input.dataset.fileId = '';
+  help.textContent = '';
+  $('formError').textContent = '';
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const currentTables = currentType === 'PG'
+    ? [TABLE_IDS.PGOut, TABLE_IDS.PGIn]
+    : [TABLE_IDS[currentType]];
+  const allFileInputs = currentTables
+    .filter(Boolean)
+    .flatMap((tableId) => Array.from($(tableId).querySelectorAll('input[data-ktp-file]')));
+  const selectedCount = allFileInputs.filter((item) => item.files && item.files.length).length;
+  if (selectedCount > 30) {
+    input.value = '';
+    $('formError').textContent = 'Maksimal 30 foto KTP per memo.';
+    return;
+  }
+  if (!/^image\/(jpeg|png)$/.test(file.type)) {
+    input.value = '';
+    $('formError').textContent = 'Format foto KTP harus JPG atau PNG.';
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    input.value = '';
+    $('formError').textContent = 'Ukuran foto asli maksimal 2 MB. Foto tidak dikompres.';
+    return;
+  }
+  uploadsInProgress += 1;
+  $('btnSubmit').disabled = true;
+  help.textContent = 'Mengunggah foto asli tanpa kompresi...';
+  try {
+    const dataUrl = await readKtpImage_(file);
+    const uploaded = await uploadKtpImage_(dataUrl, file.name);
+    if (input.dataset.uploadVersion === String(uploadVersion)) {
+      input.dataset.fileId = uploaded.fileId;
+      help.textContent = 'Foto asli siap dilampirkan tanpa kompresi.';
+    }
+  } catch (error) {
+    if (input.dataset.uploadVersion === String(uploadVersion)) {
+      input.value = '';
+      help.textContent = '';
+      $('formError').textContent = error.message;
+    }
+  } finally {
+    uploadsInProgress -= 1;
+    $('btnSubmit').disabled = uploadsInProgress > 0;
+  }
+}
+
+function buildPayload() {
+  if (uploadsInProgress) throw new Error('Tunggu sampai semua foto KTP selesai diunggah.');
+  const typeKey = currentType;
+  if (!['PN', 'PG', 'SP'].includes(typeKey)) throw new Error('Pilih jenis memo sebelum membuat dokumen.');
+  const payload = {
+    typeKey,
+    projectName: $('projectName').value.trim(),
+    projectCode: $('projectCode').value.trim(),
+    outputs: {
+      spreadsheet: $('createSpreadsheet').checked,
+      pdf: $('createPdf').checked,
+      whatsapp: $('createWhatsApp').checked
+    },
+    waRecipient: $('waRecipient').value.trim()
+  };
+  if (!payload.projectName || !payload.projectCode) throw new Error('Nama dan kode proyek wajib diisi.');
+  if (!payload.outputs.spreadsheet && !payload.outputs.pdf) throw new Error('Pilih minimal Google Sheets atau PDF untuk arsip memo.');
+  if (typeKey === 'PN') Object.assign(payload, header('pn'), { perihal: TYPE_LABEL.PN, workers: readRows('PN') });
+  if (typeKey === 'PG') Object.assign(payload, header('pg'), { perihal: TYPE_LABEL.PG, workersOut: readRows('PGOut'), workersIn: readRows('PGIn') });
+  if (typeKey === 'SP') Object.assign(payload, header('sp'), { perihal: TYPE_LABEL.SP, workers: readRows('SP') });
+  if (!payload.tanggalDoc || !payload.berlakuEfektif || !payload.ditujukan) {
+    throw new Error('Tanggal dokumen, tanggal efektif, dan penerima memo wajib diisi.');
+  }
+
+  const people = typeKey === 'PG' ? [...(payload.workersOut || []), ...(payload.workersIn || [])] : payload.workers || [];
+  if (!people.length) throw new Error('Isi minimal satu baris personel sebelum membuat memo.');
+  if (people.some((person) => !person.nama)) throw new Error('Setiap baris personel harus memiliki nama.');
+  if (people.filter((person) => person.ktpFileId || person.ktpBase64).length > 30) throw new Error('Maksimal 30 foto KTP per memo.');
+  return payload;
+}
+
+$('btnSubmit').addEventListener('click', () => {
+  $('formError').textContent = '';
+  try {
+    pendingPayload = buildPayload();
+  } catch (error) {
+    $('formError').textContent = error.message;
+    return;
+  }
+
+  const count = pendingPayload.typeKey === 'PG'
+    ? `keluar ${(pendingPayload.workersOut || []).length}, pengganti ${(pendingPayload.workersIn || []).length}`
+    : `${(pendingPayload.workers || []).length} orang`;
+  const people = pendingPayload.typeKey === 'PG'
+    ? [...(pendingPayload.workersOut || []), ...(pendingPayload.workersIn || [])]
+    : pendingPayload.workers || [];
+  const outputNames = [];
+  if (pendingPayload.outputs.spreadsheet) outputNames.push('Google Sheets');
+  if (pendingPayload.outputs.pdf) outputNames.push('PDF');
+  if (pendingPayload.outputs.whatsapp) outputNames.push('draf WhatsApp');
+  $('previewSummary').textContent = [
+    `Jenis memo: ${pendingPayload.perihal}`,
+    `Proyek: ${pendingPayload.projectName} (${pendingPayload.projectCode})`,
+    `Tanggal: ${formatUiDate_(pendingPayload.tanggalDoc)} — efektif ${formatUiDate_(pendingPayload.berlakuEfektif)}`,
+    `Ditujukan kepada: ${pendingPayload.ditujukan}`,
+    `Personel: ${count}`,
+    `Foto KTP: ${people.filter((person) => person.ktpFileId || person.ktpBase64).length}`,
+    `Output: ${outputNames.join(', ')}`,
+    '',
+    'Nomor dokumen akan dialokasikan setelah Anda mengonfirmasi.'
+  ].join('\n');
+  $('preview').hidden = false;
+  $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('cancelPreview').addEventListener('click', () => {
+  pendingPayload = null;
+  $('preview').hidden = true;
+  $('common').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('confirmSubmit').addEventListener('click', () => {
+  if (!pendingPayload) {
+    $('loading').hidden = true;
+    $('formError').textContent = 'Tidak ada preview memo untuk dikonfirmasi. Silakan periksa formulir kembali.';
+    return;
+  }
+  $('confirmSubmit').disabled = true;
+  $('loading').hidden = false;
+  $('preview').hidden = true;
+  $('formError').textContent = '';
+  const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  invokeServer('apiCreateMemo', [pendingPayload, accessToken, requestId], (response) => {
+    $('confirmSubmit').disabled = false;
+    $('loading').hidden = true;
+    $('resNumber').textContent = response.docNumber;
+    $('sheetLink').hidden = !response.sheetUrl;
+    if (response.sheetUrl) $('sheetLink').href = response.sheetUrl;
+    $('pdfLink').hidden = !response.pdfUrl;
+    if (response.pdfUrl) $('pdfLink').href = response.pdfUrl;
+    $('ktpPdfLink').hidden = !response.ktpPdfUrl;
+    if (response.ktpPdfUrl) $('ktpPdfLink').href = response.ktpPdfUrl;
+    $('folderLink').href = response.folderUrl;
+    $('whatsAppResult').hidden = !pendingPayload.outputs.whatsapp;
+    if (pendingPayload.outputs.whatsapp) {
+      $('waDraft').textContent = response.waDraft || buildWhatsAppDraft_(
+        response.docNumber,
+        pendingPayload.projectName,
+        pendingPayload.perihal,
+        pendingPayload.tanggalDoc,
+        pendingPayload.waRecipient || 'Pak Juwana (PM)',
+        pendingPayload,
+        response
+      );
+    }
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pendingPayload = null;
+    loadCounters();
+    loadHistory();
+    loadManpower();
+  }, (error) => {
+    $('confirmSubmit').disabled = false;
+    $('loading').hidden = true;
+    $('preview').hidden = false;
+    $('formError').textContent = `Gagal membuat memo: ${error.message}`;
+  });
+});
+
+$('copyWA').addEventListener('click', async () => {
+  const text = $('waDraft').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Draf WhatsApp berhasil disalin.');
+  } catch (e) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    alert(ok ? 'Draf WhatsApp berhasil disalin.' : 'Gagal menyalin. Silakan salin teks secara manual.');
+  }
+});
+
+document.querySelectorAll('[data-reset]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const type = button.dataset.reset;
+    if (!confirm('Reset counter ' + (type === 'ALL' ? 'semua jenis memo' : type) + ' untuk bulan berjalan?')) return;
+    button.disabled = true;
+    invokeServer('apiResetCounter', [type, accessToken], (result) => {
+      button.disabled = false;
+      alert(result.message);
+      loadCounters();
+    }, (error) => {
+      button.disabled = false;
+      alert(`Gagal mereset counter: ${error.message}`);
+    });
+  });
+});
+
+$('btnHardReset').addEventListener('click', () => {
+  const confirmed = confirm('PERINGATAN: Seluruh file arsip memo akan dipindahkan ke Sampah, riwayat memo dikosongkan, dan semua counter nomor direset. Data Manpower dan template dipertahankan. Lanjutkan?');
+  if (!confirmed) return;
+  askDeletePin_().then((pin) => {
+    if (!pin) return;
+    const button = $('btnHardReset');
+    button.disabled = true;
+    $('hardResetStatus').textContent = 'Hard reset sedang berjalan...';
+    invokeServer('apiHardReset', [pin, accessToken], (result) => {
+      button.disabled = false;
+      $('hardResetStatus').textContent = result.message;
+      loadCounters();
+      loadHistory();
+    }, (error) => {
+      button.disabled = false;
+      $('hardResetStatus').textContent = `Hard reset gagal: ${error.message}`;
+    });
+  });
+});
+
+$('btnClearHistory').addEventListener('click', async () => {
+  if (!confirm('Hapus semua riwayat memo dan pindahkan file memo terkait ke Sampah Google Drive?')) return;
+  const pin = await askDeletePin_();
+  if (!pin) return;
+  const button = $('btnClearHistory');
+  button.disabled = true;
+  $('clearHistoryStatus').textContent = 'Menghapus seluruh riwayat memo...';
+  invokeServer('apiClearMemoHistory', [pin, accessToken], (result) => {
+    button.disabled = false;
+    $('clearHistoryStatus').textContent = result.message;
+    loadHistory();
+  }, (error) => {
+    button.disabled = false;
+    $('clearHistoryStatus').textContent = `Gagal menghapus riwayat: ${error.message}`;
+  });
+});
+
+function loadHistory() {
+  $('historyStatus').textContent = 'Memuat riwayat memo...';
+  invokeServer('apiGetMemoHistory', [accessToken], (history) => {
+    memoHistoryRecords = history;
+    historyPage = 0;
+    renderHistory();
+  }, (error) => {
+    $('historyStatus').textContent = `Gagal memuat riwayat: ${error.message}`;
+  });
+}
+
+function loadManpower() {
+  $('manpowerStatus').textContent = 'Memuat direktori manpower...';
+  invokeServer('apiGetManpower', [accessToken], (records) => {
+    manpowerRecords = records;
+    updateManpowerFilters_();
+    renderManpower();
+  }, (error) => {
+    manpowerRecords = [];
+    $('manpowerStatus').textContent = `Gagal memuat direktori manpower: ${error.message}`;
+    $('manpowerList').replaceChildren();
+  });
+}
+
+function updateManpowerFilters_() {
+  const selections = [
+    { id: 'rosterSkill', field: 'skill', label: 'Semua keahlian' },
+    { id: 'rosterProject', field: 'project', label: 'Semua proyek' }
+  ];
+  selections.forEach(({ id, field, label }) => {
+    const select = $(id);
+    const selected = select.value;
+    const values = Array.from(new Set(manpowerRecords.map((record) => record[field]).filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right, 'id'));
+    select.replaceChildren(new Option(label, ''));
+    values.forEach((value) => select.add(new Option(value, value)));
+    if (values.includes(selected)) select.value = selected;
+  });
+}
+
+function renderManpower() {
+  const query = $('rosterSearch').value.trim().toLocaleLowerCase('id');
+  const status = $('rosterStatus').value;
+  const skill = $('rosterSkill').value;
+  const project = $('rosterProject').value;
+  const startFrom = $('rosterStartFrom').value;
+  const startTo = $('rosterStartTo').value;
+  const records = manpowerRecords.filter((record) => {
+    const searchText = [record.name, record.project, record.department, record.skill, record.domicile]
+      .join(' ').toLocaleLowerCase('id');
+    return (!query || searchText.includes(query)) &&
+      (!status || record.status === status) &&
+      (!skill || record.skill === skill) &&
+      (!project || record.project === project) &&
+      (!startFrom || (record.startDate && record.startDate >= startFrom)) &&
+      (!startTo || (record.startDate && record.startDate <= startTo));
+  });
+  const sort = $('rosterSort').value;
+  records.sort((left, right) => {
+    if (sort === 'name') return left.name.localeCompare(right.name, 'id');
+    const leftDate = left.startDate || left.endDate || '';
+    const rightDate = right.startDate || right.endDate || '';
+    return (sort === 'oldest' ? leftDate.localeCompare(rightDate) : rightDate.localeCompare(leftDate)) ||
+      left.name.localeCompare(right.name, 'id');
+  });
+
+  const container = $('manpowerList');
+  container.replaceChildren();
+  $('manpowerStatus').textContent = `${records.length} dari ${manpowerRecords.length} personel. ${manpowerRecords.filter((record) => record.status === 'AKTIF').length} masih bekerja.`;
+  if (!records.length) {
+    container.textContent = 'Belum ada data yang sesuai filter.';
+    return;
+  }
+  const table = document.createElement('table');
+  const header = table.createTHead().insertRow();
+  ['Nama', 'Status', 'Proyek', 'Tanggal mulai', 'Tanggal selesai', 'Bidang', 'Keahlian', 'Domisili', 'Area kerja', 'Foreman', 'KTP', 'Memo terakhir', 'Aksi'].forEach((label) => {
+    const cell = document.createElement('th');
+    cell.textContent = label;
+    header.appendChild(cell);
+  });
+  const body = table.createTBody();
+  records.forEach((record) => {
+    const row = body.insertRow();
+    [
+      record.name,
+      record.status === 'AKTIF' ? 'Masih bekerja' : 'Tidak aktif',
+      record.project,
+      formatUiDate_(record.startDate),
+      formatUiDate_(record.endDate),
+      record.department,
+      record.skill,
+      record.domicile,
+      record.workArea,
+      record.foreman
+    ].forEach((value) => { row.insertCell().textContent = value || '—'; });
+    const ktpCell = row.insertCell();
+    if (record.ktpUrl) addHistoryLink_(ktpCell, record.ktpUrl, record.ktpName || 'Buka KTP');
+    else ktpCell.textContent = '—';
+    row.insertCell().textContent = record.memoNumber || 'Input manual';
+    const actionCell = row.insertCell();
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn red';
+    deleteButton.textContent = 'Hapus';
+    deleteButton.addEventListener('click', async () => {
+      if (!confirm(`Hapus seluruh data manpower ${record.name} dari proyek ${record.project}?`)) return;
+      const pin = await askDeletePin_();
+      if (!pin) return;
+      deleteButton.disabled = true;
+      invokeServer('apiDeleteManpower', [record.name, record.project, pin, accessToken], (result) => {
+        alert(result.message);
+        loadManpower();
+      }, (error) => {
+        deleteButton.disabled = false;
+        alert(`Gagal menghapus data manpower: ${error.message}`);
+      });
+    });
+    actionCell.appendChild(deleteButton);
+  });
+  container.appendChild(table);
+}
+
+['rosterSearch', 'rosterStatus', 'rosterSkill', 'rosterProject', 'rosterSort', 'rosterStartFrom', 'rosterStartTo']
+  .forEach((id) => $(id).addEventListener('input', renderManpower));
+['rosterStatus', 'rosterSkill', 'rosterProject', 'rosterSort', 'rosterStartFrom', 'rosterStartTo']
+  .forEach((id) => $(id).addEventListener('change', renderManpower));
+$('btnRefreshManpower').addEventListener('click', loadManpower);
+
+$('btnSaveManpower').addEventListener('click', () => {
+  const person = {
+    name: $('manualName').value.trim(),
+    status: $('manualStatus').value,
+    project: $('manualProject').value.trim(),
+    domicile: $('manualDomicile').value.trim(),
+    department: $('manualDepartment').value.trim(),
+    skill: $('manualSkill').value.trim(),
+    foreman: $('manualForeman').value.trim(),
+    workArea: $('manualWorkArea').value.trim(),
+    startDate: $('manualStartDate').value,
+    endDate: $('manualEndDate').value
+  };
+  const button = $('btnSaveManpower');
+  button.disabled = true;
+  $('manualStatusMessage').textContent = 'Menyimpan data personel...';
+  invokeServer('apiSaveManpower', [person, accessToken], (result) => {
+    button.disabled = false;
+    $('manualStatusMessage').textContent = result.message;
+    loadManpower();
+  }, (error) => {
+    button.disabled = false;
+    $('manualStatusMessage').textContent = `Gagal menyimpan: ${error.message}`;
+  });
+});
+
+function renderHistory() {
+  const container = $('historyList');
+  container.replaceChildren();
+  const query = $('historySearch').value.trim().toLocaleLowerCase('id');
+  const type = $('historyType').value;
+  const dateFrom = $('historyDateFrom').value;
+  const dateTo = $('historyDateTo').value;
+  const filtered = memoHistoryRecords.filter((record) => {
+    const search = `${record.number} ${record.project}`.toLocaleLowerCase('id');
+    return (!query || search.includes(query)) && (!type || record.type === type) &&
+      (!dateFrom || record.documentDate >= dateFrom) && (!dateTo || record.documentDate <= dateTo);
+  });
+  const pageCount = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
+  historyPage = Math.min(historyPage, pageCount - 1);
+  const pageRecords = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
+  $('historyStatus').textContent = filtered.length
+    ? `${filtered.length} berkas memo ditampilkan. Pilih thumbnail atau tombol aksi untuk membukanya.`
+    : '';
+  $('historyPageStatus').textContent = `Halaman ${historyPage + 1} dari ${pageCount}`;
+  $('historyPrev').disabled = historyPage <= 0;
+  $('historyNext').disabled = historyPage >= pageCount - 1;
+  if (!filtered.length) {
+    container.textContent = memoHistoryRecords.length ? 'Tidak ada memo yang cocok dengan pencarian atau filter.' : 'Belum ada memo dalam riwayat.';
+    return;
+  }
+  container.className = 'memo-history-list';
+  pageRecords.forEach((record) => {
+    const recordFiles = Array.isArray(record.files)
+      ? record.files.filter((file) => file && typeof file.name === 'string' && typeof file.url === 'string')
+      : [];
+    const card = document.createElement('article');
+    card.className = 'memo-history-card';
+    const previewLink = document.createElement('a');
+    previewLink.className = 'memo-history-preview';
+    previewLink.href = record.pdfUrl || record.sheetUrl || record.folderUrl || '#';
+    previewLink.target = '_blank';
+    previewLink.rel = 'noopener';
+    previewLink.setAttribute('aria-label', `Buka memo ${record.number}`);
+    const placeholder = document.createElement('span');
+    placeholder.className = 'memo-history-placeholder';
+    placeholder.textContent = record.type || 'MEMO';
+    previewLink.appendChild(placeholder);
+    const previewId = getDriveIdFromUrlUi_(record.pdfUrl || record.sheetUrl);
+    if (previewId) {
+      const thumbnail = document.createElement('img');
+      thumbnail.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(previewId) + '&sz=w480';
+      thumbnail.alt = `Thumbnail memo ${record.number}`;
+      thumbnail.addEventListener('load', () => { placeholder.hidden = true; });
+      thumbnail.addEventListener('error', () => { thumbnail.hidden = true; });
+      previewLink.appendChild(thumbnail);
+    }
+
+    const details = document.createElement('div');
+    details.className = 'memo-history-details';
+    const title = document.createElement('h3');
+    title.textContent = record.number || 'Memo';
+    details.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'memo-history-meta';
+    meta.textContent = `${TYPE_LABEL[record.type] || record.type} · ${record.project || 'Proyek tidak tersedia'} · Tanggal memo ${formatUiDate_(record.documentDate) || '—'} · Dibuat ${formatHistoryTimestamp_(record.createdAt)}`;
+    details.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'memo-history-actions';
+    appendHistoryButton_(actions, record.sheetUrl, 'Lihat Sheets', 'btn green');
+    if (record.pdfUrl) appendHistoryButton_(actions, record.pdfUrl, 'Lihat PDF', 'btn primary');
+    else {
+      const pdfButton = document.createElement('button');
+      pdfButton.type = 'button';
+      pdfButton.className = 'btn primary';
+      pdfButton.textContent = 'Buat PDF';
+      pdfButton.disabled = !record.sheetUrl;
+      pdfButton.title = record.sheetUrl ? 'Buat PDF dari spreadsheet memo' : 'Tidak ada spreadsheet sumber untuk membuat PDF';
+      pdfButton.addEventListener('click', () => {
+        pdfButton.disabled = true;
+        pdfButton.textContent = 'Membuat PDF...';
+        invokeServer('apiGenerateHistoryPdf', [record.number, record.rowIndex, accessToken], (result) => {
+          record.pdfUrl = result.pdfUrl;
+          renderHistory();
+          alert('PDF berhasil dibuat. Klik tombol Lihat PDF pada riwayat memo.');
+        }, (error) => {
+          pdfButton.disabled = false;
+          pdfButton.textContent = 'Buat PDF';
+          alert(`Gagal membuat PDF: ${error.message}`);
+        });
+      });
+      actions.appendChild(pdfButton);
+    }
+    appendHistoryButton_(actions, record.folderUrl, 'Folder Arsip', 'btn');
+    const ktpPdf = recordFiles.find((file) => /Lampiran-KTP\.pdf$/i.test(file.name));
+    if (ktpPdf) appendHistoryButton_(actions, ktpPdf.url, 'PDF KTP', 'btn');
+    const waDraft = removeInternalArchiveLinks_(record.waDraft || buildHistoryWhatsAppDraft_(record));
+    const waButton = document.createElement('a');
+    waButton.className = 'btn green';
+    waButton.href = 'https://wa.me/?text=' + encodeURIComponent(waDraft);
+    waButton.target = '_blank';
+    waButton.rel = 'noopener';
+    waButton.textContent = 'Draft WhatsApp';
+    actions.appendChild(waButton);
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn red';
+    deleteButton.textContent = 'Hapus Riwayat';
+    deleteButton.addEventListener('click', async () => {
+      if (!confirm(`Hapus riwayat memo ${record.number} dan pindahkan file terkait ke Sampah Google Drive?`)) return;
+      const pin = await askDeletePin_();
+      if (!pin) return;
+      deleteButton.disabled = true;
+      invokeServer('apiDeleteMemoHistory', [record.rowIndex, record.number, pin, accessToken], (result) => {
+        alert(result.message);
+        loadHistory();
+      }, (error) => {
+        deleteButton.disabled = false;
+        alert(`Gagal menghapus riwayat: ${error.message}`);
+      });
+    });
+    actions.appendChild(deleteButton);
+    details.appendChild(actions);
+
+    const attachments = recordFiles.filter((file) => /\.(jpe?g|png|webp)$/i.test(file.name));
+    if (attachments.length) {
+      const fileList = document.createElement('div');
+      fileList.className = 'memo-history-files';
+      fileList.append('Lampiran KTP: ');
+      attachments.forEach((file, index) => {
+        if (index) fileList.append(', ');
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = file.name;
+        fileList.appendChild(link);
+      });
+      details.appendChild(fileList);
+    }
+
+    card.append(previewLink, details);
+    container.appendChild(card);
+  });
+}
+
+['historySearch', 'historyType', 'historyDateFrom', 'historyDateTo'].forEach((id) => {
+  $(id).addEventListener(id === 'historySearch' ? 'input' : 'change', () => { historyPage = 0; renderHistory(); });
+});
+$('historyPrev').addEventListener('click', () => { historyPage = Math.max(0, historyPage - 1); renderHistory(); });
+$('historyNext').addEventListener('click', () => { historyPage += 1; renderHistory(); });
+
+function appendHistoryButton_(container, url, label, className) {
+  if (!url) return;
+  const button = document.createElement('a');
+  button.className = className;
+  button.href = url;
+  button.target = '_blank';
+  button.rel = 'noopener';
+  button.textContent = label;
+  container.appendChild(button);
+}
+
+function getDriveIdFromUrlUi_(url) {
+  const match = String(url || '').match(/\/(?:d|folders)\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
+function buildHistoryWhatsAppDraft_(record) {
+  return `Yth. Pak Juwana (PM),\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal pengajuan: ${formatUiDate_(record.documentDate)}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.`;
+}
+
+function removeInternalArchiveLinks_(draft) {
+  return String(draft || '')
+    .replace(/\n{0,2}Link Spreadsheet:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{0,2}Link PDF:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{0,2}Folder Arsip:\s*\n[^\r\n]*/gi, '')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+function addHistoryLink_(container, url, label) {
+  if (!url) return;
+  if (container.childNodes.length) container.appendChild(document.createTextNode(' '));
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = label;
+  container.appendChild(link);
+}
+
+function formatHistoryTimestamp_(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+$('btnRefreshHistory').addEventListener('click', loadHistory);
+
+$('btnStatus').addEventListener('click', () => {
+  loadCounters();
+});
+
+$('btnSetWebhook').addEventListener('click', () => {
+  if (!confirm('Hubungkan bot Telegram pribadi ke aplikasi ini sekarang?')) return;
+  $('btnSetWebhook').disabled = true;
+  invokeServer('apiSetWebhook', [accessToken], (message) => {
+    $('btnSetWebhook').disabled = false;
+    $('counterStatus').textContent = message;
+    loadTelegramStatus_();
+  }, (error) => {
+    $('btnSetWebhook').disabled = false;
+    $('counterStatus').textContent = `Gagal menghubungkan bot: ${error.message}`;
+  });
+});
+
+function loadTelegramStatus_() {
+  $('telegramStatus').textContent = 'Memeriksa koneksi Telegram...';
+  invokeServer('apiTelegramStatus', [accessToken], (status) => {
+    const lines = [
+      `Bot: @${status.botUsername || '(username belum tersedia)'}`,
+      `URL webhook terdaftar untuk deployment ini: ${status.webhookActive ? 'Ya' : 'Tidak'}`,
+      `OWNER_TELEGRAM_ID: ${status.ownerConfigured ? 'sudah diisi' : 'BELUM DIISI'}`,
+      `Pesan tertunda: ${status.pendingUpdates}`
+    ];
+    if (status.lastError) lines.push(`Error Telegram terakhir: ${status.lastError}`);
+    else lines.push('Error webhook terbaru: tidak ada.');
+    if (!status.ownerConfigured) lines.push('Kirim /start ke bot untuk melihat ID Telegram, lalu simpan ID itu sebagai OWNER_TELEGRAM_ID.');
+    $('telegramStatus').textContent = lines.join('\n');
+  }, (error) => {
+    $('telegramStatus').textContent = `Diagnostik gagal: ${error.message}`;
+  });
+}
+
+$('btnTelegramStatus').addEventListener('click', loadTelegramStatus_);
+
+addRow('PN');
+addRow('PGOut');
+addRow('PGIn');
+addRow('SP');
+setDefaultDocumentDates();
+const telegramApp = window.Telegram && window.Telegram.WebApp;
+if (telegramApp) {
+  telegramApp.ready();
+  telegramApp.expand();
+}
+startApplication();
+</script>
+<script>
+let rpbState_ = { categories: [], items: [], statuses: [], history: [], nextSequence: 1 };
+let rpbRevisionOf_ = '';
+let rpbDraftTimer_ = null;
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const button = target && target.closest('button');
+  if (!button) return;
+  try {
+    if (button.id === 'rpbAddLine') addRpbLine_();
+    else if (button.id === 'rpbSaveDraft') saveRpbDraft_();
+    else if (button.id === 'rpbSubmit') submitRpb_();
+    else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
+    else if (button.id === 'rpbAddMaster') addRpbMasterItem_();
+    else if (button.id === 'rpbCopyWa') {
+      navigator.clipboard.writeText($('rpbWaDraft').textContent)
+        .then(() => { $('rpbDraftStatus').textContent = 'Draf WhatsApp disalin.'; })
+        .catch((error) => { $('rpbDraftStatus').textContent = `Draf WhatsApp gagal disalin: ${error.message}`; });
+    } else if (button.matches('[data-rpb-remove]')) {
+      button.closest('tr').remove(); updateRpbTotal_(); scheduleRpbDraft_();
+    } else if (button.matches('[data-rpb-price]')) saveRpbPrice_(button.dataset.rpbPrice);
+    else if (button.matches('[data-rpb-delete]')) deleteRpbItem_(button.dataset.rpbDelete);
+    else if (button.matches('[data-rpb-reactivate]')) setRpbItemActive_(button.dataset.rpbReactivate, true);
+    else if (button.matches('[data-rpb-track]')) saveRpbTracking_(button.dataset.rpbTrack);
+    else if (button.matches('[data-rpb-revise]')) beginRpbRevision_(button.dataset.rpbRevise);
+    else if (button.matches('[data-rpb-copy]')) copyRpbToDraft_(button.dataset.rpbCopy);
+  } catch (error) { showApplicationError_('Tombol RPB gagal dijalankan', error); }
+});
+
+function loadRpbData_() {
+  invokeServer('apiGetRpbData', [accessToken], (data) => {
+    rpbState_ = data;
+    $('rpbMasterLink').href = data.masterUrl || '#';
+    $('rpbMasterLink').hidden = !data.masterUrl;
+    ['rpbCategoryFilter', 'rpbNewCategory', 'rpbMasterCategoryFilter'].forEach((id) => {
+      const select = $(id);
+      const keepAll = id !== 'rpbNewCategory';
+      const previousValue = select.value;
+      select.innerHTML = keepAll ? '<option value="">Semua kategori</option>' : '';
+      data.categories.forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        select.appendChild(option);
+      });
+      if (Array.from(select.options).some((option) => option.value === previousValue)) select.value = previousValue;
+    });
+    $('rpbMasterCategoryFilter').onchange = renderRpbMaster_;
+    renderRpbMaster_();
+    renderRpbHistory_();
+    if (!$('rpbItemsTable').tBodies[0].rows.length) {
+      invokeServer('apiLoadRpbDraft', [accessToken], (draft) => {
+        if (draft) populateRpbForm_(draft);
+        else addRpbLine_();
+      }, () => addRpbLine_());
+    } else refreshRpbItemChoices_();
+    $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
+  }, (error) => { $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
+}
+
+function addRpbLine_(data = {}) {
+  const row = $('rpbItemsTable').tBodies[0].insertRow();
+  const categoryCell = row.insertCell();
+  const category = document.createElement('select');
+  category.dataset.rpbField = 'category';
+  category.innerHTML = '<option value="">Pilih kategori</option>';
+  rpbState_.categories.forEach((value) => { const o = new Option(value, value); category.add(o); });
+  category.value = data.category || $('rpbCategoryFilter').value || '';
+  categoryCell.appendChild(category);
+  const itemCell = row.insertCell();
+  const item = document.createElement('select');
+  item.dataset.rpbField = 'itemId';
+  itemCell.appendChild(item);
+  const quantity = document.createElement('input');
+  quantity.type = 'number'; quantity.min = '0.01'; quantity.step = 'any'; quantity.placeholder = 'Jumlah'; quantity.dataset.rpbField = 'quantity'; quantity.value = data.quantity || '';
+  row.insertCell().appendChild(quantity);
+  const unit = document.createElement('input'); unit.readOnly = true; unit.dataset.rpbField = 'unit'; row.insertCell().appendChild(unit);
+  const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.dataset.rpbField = 'unitPrice'; row.insertCell().appendChild(price);
+  const week = document.createElement('select'); week.dataset.rpbField = 'week'; week.innerHTML = '<option value="M1-M2">M1-M2</option><option value="M3-M4">M3-M4</option>'; week.value = data.week || 'M1-M2'; row.insertCell().appendChild(week);
+  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn red'; remove.textContent = 'Hapus baris'; remove.dataset.rpbRemove = '1'; row.insertCell().appendChild(remove);
+  category.addEventListener('change', () => { fillRpbItemOptions_(row, data.itemId || ''); scheduleRpbDraft_(); });
+  item.addEventListener('change', () => { applyRpbSelectedItem_(row); scheduleRpbDraft_(); });
+  [quantity, price, week].forEach((el) => el.addEventListener('input', () => { updateRpbTotal_(); scheduleRpbDraft_(); }));
+  fillRpbItemOptions_(row, data.itemId || '');
+  if (data.itemId) { item.value = data.itemId; applyRpbSelectedItem_(row, data.unitPrice); }
+  updateRpbTotal_();
+}
+
+function fillRpbItemOptions_(row, selectedId) {
+  const category = row.querySelector('[data-rpb-field="category"]').value;
+  const select = row.querySelector('[data-rpb-field="itemId"]');
+  const active = rpbState_.items.filter((item) => (item.active || item.id === selectedId) && (!category || item.category === category));
+  select.innerHTML = '<option value="">Pilih barang</option>';
+  active.forEach((item) => { const inactive = !item.active; const o = new Option(`${item.name}${inactive ? ' (nonaktif; dari RPB lama)' : ''} — Rp ${Number(item.price || 0).toLocaleString('id-ID')}`, item.id); select.add(o); });
+  if (selectedId && active.some((item) => item.id === selectedId)) select.value = selectedId;
+  const priceInput = row.querySelector('[data-rpb-field="unitPrice"]');
+  const preservePrice = select.value === selectedId && selectedId ? priceInput.value : undefined;
+  applyRpbSelectedItem_(row, preservePrice);
+}
+
+function refreshRpbItemChoices_() {
+  document.querySelectorAll('#rpbItemsTable tbody tr').forEach((row) => fillRpbItemOptions_(row, row.querySelector('[data-rpb-field="itemId"]').value));
+}
+
+function applyRpbSelectedItem_(row, explicitPrice) {
+  const item = rpbState_.items.find((candidate) => candidate.id === row.querySelector('[data-rpb-field="itemId"]').value);
+  const category = row.querySelector('[data-rpb-field="category"]');
+  if (item && Array.from(category.options).some((option) => option.value === item.category)) category.value = item.category;
+  row.querySelector('[data-rpb-field="unit"]').value = item ? item.unit : '';
+  const price = row.querySelector('[data-rpb-field="unitPrice"]');
+  if (explicitPrice != null) price.value = explicitPrice;
+  else if (item) price.value = item.price == null || item.price === '' ? 0 : item.price;
+  else price.value = '';
+  updateRpbTotal_();
+}
+
+function applyRpbCategoryFilter_() {
+  const filter = $('rpbCategoryFilter').value;
+  document.querySelectorAll('#rpbItemsTable tbody tr').forEach((row) => {
+    const itemId = row.querySelector('[data-rpb-field="itemId"]').value;
+    const selectedItem = rpbState_.items.find((item) => item.id === itemId);
+    const category = row.querySelector('[data-rpb-field="category"]');
+    if (selectedItem) category.value = selectedItem.category;
+    else if (filter) category.value = filter;
+    fillRpbItemOptions_(row, itemId);
+  });
+}
+
+function collectRpbForm_() {
+  const items = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).map((row) => ({
+    itemId: row.querySelector('[data-rpb-field="itemId"]').value,
+    category: row.querySelector('[data-rpb-field="category"]').value,
+    quantity: row.querySelector('[data-rpb-field="quantity"]').value,
+    unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
+    week: row.querySelector('[data-rpb-field="week"]').value
+  })).filter((item) => item.itemId);
+  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, items };
+}
+
+function populateRpbForm_(data) {
+  $('rpbRequestDate').value = data.requestDate || todayJakarta_();
+  $('rpbLpdMonth').value = data.lpdReceivedMonth || '';
+  $('rpbLpdConfirmed').checked = false;
+  $('rpbItemsTable').tBodies[0].innerHTML = '';
+  (data.items || []).forEach((item) => addRpbLine_(item));
+  if (!data.items || !data.items.length) addRpbLine_();
+  rpbRevisionOf_ = data.revisionOf || '';
+}
+
+function todayJakarta_() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function scheduleRpbDraft_() {
+  clearTimeout(rpbDraftTimer_);
+  rpbDraftTimer_ = setTimeout(saveRpbDraft_, 1000);
+}
+
+function saveRpbDraft_() {
+  const payload = collectRpbForm_();
+  if (!payload.requestDate) payload.requestDate = todayJakarta_();
+  $('rpbDraftStatus').textContent = 'Menyimpan draf...';
+  invokeServer('apiSaveRpbDraft', [payload, accessToken], () => { $('rpbDraftStatus').textContent = 'Draf tersimpan otomatis.'; }, (error) => { $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`; });
+}
+
+function updateRpbTotal_() {
+  const total = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).reduce((sum, row) => sum + (Number(row.querySelector('[data-rpb-field="quantity"]').value) || 0) * (Number(row.querySelector('[data-rpb-field="unitPrice"]').value) || 0), 0);
+  $('rpbTotal').textContent = `Perkiraan total: Rp ${total.toLocaleString('id-ID')}`;
+}
+
+function submitRpb_() {
+  $('rpbFormError').textContent = '';
+  const payload = collectRpbForm_();
+  if (!payload.requestDate || !payload.items.length) { $('rpbFormError').textContent = 'Isi tanggal pengajuan dan pilih minimal satu barang.'; return; }
+  const invalidQuantity = payload.items.find((item) => !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0);
+  if (invalidQuantity) { $('rpbFormError').textContent = 'Isi jumlah yang lebih besar dari nol untuk setiap barang.'; return; }
+  const invalidPrice = payload.items.find((item) => item.unitPrice !== '' && (!Number.isFinite(Number(item.unitPrice)) || Number(item.unitPrice) < 0));
+  if (invalidPrice) { $('rpbFormError').textContent = 'Harga acuan harus berupa angka nol atau lebih.'; return; }
+  if (!payload.lpdReceivedMonth || !$('rpbLpdConfirmed').checked) { $('rpbFormError').textContent = 'RPB baru dapat dibuat setelah LPD bulan sebelumnya diterima dan dikonfirmasi.'; return; }
+  const expectedPrev = new Date(`${payload.requestDate.slice(0, 7)}-01T12:00:00`); expectedPrev.setMonth(expectedPrev.getMonth() - 1);
+  const prevMonth = `${expectedPrev.getFullYear()}-${String(expectedPrev.getMonth() + 1).padStart(2, '0')}`;
+  if (payload.lpdReceivedMonth !== prevMonth) { $('rpbFormError').textContent = `Pilih bulan LPD sebelumnya (${prevMonth}).`; return; }
+  clearTimeout(rpbDraftTimer_);
+  const wasRevision = Boolean(rpbRevisionOf_);
+  const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
+  invokeServer('apiCreateRpb', [payload, accessToken, rpbRevisionOf_], (result) => {
+    button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
+    $('rpbResult').hidden = false; $('rpbResultNumber').textContent = `Nomor: ${result.number}${wasRevision ? ' (revisi baru; nomor versi sebelumnya tetap)' : ''}`;
+    $('rpbExcelLink').href = result.excelUrl; $('rpbPdfLink').href = result.pdfUrl; $('rpbSheetLink').href = result.spreadsheetUrl; $('rpbFolderLink').href = result.folderUrl; $('rpbWaDraft').textContent = result.waDraft;
+    rpbRevisionOf_ = '';
+    $('rpbItemsTable').tBodies[0].replaceChildren();
+    $('rpbLpdMonth').value = '';
+    $('rpbLpdConfirmed').checked = false;
+    $('rpbFormError').textContent = '';
+    loadRpbData_();
+  }, (error) => { button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan'; $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`; });
+}
+
+function renderRpbMaster_() {
+  const container = $('rpbMasterList');
+  const selectedCategory = $('rpbMasterCategoryFilter').value;
+  const table = document.createElement('table');
+  table.innerHTML = '<thead><tr><th>Kategori</th><th>Nama barang</th><th>Satuan</th><th>Harga acuan</th><th>Status</th><th>Aksi</th></tr></thead>';
+  const body = table.createTBody();
+  const items = rpbState_.items.filter((item) => !selectedCategory || item.category === selectedCategory);
+  if (!items.length) {
+    const row = body.insertRow();
+    const cell = row.insertCell();
+    cell.colSpan = 6;
+    cell.textContent = 'Tidak ada barang pada kategori ini.';
+  }
+  items.forEach((item) => {
+    const row = body.insertRow();
+    [item.category, item.name, item.unit].forEach((value) => row.insertCell().textContent = value);
+    const priceCell = row.insertCell(); const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.value = item.price == null || item.price === '' ? 0 : item.price; price.dataset.priceInput = item.id; priceCell.appendChild(price);
+    row.insertCell().textContent = item.active ? 'Aktif' : 'Nonaktif';
+    const actions = row.insertCell();
+    const save = document.createElement('button'); save.className = 'btn'; save.type = 'button'; save.textContent = 'Simpan harga'; save.dataset.rpbPrice = item.id; actions.appendChild(save);
+    if (item.active) { const del = document.createElement('button'); del.className = 'btn red'; del.type = 'button'; del.textContent = 'Nonaktifkan'; del.dataset.rpbDelete = item.id; actions.appendChild(del); }
+    else { const on = document.createElement('button'); on.className = 'btn green'; on.type = 'button'; on.textContent = 'Aktifkan kembali'; on.dataset.rpbReactivate = item.id; actions.appendChild(on); }
+  });
+  container.replaceChildren(table);
+}
+
+function addRpbMasterItem_() {
+  const payload = { category: $('rpbNewCategory').value, name: $('rpbNewName').value, unit: $('rpbNewUnit').value, price: $('rpbNewPrice').value, note: $('rpbNewNote').value };
+  $('rpbMasterStatus').textContent = 'Menambahkan barang...';
+  invokeServer('apiAddRpbMasterItem', [payload, accessToken], (result) => {
+    $('rpbMasterStatus').textContent = result.message; $('rpbNewName').value = ''; $('rpbNewUnit').value = ''; $('rpbNewPrice').value = ''; $('rpbNewNote').value = ''; loadRpbData_();
+  }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+}
+
+function saveRpbPrice_(id) {
+  const input = document.querySelector(`[data-price-input="${CSS.escape(id)}"]`);
+  const item = rpbState_.items.find((entry) => entry.id === id);
+  const next = input.value;
+  const changedExisting = item && item.price !== '' && (next === '' || String(Number(item.price)) !== String(Number(next)));
+  const send = (pin) => invokeServer('apiSaveRpbMasterPrice', [id, next, pin || '', accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+  if (!changedExisting) { send(''); return; }
+  askDeletePin_('perubahan harga').then((pin) => { if (pin) send(pin); });
+}
+
+function deleteRpbItem_(id) {
+  if (!confirm('Nonaktifkan barang ini dari pilihan pengajuan baru? Riwayat lama tetap disimpan.')) return;
+  askDeletePin_('penonaktifan barang').then((pin) => { if (!pin) return; invokeServer('apiDeleteRpbMasterItem', [id, pin, accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; }); });
+}
+
+function setRpbItemActive_(id, active) {
+  const run = (pin) => invokeServer('apiSetRpbMasterItemActive', [id, active, pin || '', accessToken], (result) => { $('rpbMasterStatus').textContent = result.message; loadRpbData_(); }, (error) => { $('rpbMasterStatus').textContent = error.message; });
+  if (active) run(''); else askDeletePin_('penonaktifan barang').then((pin) => { if (pin) run(pin); });
+}
+
+function renderRpbHistory_() {
+  const root = $('rpbHistoryList'); root.innerHTML = '';
+  if (!rpbState_.history.length) { root.textContent = 'Belum ada riwayat RPB.'; return; }
+  rpbState_.history.forEach((record) => {
+    const card = document.createElement('article'); card.className = 'card rpb-history-card';
+    const title = document.createElement('h3'); title.textContent = record.number; card.appendChild(title);
+    const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);
+    const actions = document.createElement('div'); actions.className = 'actions';
+    [['excelUrl','Excel'],['pdfUrl','PDF'],['spreadsheetUrl','Google Sheets'],['folderUrl','Folder Arsip']].forEach(([key,label]) => { if (!record[key]) return; const a=document.createElement('a');a.className='btn';a.href=record[key];a.target='_blank';a.rel='noopener';a.textContent=label;actions.appendChild(a); });
+    const revise = document.createElement('button'); revise.type='button'; revise.className='btn primary'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
+    const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy); card.appendChild(actions);
+    const track = document.createElement('div'); track.className='rpb-tracking-row';
+    const status = document.createElement('select'); status.dataset.status=record.id; rpbState_.statuses.forEach((value)=>status.add(new Option(value,value))); status.value=record.status; track.appendChild(status);
+    const note=document.createElement('input');note.placeholder='Catatan tracking';note.dataset.note=record.id;track.appendChild(note);
+    const evidence=document.createElement('input');evidence.placeholder='Link bukti (opsional)';evidence.dataset.evidence=record.id;track.appendChild(evidence);
+    const save=document.createElement('button');save.type='button';save.className='btn';save.textContent='Simpan status';save.dataset.rpbTrack=record.id;track.appendChild(save);card.appendChild(track);
+    (record.tracking||[]).forEach((entry)=>{const line=document.createElement('p');line.className='muted';line.textContent=`${new Date(entry.at).toLocaleString('id-ID')} — ${entry.status}${entry.note ? ': '+entry.note : ''}`;if(entry.evidenceUrl){line.append(' ');const a=document.createElement('a');a.href=entry.evidenceUrl;a.target='_blank';a.rel='noopener';a.textContent='Bukti';line.appendChild(a);}card.appendChild(line);});
+    root.appendChild(card);
+  });
+}
+
+function saveRpbTracking_(id) {
+  const status=document.querySelector(`[data-status="${CSS.escape(id)}"]`).value;
+  const note=document.querySelector(`[data-note="${CSS.escape(id)}"]`).value;
+  const evidence=document.querySelector(`[data-evidence="${CSS.escape(id)}"]`).value;
+  invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,'',accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+}
+
+function beginRpbRevision_(id) {
+  const record=rpbState_.history.find((entry)=>entry.id===id);if(!record)return;
+  populateRpbForm_(record.data);rpbRevisionOf_=id;$('rpbResult').hidden=true;$('rpbFormError').textContent=`Mode revisi aktif: revisi lama tetap tersimpan. Nomor baru akan memakai urutan yang sama dengan Rev berikutnya.`;$('rpbSubmit').textContent='Simpan Revisi RPB';window.scrollTo({top:0,behavior:'smooth'});
+  scheduleRpbDraft_();
+}
+
+function copyRpbToDraft_(id) {
+  const record = rpbState_.history.find((entry) => entry.id === id);
+  if (!record) return;
+  populateRpbForm_(record.data);
+  rpbRevisionOf_ = '';
+  const today = todayJakarta_();
+  $('rpbRequestDate').value = today;
+  const [year, month] = today.split('-').map(Number);
+  const previous = new Date(year, month - 2, 1, 12);
+  $('rpbLpdMonth').value = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
+  $('rpbLpdConfirmed').checked = false;
+  $('rpbResult').hidden = true;
+  $('rpbFormError').textContent = 'Salinan RPB dimuat sebagai draf baru. Periksa barang, tanggal, dan konfirmasi LPD sebelum mengajukan.';
+  $('rpbSubmit').textContent = 'Buat RPB / Kirim Pengajuan';
+  scheduleRpbDraft_();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('change', (event) => {
+  if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
+  if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
+  if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
+});
+
+</script>
+</body>
+</html>
