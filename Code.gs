@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.16.1',
+  version: '2026.10.16.2',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -152,19 +152,20 @@ function apiCreateMemo(payload, token, requestId) {
     try {
       const folder = getArchiveFolder_(validated.projectCode, period);
       const imageFiles = saveKtpImages_(validated, folder, number, createdFileIds);
-      const workingSpreadsheet = createSpreadsheet_(validated, number, folder, imageFiles, createdFileIds);
-      const sheet = validated.outputs.spreadsheet ? workingSpreadsheet : null;
+      const workingSpreadsheetFile = createSpreadsheet_(validated, number, folder, imageFiles, createdFileIds);
+      const workingSpreadsheet = SpreadsheetApp.openById(workingSpreadsheetFile.getId());
+      const sheet = validated.outputs.spreadsheet ? workingSpreadsheetFile : null;
       const memoSheet = workingSpreadsheet.getSheets()[0];
       const pdf = validated.outputs.pdf
-        ? createPdf_(workingSpreadsheet, number, folder, createdFileIds, memoSheet, false)
+        ? createPdf_(workingSpreadsheetFile, number, folder, createdFileIds, memoSheet, false)
         : null;
       const ktpSheet = workingSpreadsheet.getSheetByName('Lampiran KTP');
       const ktpPdf = validated.outputs.pdf && ktpSheet
-        ? createPdf_(workingSpreadsheet, number, folder, createdFileIds, ktpSheet, true, '-Lampiran-KTP')
+        ? createPdf_(workingSpreadsheetFile, number, folder, createdFileIds, ktpSheet, true, '-Lampiran-KTP')
         : null;
       if (!sheet) {
-        workingSpreadsheet.setTrashed(true);
-        createdFileIds.splice(createdFileIds.indexOf(workingSpreadsheet.getId()), 1);
+        workingSpreadsheetFile.setTrashed(true);
+        createdFileIds.splice(createdFileIds.indexOf(workingSpreadsheetFile.getId()), 1);
       }
 
       const result = {
@@ -266,7 +267,9 @@ function apiGetMemoHistory(token) {
       number: String(row[1]),
       type: String(row[2]),
       project: String(row[3]),
-      documentDate: String(row[4]),
+      documentDate: row[4] instanceof Date
+        ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd')
+        : String(row[4] || ''),
       sheetUrl: String(row[5] || ''),
       pdfUrl: String(row[6] || ''),
       folderUrl: String(row[7] || ''),

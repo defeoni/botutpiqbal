@@ -191,7 +191,9 @@ function buildWhatsAppDraft_(number, project, subject, date, recipient, data, li
 
 function formatUiDate_(value) {
   if (!value) return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return '';
   const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     day: '2-digit',
@@ -762,6 +764,9 @@ function renderHistory() {
   }
   container.className = 'memo-history-list';
   pageRecords.forEach((record) => {
+    const recordFiles = Array.isArray(record.files)
+      ? record.files.filter((file) => file && typeof file.name === 'string' && typeof file.url === 'string')
+      : [];
     const card = document.createElement('article');
     card.className = 'memo-history-card';
     const previewLink = document.createElement('a');
@@ -821,7 +826,7 @@ function renderHistory() {
       actions.appendChild(pdfButton);
     }
     appendHistoryButton_(actions, record.folderUrl, 'Folder Arsip', 'btn');
-    const ktpPdf = (record.files || []).find((file) => /Lampiran-KTP\.pdf$/i.test(file.name));
+    const ktpPdf = recordFiles.find((file) => /Lampiran-KTP\.pdf$/i.test(file.name));
     if (ktpPdf) appendHistoryButton_(actions, ktpPdf.url, 'PDF KTP', 'btn');
     const waDraft = record.waDraft || buildHistoryWhatsAppDraft_(record);
     const waButton = document.createElement('a');
@@ -851,9 +856,7 @@ function renderHistory() {
     actions.appendChild(deleteButton);
     details.appendChild(actions);
 
-    const attachments = Array.isArray(record.files)
-      ? record.files.filter((file) => /\.(jpe?g|png|webp)$/i.test(file.name))
-      : [];
+    const attachments = recordFiles.filter((file) => /\.(jpe?g|png|webp)$/i.test(file.name));
     if (attachments.length) {
       const fileList = document.createElement('div');
       fileList.className = 'memo-history-files';
