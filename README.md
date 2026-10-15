@@ -50,9 +50,10 @@ Script.
 - Telegram `/start` menampilkan sambutan dan tombol untuk membuka website,
   formulir memo, jenis memo, dan status nomor dokumen.
   Foto KTP menjadi sheet kedua `Lampiran KTP` pada spreadsheet memo.
-- Foto KTP dipilih per baris personel, diberi nama khusus, disimpan sebagai
-  file privat di folder arsip, dan ditampilkan dua kolom pada sheet kedua
-  `Lampiran KTP`.
+- Foto KTP JPG/PNG dipilih per baris personel, diunggah sebagai file asli tanpa
+  kompresi (maksimal 2 MB per foto), diberi nama khusus, dan disimpan di folder
+  arsip. Sheet `Lampiran KTP` dan PDF terpisah menampilkan dua kartu kiri-kanan
+  pada halaman portrait.
 - Ukuran font pada isi lembar memo diseragamkan menjadi 12. Perubahan pada
   desain/template Google Sheets sumber akan dipakai oleh memo baru, kecuali
   sel data yang memang diisi otomatis oleh aplikasi.
@@ -61,8 +62,8 @@ Script.
 - Memo PN, PG, dan SP dibuat dari salinan template baku masing-masing. Format,
   warna, logo, dan tanda tangan pada template dipertahankan; data header dan
   jumlah baris personel diisi oleh aplikasi.
-- Maksimal 30 foto KTP per memo. Setiap foto maksimal 5 MB sebelum kompresi
-  dan 750 KB setelah kompresi.
+- Maksimal 30 foto KTP per memo. Setiap foto maksimal 2 MB tanpa kompresi
+  karena batas gambar yang dapat dimasukkan ke Google Sheets.
 - Direktori manpower tersimpan di spreadsheet terpisah bernama
   `Data Manpower UTP`; hard reset arsip memo tidak menghapus direktori ini.
 - Aplikasi mengelompokkan catatan berdasarkan nama lengkap dan proyek.

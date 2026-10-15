@@ -262,7 +262,7 @@ function addRow(kind, values = {}) {
   ktpFileCell.className = 'ktp-cell';
   const ktpFile = document.createElement('input');
   ktpFile.type = 'file';
-  ktpFile.accept = 'image/png,image/jpeg,image/webp';
+  ktpFile.accept = 'image/png,image/jpeg';
   ktpFile.dataset.ktpFile = 'true';
   ktpFile.setAttribute('aria-label', 'Pilih foto KTP personel ini');
   ktpFile.addEventListener('change', handleKtpFileSelection_);
@@ -301,10 +301,10 @@ function readRows(kind) {
       });
       const fileInput = row.querySelector('input[data-ktp-file]');
       if (fileInput) {
-        if (fileInput.files.length && !fileInput.dataset.base64) {
-          throw new Error('Tunggu sampai kompresi foto KTP selesai sebelum membuat memo.');
+        if (fileInput.files.length && !fileInput.dataset.fileId) {
+          throw new Error('Tunggu sampai unggahan foto KTP selesai sebelum membuat memo.');
         }
-        result.ktpBase64 = fileInput.dataset.base64 || '';
+        result.ktpFileId = fileInput.dataset.fileId || '';
       }
       return result;
     })
@@ -320,36 +320,18 @@ function header(prefix) {
 }
 
 let uploadsInProgress = 0;
-function compressKtpImage_(file) {
+function readKtpImage_(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error(`Gagal membaca ${file.name}.`));
-    reader.onload = () => {
-      const image = new Image();
-      image.onerror = () => reject(new Error(`Foto ${file.name} tidak dapat dibuka.`));
-      image.onload = () => {
-        const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext('2d');
-        if (!context) {
-          reject(new Error(`Browser tidak dapat memproses foto ${file.name}.`));
-          return;
-        }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
-          const base64 = canvas.toDataURL('image/jpeg', quality);
-          if ((base64.length - base64.indexOf(',') - 1) * 0.75 <= 700 * 1024) {
-            resolve(base64);
-            return;
-          }
-        }
-        reject(new Error(`Foto ${file.name} tidak dapat dikompresi di bawah 700 KB.`));
-      };
-      image.src = reader.result;
-    };
+    reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
+  });
+}
+
+function uploadKtpImage_(dataUrl, fileName) {
+  return new Promise((resolve, reject) => {
+    invokeServer('apiUploadKtpImage', [dataUrl, fileName, accessToken], resolve, reject);
   });
 }
 
@@ -359,7 +341,7 @@ async function handleKtpFileSelection_(event) {
   input.dataset.uploadVersion = String(uploadVersion);
   const row = input.closest('tr');
   const help = row.querySelector('.ktp-help');
-  input.dataset.base64 = '';
+  input.dataset.fileId = '';
   help.textContent = '';
   $('formError').textContent = '';
   const file = input.files && input.files[0];
@@ -376,24 +358,25 @@ async function handleKtpFileSelection_(event) {
     $('formError').textContent = 'Maksimal 30 foto KTP per memo.';
     return;
   }
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+  if (!/^image\/(jpeg|png)$/.test(file.type)) {
     input.value = '';
-    $('formError').textContent = 'Format foto KTP harus JPG, PNG, atau WEBP.';
+    $('formError').textContent = 'Format foto KTP harus JPG atau PNG.';
     return;
   }
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > 2 * 1024 * 1024) {
     input.value = '';
-    $('formError').textContent = 'Ukuran file foto KTP sebelum kompresi maksimal 5 MB.';
+    $('formError').textContent = 'Ukuran foto asli maksimal 2 MB. Foto tidak dikompres.';
     return;
   }
   uploadsInProgress += 1;
   $('btnSubmit').disabled = true;
-  help.textContent = 'Mengompresi foto...';
+  help.textContent = 'Mengunggah foto asli tanpa kompresi...';
   try {
-    const compressed = await compressKtpImage_(file);
+    const dataUrl = await readKtpImage_(file);
+    const uploaded = await uploadKtpImage_(dataUrl, file.name);
     if (input.dataset.uploadVersion === String(uploadVersion)) {
-      input.dataset.base64 = compressed;
-      help.textContent = 'Foto siap dilampirkan.';
+      input.dataset.fileId = uploaded.fileId;
+      help.textContent = 'Foto asli siap dilampirkan tanpa kompresi.';
     }
   } catch (error) {
     if (input.dataset.uploadVersion === String(uploadVersion)) {
@@ -408,7 +391,7 @@ async function handleKtpFileSelection_(event) {
 }
 
 function buildPayload() {
-  if (uploadsInProgress) throw new Error('Tunggu sampai semua foto KTP selesai dikompresi.');
+  if (uploadsInProgress) throw new Error('Tunggu sampai semua foto KTP selesai diunggah.');
   const typeKey = currentType;
   if (!['PN', 'PG', 'SP'].includes(typeKey)) throw new Error('Pilih jenis memo sebelum membuat dokumen.');
   const payload = {
@@ -434,7 +417,7 @@ function buildPayload() {
   const people = typeKey === 'PG' ? [...(payload.workersOut || []), ...(payload.workersIn || [])] : payload.workers || [];
   if (!people.length) throw new Error('Isi minimal satu baris personel sebelum membuat memo.');
   if (people.some((person) => !person.nama)) throw new Error('Setiap baris personel harus memiliki nama.');
-  if (people.filter((person) => person.ktpBase64).length > 30) throw new Error('Maksimal 30 foto KTP per memo.');
+  if (people.filter((person) => person.ktpFileId || person.ktpBase64).length > 30) throw new Error('Maksimal 30 foto KTP per memo.');
   return payload;
 }
 
@@ -463,7 +446,7 @@ $('btnSubmit').addEventListener('click', () => {
     `Tanggal: ${formatUiDate_(pendingPayload.tanggalDoc)} — efektif ${formatUiDate_(pendingPayload.berlakuEfektif)}`,
     `Ditujukan kepada: ${pendingPayload.ditujukan}`,
     `Personel: ${count}`,
-    `Foto KTP: ${people.filter((person) => person.ktpBase64).length}`,
+    `Foto KTP: ${people.filter((person) => person.ktpFileId || person.ktpBase64).length}`,
     `Output: ${outputNames.join(', ')}`,
     '',
     'Nomor dokumen akan dialokasikan setelah Anda mengonfirmasi.'
@@ -500,6 +483,8 @@ $('confirmSubmit').addEventListener('click', () => {
     if (response.sheetUrl) $('sheetLink').href = response.sheetUrl;
     $('pdfLink').hidden = !response.pdfUrl;
     if (response.pdfUrl) $('pdfLink').href = response.pdfUrl;
+    $('ktpPdfLink').hidden = !response.ktpPdfUrl;
+    if (response.ktpPdfUrl) $('ktpPdfLink').href = response.ktpPdfUrl;
     $('folderLink').href = response.folderUrl;
     $('whatsAppResult').hidden = !pendingPayload.outputs.whatsapp;
     if (pendingPayload.outputs.whatsapp) {
@@ -765,7 +750,9 @@ function renderHistory() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
   historyPage = Math.min(historyPage, pageCount - 1);
   const pageRecords = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
-  $('historyStatus').textContent = '';
+  $('historyStatus').textContent = filtered.length
+    ? `${filtered.length} berkas memo ditampilkan. Pilih thumbnail atau tombol aksi untuk membukanya.`
+    : '';
   $('historyPageStatus').textContent = `Halaman ${historyPage + 1} dari ${pageCount}`;
   $('historyPrev').disabled = historyPage <= 0;
   $('historyNext').disabled = historyPage >= pageCount - 1;
@@ -834,6 +821,8 @@ function renderHistory() {
       actions.appendChild(pdfButton);
     }
     appendHistoryButton_(actions, record.folderUrl, 'Folder Arsip', 'btn');
+    const ktpPdf = (record.files || []).find((file) => /Lampiran-KTP\.pdf$/i.test(file.name));
+    if (ktpPdf) appendHistoryButton_(actions, ktpPdf.url, 'PDF KTP', 'btn');
     const waDraft = record.waDraft || buildHistoryWhatsAppDraft_(record);
     const waButton = document.createElement('a');
     waButton.className = 'btn green';

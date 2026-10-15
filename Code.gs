@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.15.1',
+  version: '2026.10.16.1',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -76,6 +76,44 @@ function apiCreateSession() {
   };
 }
 
+function apiUploadKtpImage(dataUrl, originalName, token) {
+  requireAuthorized_(token);
+  const match = String(dataUrl || '').match(/^data:(image\/(?:jpeg|png));base64,([a-zA-Z0-9+/=]+)$/);
+  if (!match) throw new Error('Foto KTP tidak valid. Pilih gambar JPG atau PNG.');
+  const bytes = Utilities.base64Decode(match[2]);
+  if (bytes.length > 2 * 1024 * 1024) {
+    throw new Error('Ukuran foto asli maksimal 2 MB agar dapat dimasukkan ke Google Sheets tanpa dikompres.');
+  }
+  const folder = getPendingKtpFolder_(true);
+  cleanupPendingKtpFiles_(folder);
+  const fileName = safeFileName_(String(originalName || 'Foto-KTP').replace(/\.[^.]+$/, '').slice(0, 90)) || 'Foto-KTP';
+  const extension = { 'image/jpeg': 'jpg', 'image/png': 'png' }[match[1]];
+  const file = folder.createFile(Utilities.newBlob(bytes, match[1], `${fileName}.${extension}`));
+  return { fileId: file.getId(), name: file.getName(), size: bytes.length };
+}
+
+function getPendingKtpFolder_(createIfMissing) {
+  const props = PropertiesService.getScriptProperties();
+  const folderId = props.getProperty('PENDING_KTP_FOLDER_ID');
+  if (folderId) return DriveApp.getFolderById(folderId);
+  if (!createIfMissing) return null;
+  const folder = getArchiveRootFolder_().createFolder('Unggahan KTP Sementara');
+  props.setProperty('PENDING_KTP_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+function cleanupPendingKtpFiles_(folder) {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getDateCreated().getTime() < cutoff) {
+      try { file.setTrashed(true); }
+      catch (error) { console.error(`Unggahan KTP sementara ${file.getId()} gagal dibersihkan: ${error.message}`); }
+    }
+  }
+}
+
 function apiGetCounters(token) {
   requireAuthorized_(token);
   return getCounters_();
@@ -116,8 +154,13 @@ function apiCreateMemo(payload, token, requestId) {
       const imageFiles = saveKtpImages_(validated, folder, number, createdFileIds);
       const workingSpreadsheet = createSpreadsheet_(validated, number, folder, imageFiles, createdFileIds);
       const sheet = validated.outputs.spreadsheet ? workingSpreadsheet : null;
+      const memoSheet = workingSpreadsheet.getSheets()[0];
       const pdf = validated.outputs.pdf
-        ? createPdf_(workingSpreadsheet, number, folder, createdFileIds)
+        ? createPdf_(workingSpreadsheet, number, folder, createdFileIds, memoSheet, false)
+        : null;
+      const ktpSheet = workingSpreadsheet.getSheetByName('Lampiran KTP');
+      const ktpPdf = validated.outputs.pdf && ktpSheet
+        ? createPdf_(workingSpreadsheet, number, folder, createdFileIds, ktpSheet, true, '-Lampiran-KTP')
         : null;
       if (!sheet) {
         workingSpreadsheet.setTrashed(true);
@@ -129,6 +172,7 @@ function apiCreateMemo(payload, token, requestId) {
         docNumber: number,
         sheetUrl: sheet ? sheet.getUrl() : '',
         pdfUrl: pdf ? pdf.getUrl() : '',
+        ktpPdfUrl: ktpPdf ? ktpPdf.getUrl() : '',
         folderUrl: folder.getUrl(),
         imageNames: imageFiles.map((item) => item.file.getName()),
         counters: Object.assign(getCounters_(period), { [validated.typeKey]: sequence })
@@ -254,8 +298,9 @@ function apiGenerateHistoryPdf(number, rowIndex, token) {
     const folderId = getDriveIdFromUrl_(row[7]);
     if (!folderId) throw new Error('Folder arsip memo tidak ditemukan.');
     const spreadsheetFile = DriveApp.getFileById(sheetId);
+    const memoSpreadsheet = SpreadsheetApp.openById(sheetId);
     const folder = DriveApp.getFolderById(folderId);
-    const pdf = createPdf_(spreadsheetFile, cleanNumber, folder, []);
+    const pdf = createPdf_(spreadsheetFile, cleanNumber, folder, [], memoSpreadsheet.getSheets()[0], false);
     row[6] = pdf.getUrl();
     const files = JSON.parse(String(row[8] || '[]'));
     files.push({ id: pdf.getId(), name: pdf.getName(), url: pdf.getUrl() });
@@ -554,7 +599,7 @@ function validatePayload_(payload) {
   const allPeople = clean.typeKey === 'PG'
     ? clean.workersOut.concat(clean.workersIn)
     : clean.workers;
-  if (allPeople.filter((person) => person.ktpBase64).length > 30) {
+  if (allPeople.filter((person) => person.ktpFileId || person.ktpBase64).length > 30) {
     throw new Error('Maksimal 30 foto KTP per memo. Buat memo terpisah untuk lampiran berikutnya.');
   }
   return clean;
@@ -573,12 +618,14 @@ function validatePeople_(people, label, schemaKey) {
     });
     if (!row.nama) throw new Error('Setiap baris personel harus memiliki nama.');
     row.ktpName = String(person && person.ktpName || row.nama).trim();
+    row.ktpFileId = String(person && person.ktpFileId || '').trim();
     row.ktpBase64 = String(person && person.ktpBase64 || '');
     if (row.ktpName.length > 100) throw new Error('Nama lampiran KTP terlalu panjang (maksimal 100 karakter).');
-    if (row.ktpBase64.length > 1000000) throw new Error(`Foto KTP untuk ${row.nama} melebihi batas ukuran lampiran.`);
+    if (row.ktpFileId && !/^[A-Za-z0-9_-]{10,}$/.test(row.ktpFileId)) throw new Error(`Unggahan KTP untuk ${row.nama} tidak valid. Pilih ulang fotonya.`);
+    if (row.ktpBase64.length > 3000000) throw new Error(`Foto KTP untuk ${row.nama} melebihi batas ukuran lampiran.`);
       return row;
     });
-    const photoCount = rows.filter((row) => row.ktpBase64).length;
+    const photoCount = rows.filter((row) => row.ktpFileId || row.ktpBase64).length;
     if (photoCount > 30) throw new Error('Maksimal 30 foto KTP per memo. Buat memo terpisah untuk lampiran berikutnya.');
     return rows;
 }
@@ -594,10 +641,7 @@ function formatDocNumber_(projectCode, typeKey, sequence, date) {
   const month = Number(Utilities.formatDate(date, APP.timezone, 'M'));
   const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][month - 1];
   const year = Utilities.formatDate(date, APP.timezone, 'yy');
-  const prefix = typeKey === 'PG'
-    ? `${projectCode}/${projectCode}/MM`
-    : `${projectCode}/MM`;
-  return `${prefix}/${roman}/${year}/${String(sequence).padStart(2, '0')}`;
+  return `${projectCode}/${APP.types[typeKey].code}/${roman}/${year}/${String(sequence).padStart(2, '0')}`;
 }
 
 function getCounters_(requestedPeriod) {
@@ -723,7 +767,7 @@ function migrateExistingMemoRequests_(sheet) {
     }
     const type = inferMemoType_(number, memoType);
     const files = [];
-    [result.sheetUrl, result.pdfUrl].forEach((url) => {
+    [result.sheetUrl, result.pdfUrl, result.ktpPdfUrl].forEach((url) => {
       const id = getDriveIdFromUrl_(url);
       if (id) {
         try {
@@ -944,15 +988,32 @@ function saveKtpImages_(data, folder, number, createdFileIds) {
   const people = data.typeKey === 'PG'
     ? data.workersOut.concat(data.workersIn)
     : data.workers;
-  return people.filter((person) => person.ktpBase64).map((person, index) => {
-    const match = person.ktpBase64.match(/^data:(image\/jpeg);base64,([a-zA-Z0-9+/=]+)$/);
-    if (!match) throw new Error(`Foto KTP untuk ${person.nama} tidak valid. Pilih ulang file JPG/PNG/WEBP.`);
-    const bytes = Utilities.base64Decode(match[2]);
-    if (bytes.length > 750 * 1024) throw new Error(`Foto KTP untuk ${person.nama} melebihi batas 750 KB setelah dikompresi.`);
-    const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[match[1]];
+  return people.filter((person) => person.ktpFileId || person.ktpBase64).map((person, index) => {
     const label = safeFileName_(String(person.ktpName || person.nama || `KTP-${index + 1}`).slice(0, 60));
-    const blob = Utilities.newBlob(bytes, match[1], `${number}-${label}.${extension}`);
-    const file = folder.createFile(blob);
+    let file;
+    if (person.ktpFileId) {
+      file = DriveApp.getFileById(person.ktpFileId);
+      const pending = getPendingKtpFolder_(false);
+      let belongsToPendingFolder = false;
+      if (pending) {
+        const parents = file.getParents();
+        while (parents.hasNext()) if (parents.next().getId() === pending.getId()) belongsToPendingFolder = true;
+      }
+      if (!belongsToPendingFolder) throw new Error(`Foto KTP untuk ${person.nama} tidak ditemukan. Pilih ulang fotonya.`);
+      if (!/^image\/(jpeg|png)$/.test(file.getMimeType()) || file.getSize() > 2 * 1024 * 1024) {
+        throw new Error(`Foto KTP untuk ${person.nama} tidak valid atau melebihi 2 MB.`);
+      }
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png' }[file.getMimeType()];
+      file.setName(`${number}-${label}.${extension}`);
+      file.moveTo(folder);
+    } else {
+      const match = person.ktpBase64.match(/^data:(image\/(?:jpeg|png));base64,([a-zA-Z0-9+/=]+)$/);
+      if (!match) throw new Error(`Foto KTP untuk ${person.nama} tidak valid. Pilih ulang file JPG atau PNG.`);
+      const bytes = Utilities.base64Decode(match[2]);
+      if (bytes.length > 2 * 1024 * 1024) throw new Error(`Foto KTP asli untuk ${person.nama} maksimal 2 MB.`);
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png' }[match[1]];
+      file = folder.createFile(Utilities.newBlob(bytes, match[1], `${number}-${label}.${extension}`));
+    }
     createdFileIds.push(file.getId());
     person.ktpFile = file;
     return { file, name: person.ktpName || person.nama, personName: person.nama };
@@ -987,29 +1048,57 @@ function createSpreadsheet_(data, number, folder, imageFiles, createdFileIds) {
   sheet.getRange('E11').setValue(data.ditujukan);
   sheet.getRange('E12').setValue(data.perihal);
   sheet.getDataRange().setFontSize(12);
+  trimMemoToColumnK_(sheet);
+  replaceTemplateLogoWithColor_(sheet);
   return file;
+}
+
+function trimMemoToColumnK_(sheet) {
+  const columns = sheet.getMaxColumns();
+  if (columns > 11) sheet.deleteColumns(12, columns - 11);
+}
+
+function replaceTemplateLogoWithColor_(sheet) {
+  try {
+    const response = UrlFetchApp.fetch('https://www.unicorn.co.id/utility/images/Logo-Unicorn180x82px.jpg', { muteHttpExceptions: true });
+    if (response.getResponseCode() !== 200) return;
+    const candidates = sheet.getImages().filter((image) => {
+      const anchor = image.getAnchorCell();
+      return anchor.getRow() <= 6 && anchor.getColumn() <= 5;
+    });
+    if (candidates.length) candidates[0].replace(response.getBlob().setName('Logo UTP berwarna.jpg'));
+  } catch (error) {
+    console.error(`Logo template tidak dapat diganti: ${error.message}`);
+  }
 }
 
 function addKtpAttachmentSheet_(spreadsheet, imageFiles) {
   const sheet = spreadsheet.insertSheet('Lampiran KTP');
   spreadsheet.setActiveSheet(sheet);
   spreadsheet.moveActiveSheet(2);
-  sheet.setColumnWidths(1, 22, 28);
-  sheet.getRange('A1').setValue('LAMPIRAN FOTO KTP').setFontWeight('bold').setFontSize(12);
+  sheet.setColumnWidths(1, 11, 58);
+  sheet.setColumnWidth(6, 18);
+  sheet.getRange('A1:K1').merge().setValue('LAMPIRAN FOTO KTP').setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 36);
   imageFiles.forEach((item, index) => {
-    const column = index % 2 === 0 ? 1 : 12;
-    const cardRow = 3 + Math.floor(index / 2) * 12;
-    const image = sheet.insertImage(item.file.getBlob(), column, cardRow);
-    const scale = Math.min(280 / image.getWidth(), 170 / image.getHeight(), 1);
+    const column = index % 2 === 0 ? 1 : 7;
+    const cardRow = 3 + Math.floor(index / 2) * 15;
+    const card = sheet.getRange(cardRow, column, 13, 5);
+    card.setBorder(true, true, true, true, true, true).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.setRowHeights(cardRow, 9, 30);
+    const image = sheet.insertImage(item.file.getBlob(), column, cardRow + 1);
+    const scale = Math.min(250 / image.getWidth(), 250 / image.getHeight(), 1);
     image.setWidth(Math.max(1, Math.round(image.getWidth() * scale)))
       .setHeight(Math.max(1, Math.round(image.getHeight() * scale)));
-    sheet.getRange(cardRow + 9, column, 1, 9).merge()
+    image.setAnchorCellXOffset(Math.max(0, Math.round((290 - image.getWidth()) / 2)));
+    image.setAnchorCellYOffset(8);
+    sheet.getRange(cardRow + 10, column, 1, 5).merge()
       .setValue(item.name)
       .setFontWeight('bold')
-      .setFontSize(12);
-    sheet.getRange(cardRow + 10, column, 1, 9).merge()
+      .setFontSize(11).setHorizontalAlignment('center');
+    sheet.getRange(cardRow + 11, column, 1, 5).merge()
       .setValue(`Nama personel: ${item.personName}`)
-      .setFontSize(12);
+      .setFontSize(10).setHorizontalAlignment('center');
   });
 }
 
@@ -1117,17 +1206,18 @@ function formatLongDate_(value) {
   return `${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
-function createPdf_(spreadsheetFile, number, folder, createdFileIds) {
+function createPdf_(spreadsheetFile, number, folder, createdFileIds, sheet, portrait, suffix) {
   const spreadsheet = SpreadsheetApp.openById(spreadsheetFile.getId());
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheet.getId()}/export?format=pdf&sheetnames=false&printtitle=false&pagenumbers=false&gridlines=false&fitw=true`;
+  const pageOrientation = portrait ? 'true' : 'false';
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheet.getId()}/export?format=pdf&size=A4&portrait=${pageOrientation}&fitw=true&scale=4&sheetnames=false&printtitle=false&pagenumbers=false&gridlines=false&horizontal_alignment=CENTER&vertical_alignment=CENTER&top_margin=0.35&bottom_margin=0.35&left_margin=0.35&right_margin=0.35&gid=${sheet.getSheetId()}`;
   const response = UrlFetchApp.fetch(url, {
     headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` }
   });
   if (response.getResponseCode() !== 200) {
     throw new Error(`Ekspor template ke PDF gagal (HTTP ${response.getResponseCode()}).`);
   }
-  const pdf = folder.createFile(response.getBlob().setName(`${number}.pdf`));
-  createdFileIds.push(pdf.getId());
+  const pdf = folder.createFile(response.getBlob().setName(`${number}${suffix || ''}.pdf`));
+  if (createdFileIds) createdFileIds.push(pdf.getId());
   return pdf;
 }
 
