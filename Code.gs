@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.16.2',
+  version: '2026.10.16.3',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -179,7 +179,9 @@ function apiCreateMemo(payload, token, requestId) {
         counters: Object.assign(getCounters_(period), { [validated.typeKey]: sequence })
       };
 
-      historyRecord = appendMemoHistory_(validated, number, documentDate, sheet, pdf, folder, createdFileIds);
+      const whatsappDraft = buildMemoWhatsAppDraft_(validated, number, documentDate, sheet, pdf, folder);
+      result.waDraft = whatsappDraft;
+      historyRecord = appendMemoHistory_(validated, number, documentDate, sheet, pdf, folder, createdFileIds, whatsappDraft);
       manpowerRecord = appendManpowerEvents_(validated, number, documentDate);
       props.setProperty(counterKey, String(sequence));
       counterCommitted = true;
@@ -826,7 +828,7 @@ function inferMemoType_(number, label) {
   return 'PN';
 }
 
-function appendMemoHistory_(data, number, documentDate, sheetFile, pdfFile, folder, createdFileIds) {
+function appendMemoHistory_(data, number, documentDate, sheetFile, pdfFile, folder, createdFileIds, whatsappDraft) {
   const sheet = getMemoHistorySheet_(true);
   const files = createdFileIds.map((id) => {
     const file = DriveApp.getFileById(id);
@@ -843,23 +845,88 @@ function appendMemoHistory_(data, number, documentDate, sheetFile, pdfFile, fold
     pdfFile ? pdfFile.getUrl() : '',
     folder.getUrl(),
     JSON.stringify(files),
-    buildMemoWhatsAppDraft_(data, number, documentDate, sheetFile, pdfFile, folder)
+    whatsappDraft || buildMemoWhatsAppDraft_(data, number, documentDate, sheetFile, pdfFile, folder)
   ]]);
   return { sheet, row };
 }
 
 function buildMemoWhatsAppDraft_(data, number, documentDate, sheetFile, pdfFile, folder) {
   const recipient = data.waRecipient || 'Pak Juwana (PM)';
-  let count = '';
-  if (data.typeKey === 'PN') count = `\nJumlah tambahan: ${data.workers.length} orang`;
-  if (data.typeKey === 'PG') count = `\nJumlah keluar: ${data.workersOut.length} orang\nJumlah pengganti masuk: ${data.workersIn.length} orang`;
-  if (data.typeKey === 'SP') count = `\nJumlah surplus: ${data.workers.length} orang`;
-  const dateText = Utilities.formatDate(documentDate, APP.timezone, 'dd MMM yyyy');
-  let draft = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${data.projectName}\nPerihal: ${APP.types[data.typeKey].label}\nTanggal: ${dateText}${count}`;
+  const applicationDate = Utilities.formatDate(documentDate, APP.timezone, 'dd MMM yyyy');
+  const effectiveDate = data.berlakuEfektif
+    ? formatLongDate_(data.berlakuEfektif)
+    : applicationDate;
+  let reductions = [];
+  let additions = [];
+  if (data.typeKey === 'PN') additions = data.workers || [];
+  if (data.typeKey === 'PG') {
+    reductions = data.workersOut || [];
+    additions = data.workersIn || [];
+  }
+  if (data.typeKey === 'SP') reductions = data.workers || [];
+
+  const currentSummary = summarizeManpowerGroups_(getCurrentManpowerForProject_(data.projectName));
+  const reductionSummary = includeZeroManpowerGroups_(summarizeManpowerGroups_(reductions), currentSummary);
+  const additionSummary = includeZeroManpowerGroups_(summarizeManpowerGroups_(additions), currentSummary);
+  let draft = `Yth. ${recipient},\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${number}\nProyek: ${data.projectName}\nPerihal: ${APP.types[data.typeKey].label}\nTanggal pengajuan: ${applicationDate}\nTanggal efektif: ${effectiveDate}\n\nManpower saat ini (sebelum perubahan):\n${formatManpowerSummaryLines_(currentSummary, 'Belum ada data manpower aktif untuk proyek ini.')}\n\nPengurangan:\n${formatManpowerSummaryLines_(reductionSummary, 'Tidak ada pengurangan.')}\n\nPenambahan:\n${formatManpowerSummaryLines_(additionSummary, 'Tidak ada penambahan.')}`;
   if (sheetFile) draft += `\n\nLink Spreadsheet:\n${sheetFile.getUrl()}`;
   if (pdfFile) draft += `\n\nLink PDF:\n${pdfFile.getUrl()}`;
   draft += `\n\nFolder Arsip:\n${folder.getUrl()}`;
   return draft + '\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.';
+}
+
+function getCurrentManpowerForProject_(projectName) {
+  try {
+    const sheet = getManpowerSheet_(false);
+    if (!sheet) return [];
+    const projectKey = normalizePersonName_(projectName);
+    return Array.from(getLatestManpowerRows_(sheet).values()).filter((person) =>
+      person.status === 'AKTIF' && normalizePersonName_(person.project) === projectKey
+    );
+  } catch (error) {
+    console.error(`Ringkasan manpower proyek tidak dapat dibaca: ${error.message}`);
+    return [];
+  }
+}
+
+function summarizeManpowerGroups_(people) {
+  const groups = new Map();
+  (people || []).forEach((person) => {
+    const department = String(person.department || person.bidang || 'Bidang belum diisi').trim();
+    const skill = String(person.skill || person.keahlian || '').trim();
+    const key = department.toLocaleLowerCase('id');
+    if (!groups.has(key)) groups.set(key, { department, total: 0, skill: 0, helper: 0, other: new Map() });
+    const group = groups.get(key);
+    group.total += 1;
+    if (/helper/i.test(skill)) group.helper += 1;
+    else if (/skill/i.test(skill)) group.skill += 1;
+    else {
+      const category = skill || 'kategori lain';
+      group.other.set(category, (group.other.get(category) || 0) + 1);
+    }
+  });
+  return Array.from(groups.values()).sort((left, right) => left.department.localeCompare(right.department, 'id'));
+}
+
+function includeZeroManpowerGroups_(changes, current) {
+  const combined = new Map();
+  (current || []).forEach((group) => combined.set(group.department.toLocaleLowerCase('id'), {
+    department: group.department, total: 0, skill: 0, helper: 0, other: new Map()
+  }));
+  (changes || []).forEach((group) => combined.set(group.department.toLocaleLowerCase('id'), group));
+  return Array.from(combined.values()).sort((left, right) => left.department.localeCompare(right.department, 'id'));
+}
+
+function formatManpowerSummaryLines_(groups, emptyText) {
+  if (!groups.length) return `• ${emptyText}`;
+  return groups.map((group) => {
+    const details = [];
+    if (group.skill) details.push(`${group.skill} skill`);
+    if (group.helper) details.push(`${group.helper} helper`);
+    group.other.forEach((count, category) => details.push(`${count} ${category}`));
+    const detailText = details.length ? ` (${details.join(' + ')})` : '';
+    return `• ${group.department}: ${group.total} orang${detailText}`;
+  }).join('\n');
 }
 
 function getManpowerSheet_(createIfMissing) {
@@ -1019,7 +1086,13 @@ function saveKtpImages_(data, folder, number, createdFileIds) {
     }
     createdFileIds.push(file.getId());
     person.ktpFile = file;
-    return { file, name: person.ktpName || person.nama, personName: person.nama };
+    return {
+      file,
+      name: person.ktpName || person.nama,
+      personName: person.nama,
+      department: person.bidang || '',
+      skill: person.keahlian || ''
+    };
   });
 }
 
@@ -1079,29 +1152,27 @@ function addKtpAttachmentSheet_(spreadsheet, imageFiles) {
   const sheet = spreadsheet.insertSheet('Lampiran KTP');
   spreadsheet.setActiveSheet(sheet);
   spreadsheet.moveActiveSheet(2);
-  sheet.setColumnWidths(1, 11, 58);
-  sheet.setColumnWidth(6, 18);
+  sheet.setColumnWidths(1, 11, 55);
+  sheet.setColumnWidth(6, 20);
   sheet.getRange('A1:K1').merge().setValue('LAMPIRAN FOTO KTP').setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center').setVerticalAlignment('middle');
   sheet.setRowHeight(1, 36);
   imageFiles.forEach((item, index) => {
     const column = index % 2 === 0 ? 1 : 7;
-    const cardRow = 3 + Math.floor(index / 2) * 15;
-    const card = sheet.getRange(cardRow, column, 13, 5);
-    card.setBorder(true, true, true, true, true, true).setHorizontalAlignment('center').setVerticalAlignment('middle');
-    sheet.setRowHeights(cardRow, 9, 30);
-    const image = sheet.insertImage(item.file.getBlob(), column, cardRow + 1);
-    const scale = Math.min(250 / image.getWidth(), 250 / image.getHeight(), 1);
+    const cardRow = 3 + Math.floor(index / 2) * 13;
+    sheet.setRowHeights(cardRow, 6, 30);
+    const image = sheet.insertImage(item.file.getBlob(), column, cardRow);
+    const scale = Math.min(250 / image.getWidth(), 165 / image.getHeight(), 1);
     image.setWidth(Math.max(1, Math.round(image.getWidth() * scale)))
       .setHeight(Math.max(1, Math.round(image.getHeight() * scale)));
-    image.setAnchorCellXOffset(Math.max(0, Math.round((290 - image.getWidth()) / 2)));
-    image.setAnchorCellYOffset(8);
-    sheet.getRange(cardRow + 10, column, 1, 5).merge()
+    image.setAnchorCellXOffset(Math.max(0, Math.round((275 - image.getWidth()) / 2)));
+    image.setAnchorCellYOffset(7);
+    sheet.getRange(cardRow + 6, column, 1, 5).merge()
       .setValue(item.name)
       .setFontWeight('bold')
-      .setFontSize(11).setHorizontalAlignment('center');
-    sheet.getRange(cardRow + 11, column, 1, 5).merge()
-      .setValue(`Nama personel: ${item.personName}`)
-      .setFontSize(10).setHorizontalAlignment('center');
+      .setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(cardRow + 7, column, 1, 5).merge()
+      .setValue([item.department, item.skill].filter(Boolean).join(' / '))
+      .setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle');
   });
 }
 

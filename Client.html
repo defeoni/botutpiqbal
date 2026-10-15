@@ -490,7 +490,7 @@ $('confirmSubmit').addEventListener('click', () => {
     $('folderLink').href = response.folderUrl;
     $('whatsAppResult').hidden = !pendingPayload.outputs.whatsapp;
     if (pendingPayload.outputs.whatsapp) {
-      $('waDraft').textContent = buildWhatsAppDraft_(
+      $('waDraft').textContent = response.waDraft || buildWhatsAppDraft_(
         response.docNumber,
         pendingPayload.projectName,
         pendingPayload.perihal,

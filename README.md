@@ -52,8 +52,11 @@ Script.
   Foto KTP menjadi sheet kedua `Lampiran KTP` pada spreadsheet memo.
 - Foto KTP JPG/PNG dipilih per baris personel, diunggah sebagai file asli tanpa
   kompresi (maksimal 2 MB per foto), diberi nama khusus, dan disimpan di folder
-  arsip. Sheet `Lampiran KTP` dan PDF terpisah menampilkan dua kartu kiri-kanan
-  pada halaman portrait.
+  arsip. Sheet `Lampiran KTP` dan PDF portrait menampilkan dua foto tanpa tabel,
+  dengan nama tepat di bawah setiap foto.
+- Draf WhatsApp memisahkan tanggal pengajuan dan tanggal efektif, lalu
+  merangkum manpower aktif, penambahan, dan pengurangan menurut bidang serta
+  keahlian.
 - Ukuran font pada isi lembar memo diseragamkan menjadi 12. Perubahan pada
   desain/template Google Sheets sumber akan dipakai oleh memo baru, kecuali
   sel data yang memang diisi otomatis oleh aplikasi.
