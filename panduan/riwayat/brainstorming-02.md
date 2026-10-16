@@ -1025,3 +1025,79 @@ Saya cek apakah ada proses yang masih berjalan. Instruksi break tetap berlaku: s
 ## 2026-10-16T17:00:35.836Z — assistant
 
 Bukan rebuild Graphify yang lama: perintah terakhir hanya membaca peta yang ada dan selesai sekitar **2 detik**; file source map juga tidak berubah. Waktu tadi terutama dipakai untuk merakit frontend, yang terhenti sebelum pemeriksaan browser selesai. Sekarang semua agen sudah berhenti, dan saya simpan hasil parsial itu beserta catatan lanjutannya.
+
+## 2026-10-16T17:03:34.128Z — assistant
+
+Catatan checkpoint sudah diperbarui, termasuk bagian frontend yang belum diuji, dan ekspor riwayat kini memuat **326 pesan yang tersedia**. Saya sedang mengirim backup ke GitHub. Pemeriksaan berikutnya sudah dicatat agar komputer lain bisa melanjutkan tanpa mengulang dari awal.
+
+## 2026-10-16T17:04:51.523Z — assistant
+
+**Bukan Graphify yang macet.** Peta tidak dibangun ulang; query terakhir selesai sekitar **2 detik**. Yang lama adalah perakitan frontend. Saya mengambil cakupan terlalu besar untuk satu burst.
+
+**Backup sudah selesai dan terverifikasi di GitHub**, commit **`65c0c1d`**.
+
+Status yang disimpan:
+
+- Backend + RPB: **45/45 tes lokal lulus**.
+- Prototipe mandiri: **17/17 skenario browser lulus**.
+- Frontend terintegrasi: kode sudah ditulis, **belum selesai diperiksa**.
+- Riwayat: **326 pesan tersedia** berhasil diekspor; Excel/gambar lokal belum termasuk.
+
+Pekerjaan berhenti. Di tugas Cloud atau komputer berikutnya, tempel:
+
+```text
+Lanjutkan repository defeoni/botutpiqbal, main terbaru dengan commit 65c0c1d.
+Periksa perubahan lokal sebelum memperbarui checkout; jangan menimpanya.
+
+Baca AGENTS.md, panduan/MULAI-DI-SINI.md, lalu panduan/STATUS-BREAK.md.
+Orientasi dulu. Jangan coding, deploy, mengaktifkan burst, atau rebuild Graphify.
+Laporkan singkat status dan pekerjaan berikutnya.
+```
+
+[Catatan checkpoint terakhir](https://github.com/defeoni/botutpiqbal/blob/main/panduan/STATUS-BREAK.md)
+
+## 2026-10-16T17:06:52.515Z — user
+
+<environment_context>
+  <current_date>2026-10-17</current_date>
+  <timezone>Asia/Jakarta</timezone>
+  <filesystem><workspace_roots><root>C:\Users\User\Desktop\UTP Memo Cloud App</root><root>C:\Users\User\.codex\visualizations\2026\10\15\01a13efb-1436-79e0-9fa9-c37497ac83eb</root></workspace_roots><permission_profile type="disabled"><file_system type="unrestricted" /></permission_profile></filesystem>
+  <subagents>
+    <agent name="/root/frontend_client" />
+    <agent name="/root/frontend_view" />
+    <agent name="/root/prototype_review" />
+    <agent name="/root/cloud_audit" />
+    <agent name="/root/master_data" />
+    <agent name="/root/utp_backend" />
+  </subagents>
+</environment_context>
+
+## 2026-10-16T17:06:52.584Z — user
+
+tugas terakhir, mode burst, perbaiki catatan, dan foldering yang benar, juga gunakan nama yang benar atau setidaknya mudah dibaca. foldering di projeck ini banyak banget, sebetulnya tidak apa apa. tapi coba dirapikan file dan foldernya.
+
+jika sudah, kita memasuki fase break dan backup. ingat, setelah perbaiki folder dan file, perbaiki juga update breaknya, jadi pc lain bisa melanjutkan pause nya dimana. mengerti?
+
+## 2026-10-16T17:06:59.555Z — assistant
+
+Mengerti. Saya rapikan folder dan nama berkas yang membingungkan, perbarui rujukan serta catatan lanjutannya, lalu commit dan backup ke GitHub. Setelah itu pekerjaan berhenti pada fase break.
+
+## 2026-10-16T17:07:43.201Z — assistant
+
+Saya gunakan Caveman untuk menjaga perilaku saat memindahkan berkas dan Ponytail agar susunannya tetap sederhana. Kode aktif akan dikelompokkan di `aplikasi`, alat kerja di `alat`, tes di `pengujian`, dan contoh tampilan di `pratinjau`; salinan kode lama dipisahkan ke `arsip`. Graphify cukup memakai peta yang ada, tanpa rebuild.
+
+## 2026-10-16T17:10:09.351Z — assistant
+
+Berkas sudah dipindahkan. Saya memeriksa **81 berkas yang tercatat di Git**, dan perpindahan itu tidak mengubah isinya. Sekarang saya menyesuaikan jalur build, tes, dan panduan, lalu memeriksa bahwa semuanya tetap bisa ditemukan dari lokasi baru.
+
+## 2026-10-16T17:12:39.433Z — assistant
+
+Build dari folder baru berhasil; **45/45 tes backend/RPB** dan **17/17 pemeriksaan prototipe** tetap lulus. Pemeriksaan frontend terintegrasi menemukan masalah yang sebelumnya belum diuji: Katalog melebar pada layar ponsel 390 piksel. Saya catat itu sebagai titik lanjut setelah break; tugas penataan ini tidak saya perluas menjadi perbaikan frontend.
+
+## 2026-10-16T17:13:16.606Z — user
+
+commit semua, dan perbaharui pause break dan buatkan prompt barunya . kita memasuki break
+
+## 2026-10-16T17:13:33.755Z — assistant
+
+Baik, kita masuk fase break. Saya periksa hasil pemindahan yang sudah terjadi, perbarui checkpoint dengan lokasi berkas dan tugas tersisa yang benar, lalu commit dan kirim semuanya ke GitHub. Setelah backup terverifikasi, saya berikan prompt baru untuk perangkat berikutnya.

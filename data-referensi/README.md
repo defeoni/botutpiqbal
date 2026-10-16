@@ -1,12 +1,12 @@
 # Master item lokal
 
-`master_items.sample.csv` berisi empat baris sintetis untuk menjelaskan format.
+`contoh-master-item.csv` berisi empat baris sintetis untuk menjelaskan format.
 Data bisnis lengkap tidak disimpan di folder ini.
 
 Jalankan konverter dari root repository dengan Python yang menyediakan `openpyxl`:
 
 ```powershell
-python tools/prepare_master_items.py "C:/Users/User/Downloads/PT.UTP - Master Item.xlsx" --self-test
+python alat/siapkan-master-item.py "C:/Users/User/Downloads/PT.UTP - Master Item.xlsx" --self-test
 ```
 
 Hasil lokal berada di `.local/master/master_items.csv` dan

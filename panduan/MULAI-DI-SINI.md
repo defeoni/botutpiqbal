@@ -1,6 +1,8 @@
 # Admin PT.UTP — lanjut dari komputer lain
 
-> **UPDATE CHECKPOINT BREAK:** Setelah membaca gambaran di sini, baca `STATUS-BREAK.md`. Backend kini telah lulus pemeriksaan aktual 45/45 bersama RPB, prototipe mandiri 17/17; frontend terintegrasi sudah ditulis tetapi pemeriksaan browser/build belum selesai. Catatan lama enam kegagalan storage di bawah sudah diperbaiki. Mode burst tidak otomatis berlaku pada chat baru.
+> **Struktur terbaru 17 Oktober 2026:** kode aktif di `aplikasi/`, alat di `alat/`, tes di `pengujian/`, tampilan contoh di `pratinjau/`. Baca `STRUKTUR-FOLDER.md` untuk menerjemahkan lokasi lama. `STATUS-BREAK.md` adalah checkpoint terakhir yang mengungguli angka/progres historis di bawah.
+
+> **UPDATE CHECKPOINT BREAK 17 Oktober 2026:** Baca `STATUS-BREAK.md` setelah gambaran di sini. Penataan folder selesai, build berhasil, backend/RPB 45/45 dan prototipe mandiri 17/17 lulus. Pemeriksaan frontend terintegrasi berhenti pada overflow Katalog ponsel 390px; frontend belum dinyatakan selesai. Catatan lama enam kegagalan storage sudah diperbaiki. Mode burst tidak otomatis berlaku pada chat baru.
 
 Checkpoint 16 Oktober 2026, WIB. Ini catatan keputusan dan progres untuk AI/pengguna di perangkat baru. Riwayat asli yang tersedia diekspor ke `riwayat/`; catatan ini bukan klaim seluruh lampiran dan semua chat lain telah tersalin.
 
@@ -93,14 +95,14 @@ Rancangan Gemini Katalog/Form sudah diterima untuk ditinjau, BELUM kode. Perlu k
 ## Progres kode dan bukti
 
 - Commit sebelum paket ini: d1330d9 di main, 27 file. Itu checkpoint, bukan rilis teruji produksi.
-- Memo/RPB implementasi existing, RPD placeholder. Entry aktif `memo/Memo.gs` doGet → template shared/Index.html. Root Code.gs legacy tidak masuk build aktif.
+- Memo/RPB implementasi existing, RPD placeholder. Entry aktif `aplikasi/memo/Memo.gs` doGet → template aplikasi/bersama/Index.html. Root Code.gs legacy tidak masuk build aktif.
 - Copilot RPB selesai lokal: race draf, PIN tracking, kategori, overflow total, LPD bulan sebelumnya, cleanup error, panel sukses lama. Laporan lokal tes 7/7. Ekspor/Drive/klasifikasi nonmaterial cloud belum diperiksa.
 - Copilot Beranda/login selesai lokal: apiCreateSession({password}), Auth.gs masuk build, reset counter mengirim PIN; Beranda awal, navigasi Memo/RPB/RPD, gaya responsif, tanggal, data contoh. Build 12 file; tes RPB7/7; desktop1440x900/ponsel390x844 dilaporkan diperiksa. Login preview hanya pesan gagal tanpa panggilan backend. Ini BUKAN bukti login/PIN cloud berhasil.
-- Partial baru `shared/HomeView.html`; build `tools/build_clasp_source.js`; preview `tools/build_local_preview.py` → preview/Index-demo-lokal.html.
-- `utp/UtpDomain.gs` validator/history/revisi/approval/CSV/forecast; laporan tes domain22/22. `utp/Utp.gs` adapter draft masih enam kegagalan storage dari12; BELUM diintegrasikan ke build/dashboard. UtpStyles/UtpView fondasi, belum UtpClient.
-- `shared/Auth.gs` password panjang24+, PIN6digit hash/salt, throttle3 percobaan/15m, cache sesi6jam. Konfigurasi private editor helper; jangan mengarang password produksi. Autentikasi cloud belum teruji.
-- Graph struktur `graphify-out/code-graph.json`, SOURCE_MAP.md; awal498node/1216edge/14eksternal, bisa basi setelah edit. `tools/build_code_graph.py` query hemat, ekstraksi struktural tanpa LLM.
-- `tools/prepare_master_items.py` converter source-preserving; laporan self-test14 parser+3 kode, deterministic dan sumber tidak berubah.
+- Partial baru `aplikasi/bersama/HomeView.html`; build `alat/buat-sumber-clasp.js`; preview `alat/buat-pratinjau.py` → pratinjau/aplikasi.html.
+- `aplikasi/material/UtpDomain.gs` validator/history/revisi/approval/CSV/forecast; laporan tes domain22/22. `aplikasi/material/Utp.gs` adapter draft masih enam kegagalan storage dari12; BELUM diintegrasikan ke build/dashboard. UtpStyles/UtpView fondasi, belum UtpClient.
+- `aplikasi/bersama/Auth.gs` password panjang24+, PIN6digit hash/salt, throttle3 percobaan/15m, cache sesi6jam. Konfigurasi private editor helper; jangan mengarang password produksi. Autentikasi cloud belum teruji.
+- Graph struktur `graphify-out/code-graph.json`, SOURCE_MAP.md; awal498node/1216edge/14eksternal, bisa basi setelah edit. `alat/peta-kode.py` query hemat, ekstraksi struktural tanpa LLM.
+- `alat/siapkan-master-item.py` converter source-preserving; laporan self-test14 parser+3 kode, deterministic dan sumber tidak berubah.
 - Tidak ada deployment Apps Script pada kerja ini; identitas target/daftar cloud belum dibandingkan sukses. .clasp.json existing target tidak membuktikan cloud cocok.
 
 ## Pekerjaan berikutnya, jangan dilewatkan

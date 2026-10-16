@@ -1,284 +1,42 @@
-# Administrasi Memo UTP
+# Admin PT.UTP — Terrasentra Bandung
 
-Versi cloud berbasis Google Apps Script. Setelah dipasang di akun Google, Google
-menjalankan halaman dan bot webhook tanpa laptop yang selalu hidup. Penggunaan
-tetap bergantung pada kuota, kebijakan, dan ketersediaan Google Apps Script;
-layanan gratis tidak menjamin SLA atau uptime 24/7.
+Aplikasi administrasi proyek untuk satu admin. PM: Juhana · kode proyek: TRSM-51D26-D-M.
 
-## Struktur folder project
+**Mulai dari [panduan proyek](panduan/MULAI-DI-SINI.md), lalu baca [checkpoint break terbaru](panduan/STATUS-BREAK.md).** Checkpoint menjelaskan pekerjaan yang selesai, yang belum diperiksa, dan titik melanjutkan dari komputer lain.
 
-Folder `memo/` berisi `Memo.gs` dan `MemoClient.html`. Folder `rpb/` berisi
-`RPB.gs`, `RPBView.html`, `RPBClient.html`, dan `RPBStyles.html`. Folder `rpd/`
-berisi placeholder `RPD.html`; RPD belum memiliki backend atau fitur aktif.
-Folder `shared/` berisi `Index.html`, `Styles.html`, dan `appsscript.json`
-yang dipakai bersama kedua modul.
+## Isi folder
 
-`tools/build_local_preview.py` menyatukan partial HTML dari folder modul.
-Hasilnya disimpan di `preview/Index-demo-lokal.html`, bukan diunggah ke Apps
-Script. `legacy/Client.html` adalah client lama mandiri dan bukan bagian dari
-build utama. File panduan tetap di root agar mudah ditemukan.
+| Folder | Isi |
+| --- | --- |
+| `aplikasi/` | Kode aplikasi aktif: memo, RPB, RPD, material, dan komponen bersama |
+| `alat/` | Skrip untuk menyiapkan sumber, membuat pratinjau, memeriksa hasil, dan mengekspor riwayat |
+| `pengujian/` | Tes kontrak dan aturan aplikasi |
+| `pratinjau/` | Tampilan lokal dan prototipe; bukan deployment produksi |
+| `panduan/` | Keputusan proyek, checkpoint, laporan, masukan AI, dan riwayat percakapan |
+| `data-referensi/` | Petunjuk master item dan contoh sintetis, bukan master asli |
+| `arsip/` | Salinan kode/panduan lama yang dipertahankan untuk rujukan |
+| `graphify-out/` | Peta kode hasil alat; jangan disunting sebagai kode aplikasi |
 
-Struktur folder ini memudahkan kerja di VS Code. `tools/build_clasp_source.js`
-menyalin file sumber yang dipakai ke `.clasp-src/` dengan nama datar yang
-dikenali Google Apps Script. Folder hasil tersebut tidak dilacak Git. Jangan
-menyalin `legacy/Client.html` atau `preview/Index-demo-lokal.html` ke project
-Apps Script.
+Lihat [peta folder dan perubahan nama](panduan/STRUKTUR-FOLDER.md) bila catatan lama menyebut lokasi berbeda.
 
-Untuk memeriksa koneksi dan daftar file lokal yang akan dikirim, jalankan dari
-root repository:
+## Perintah lokal
+
+Jalankan dari folder utama repository:
 
 ```powershell
-node tools/build_clasp_source.js
-clasp status
+node alat/buat-sumber-clasp.js
+python alat/buat-pratinjau.py
+node --test pengujian/rpb-kontrak.test.js pengujian/material-domain.test.js pengujian/material-penyimpanan.test.js
 ```
 
-`clasp status` tidak mengirim perubahan. Tinjau hasilnya sebelum menjalankan
-`clasp push`; `clasp push` menyinkronkan file project, bukan membuat versi
-deployment Web App. Deployment aktif hanya berubah setelah proses deployment
-tersendiri yang dilakukan secara sengaja.
+Hasil pratinjau: `pratinjau/aplikasi.html`. Prototipe mandiri: `pratinjau/prototipe-material.html`. Data simulasi tidak tersimpan ke server.
 
-## Fungsi
+Nama file yang dikirim ke Apps Script tetap `Memo.gs`, `Index.html`, dan nama partial yang sudah ada. Struktur folder hanya untuk repository; `alat/buat-sumber-clasp.js` menyiapkan file datar di `.clasp-src/`. Perintah build tidak melakukan push/deployment.
 
-- Form web untuk memo PN, PG, dan SP. Tombol bot Telegram membuka form di browser.
-- Navigasi utama MEMO, RPD, dan RPB. RPB memakai master, arsip, Excel/PDF,
-  draf WhatsApp, dan tracking; RPD masih berupa halaman kosong.
-- Excel RPB mempertahankan tab template `Rekap`, `Detail Budget`, dan
-  `Asset & Perlengkapan`, ditambah snapshot `Master Barang`. PDF berwarna
-  portrait A5 dibuat dari tab Rekap.
-- Direktori manpower persisten, dengan status aktif/nonaktif dan filter nama,
-  proyek, bidang, keahlian, dan rentang tanggal mulai. Data yang sudah ada
-  sebelum aplikasi digunakan dapat dimasukkan lewat formulir personel manual.
-- Perintah privat Telegram: `/start`, `/new`, `/pn`, `/pg`, `/sp`, `/status`,
-  `/reset`, dan `/setwebhook`.
-- Setiap penghapusan riwayat memo, manpower, baris personel, dan Hard Reset
-  meminta kode konfirmasi; server memeriksa kode sebelum menghapus.
-- Preview wajib sebelum nomor dialokasikan. Counter bulanan ada di server,
-  dikunci saat penomoran, dan hanya bertambah setelah arsip berhasil dibuat.
-- Penomoran berjalan dengan counter terpisah untuk PN, PG, dan SP; counter
-  dimulai dari 0 sehingga nomor dokumen pertama berakhiran `/01`. Bulan dan
-  tahun nomor mengikuti tanggal dokumen yang dipilih pada kalender.
-- Tanggal dokumen, tanggal efektif, dan tanggal personel dipilih melalui kontrol
-  kalender pada formulir web.
-- Semua memo yang berhasil dibuat dicatat di riwayat Google Drive. Riwayat
-  menampilkan thumbnail, nomor memo, pencarian, filter, halaman, tautan Sheets,
-  pembuatan PDF jika belum tersedia, draf WhatsApp, serta hapus per memo.
-  Pengaturan menyediakan hapus seluruh riwayat; penghapusan memindahkan file
-  memo terkait ke Sampah Google Drive.
-- Data Manpower memiliki aksi hapus per personel dan proyek. Penghapusan
-  menghapus catatan direktori untuk pasangan nama/proyek tersebut, sementara
-  arsip dokumen memo terkait tetap dikelola dari Riwayat Memo.
-- Telegram `/start` menampilkan sambutan dan tombol untuk membuka website,
-  formulir memo, jenis memo, dan status nomor dokumen.
-  Foto KTP menjadi sheet kedua `Lampiran KTP` pada spreadsheet memo.
-- Foto KTP JPG/PNG dipilih per baris personel, diunggah sebagai file asli tanpa
-  kompresi (maksimal 2 MB per foto), diberi nama khusus, dan disimpan di folder
-  arsip. Sheet `Lampiran KTP` dan PDF portrait menampilkan dua foto tanpa tabel,
-  dengan nama tepat di bawah setiap foto.
-- Draf WhatsApp memisahkan tanggal pengajuan dan tanggal efektif, lalu
-  merangkum manpower aktif, penambahan, dan pengurangan menurut bidang serta
-  keahlian.
-- Ukuran font pada isi lembar memo diseragamkan menjadi 12. Perubahan pada
-  desain/template Google Sheets sumber akan dipakai oleh memo baru, kecuali
-  sel data yang memang diisi otomatis oleh aplikasi.
-- Google Sheets dan PDF dapat dipilih terpisah. Draf WhatsApp merangkum tanggal
-  pengajuan/efektif dan perubahan manpower tanpa tautan arsip; tautan Sheets,
-  PDF, dan folder tetap tersedia di dalam aplikasi. Draf tidak dikirim otomatis.
-- Memo PN, PG, dan SP dibuat dari salinan template baku masing-masing. Format,
-  warna, logo, dan tanda tangan pada template dipertahankan; data header dan
-  jumlah baris personel diisi oleh aplikasi. Isi tabel personel disejajarkan ke
-  tengah pada semua jenis memo.
-- Maksimal 30 foto KTP per memo. Setiap foto maksimal 2 MB tanpa kompresi
-  karena batas gambar yang dapat dimasukkan ke Google Sheets.
-- Direktori manpower tersimpan di spreadsheet terpisah bernama
-  `Data Manpower UTP`; hard reset arsip memo tidak menghapus direktori ini.
-- Aplikasi mengelompokkan catatan berdasarkan nama lengkap dan proyek.
-  Jika ada dua pekerja bernama sama di proyek yang sama, tinjau roster agar
-  status terbaru tidak tertukar.
-- Struktur Drive:
-  - `Arsip UTP/Project <nama proyek>/Memo/<jenis memo>/<Bulan YYYY>/`:
-    Spreadsheet memo, PDF, dan foto KTP dikelompokkan per proyek, jenis memo,
-    dan bulan/tahun. Folder jenis memo: `Memo Penambahan Manpower`,
-    `Memo Penggantian OS`, dan `Memo Surplus OS`.
-  - Arsip lama yang tercatat di riwayat dipindahkan ke struktur tersebut saat
-    aplikasi memuat riwayat setelah versi baru dipasang.
-  - `Arsip UTP/Riwayat Memo UTP`: spreadsheet indeks riwayat.
-  - `Data Manpower UTP`: spreadsheet terpisah agar data roster tidak tercampur
-    dengan file memo.
+## Melanjutkan dari perangkat lain
 
-Reset manual dapat membuat nomor yang pernah dipakai terbit kembali. Gunakan
-hanya jika memang sudah dipastikan tidak akan menimbulkan nomor duplikat.
+Buka task Codex Cloud yang terhubung `defeoni/botutpiqbal`, atau clone repository di komputer lain. Gunakan main terbaru setelah memeriksa perubahan lokal. Minta AI membaca AGENTS.md, panduan proyek, dan checkpoint break. Chat lokal tidak otomatis dipulihkan ke sidebar; ekspor pesan tersedia di `panduan/riwayat/`.
 
-## Persiapan dan deploy pertama
+Master asli, Excel template di Downloads, kredensial, cache, dan file privat `.local/` tidak termasuk backup Git. Folder `.git/`, `.clasp-src/`, `.local/`, `.venv/`, dan `.codex/` dikelola alat dan tidak perlu dirapikan manual.
 
-1. Buat bot melalui `@BotFather` dan simpan token secara privat.
-2. Buka [Google Apps Script](https://script.google.com/) dengan akun Google yang
-   akan menjadi pemilik arsip. Buat project baru.
-3. Di project Apps Script, pertahankan satu project yang sama. Ganti nama file
-   backend memo yang saat ini ada (misalnya `kode.gs`) menjadi `Memo.gs`, lalu
-   salin isinya dari `memo/Memo.gs`. Tambahkan file script `RPB.gs` dan salin
-   isinya dari `rpb/RPB.gs`. Apps Script menampilkan file dalam satu daftar
-   tanpa folder, tetapi fungsi semua file `.gs` tetap berada dalam project yang
-   sama dan dapat saling memanggil. Jangan menyimpan salinan kedua fungsi memo.
-4. Buat file HTML bernama `Index`, `Styles`, `RPBStyles`, `MemoClient`, `RPD`,
-   `RPBView`, `RPBClient`, lalu salin isi file bernama sama dari folder `shared/`,
-   `memo/`, `rpd/`, atau `rpb/`. `shared/Index.html` memuat partial lain.
-   RPD hanya halaman placeholder. Di Project Settings, aktifkan tampilan file
-   `appsscript.json`, lalu salin `shared/appsscript.json`.
-5. Pastikan akun pemilik Apps Script memiliki akses edit ke spreadsheet sumber
-   RPB yang ID-nya tercantum di `RPB.gs`. File itu berisi template `Rekap`,
-   `Detail Budget`, dan `Asset & Perlengkapan`; aplikasi menambah `Master Barang`
-   di sana agar pilihan barang dan harga dapat dikelola langsung.
-6. Unggah tiga file Excel template PN, PG, dan SP ke Google Drive. Buka setiap
-   file dengan Google Sheets, lalu pilih **File → Save as Google Sheets**.
-   Gunakan file hasil konversi (bukan `.xlsx`) sebagai template sumber. Buka
-   setiap file hasil konversi dan salin ID dari URL di antara `/d/` dan
-   `/edit`.
-7. Pada **Project Settings → Script Properties**, tambahkan:
-
-   | Nama | Nilai |
-   | --- | --- |
-   | `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
-   | `APP_OWNER_NAME` | Nama yang ditampilkan, mis. `IQBAL` |
-   | `BOT_WEBHOOK_KEY` | Nilai acak rahasia, berbeda dari token bot |
-   | `TEMPLATE_PN_ID` | ID file Google Sheets template Penambahan Manpower |
-   | `TEMPLATE_PG_ID` | ID file Google Sheets template Penggantian OS |
-   | `TEMPLATE_SP_ID` | ID file Google Sheets template Surplus Manpower |
-
-   Jangan masukkan rahasia ini ke file proyek, Telegram chat, atau tangkapan
-   layar. ID template bukan token rahasia, tetapi pastikan akun
-   deployment memiliki akses ke ketiga file. Biarkan `OWNER_TELEGRAM_ID`
-   kosong dahulu.
-8. Di editor Apps Script, pilih fungsi `checkMemoTemplates`, lalu klik
-   **Run/Jalankan**. Pastikan ketiga template dilaporkan siap digunakan.
-   Biarkan `OWNER_TELEGRAM_ID` kosong untuk langkah pengenalan awal.
-9. Pilih **Deploy → New deployment → Web app**. Gunakan **Execute as: Me** dan
-   **Who has access: Anyone**, lalu deploy dan setujui izin Google. Endpoint
-   perlu dapat menerima webhook Telegram. Karena aplikasi Web tidak memakai
-   login, akses **Anyone** membuat semua fiturnya dapat dipakai siapa pun yang
-   memiliki URL. Simpan dan jangan sebarkan URL `/exec` deployment.
-10. Buka URL `/exec`; aplikasi langsung terbuka tanpa PIN. Pilih
-   **Pengaturan**, lalu tekan **Hubungkan Bot Telegram**. Tindakan ini memasang
-   URL webhook pada deployment. Tombol **Diagnostik Telegram** menunjukkan
-   apakah URL terpasang dan apakah Telegram melaporkan error saat mencoba
-   mengirim update. URL terpasang belum berarti pengiriman berhasil.
-11. Kirim `/start` ke bot. Saat `OWNER_TELEGRAM_ID` masih kosong, bot membalas
-   dengan ID akun Telegram yang mengirim pesan. Masukkan ID itu sebagai Script
-   Property `OWNER_TELEGRAM_ID`, lalu kirim `/start` sekali lagi. Jangan gunakan
-   ID orang lain. Tombol dan perintah untuk membuat memo membuka form di browser
-   biasa, bukan di Telegram Mini App.
-12. Untuk memeriksa tampilan dan navigasi tanpa backend, jalankan
-   `python tools/build_local_preview.py`, lalu buka
-   `preview/Index-demo-lokal.html`.
-   Operasi yang menyimpan data hanya dapat diuji melalui URL `/exec` Apps
-   Script.
-13. Uji dengan data non-sensitif terlebih dahulu. Pastikan file uji muncul pada
-   folder Drive privat dan nomor sesuai. Hapus data uji secara manual jika
-   memang tidak diperlukan.
-
-## Menelusuri error
-
-- Status koneksi berada di bagian atas halaman. Tombol **Coba Hubungkan Ulang**
-  membuat sesi Apps Script baru; halaman lokal akan menjelaskan bahwa backend
-  Apps Script tidak tersedia pada `file://`.
-- Error JavaScript dan penolakan proses asinkron ditampilkan di status itu dan
-  dicatat di log browser. Error server ditampilkan dekat kontrol yang
-  menjalankan operasi.
-- Saat aplikasi online gagal, buka Apps Script **Executions** untuk melihat
-  kegagalan backend beserta waktu dan fungsi yang dijalankan.
-- Uji menu lokal melalui pratinjau; pembuatan memo, koneksi Telegram, dan
-  penyimpanan Drive perlu diuji dari URL `/exec`.
-
-Jika mengubah kode, buat versi deployment baru melalui **Manage deployments →
-Edit → New version**. URL `/exec` biasanya tetap sama; setelah redeploy, uji
-ulang web dan bot. Webhook dapat dipasang ulang dari halaman aplikasi.
-
-## Memperbarui project Apps Script yang sudah ada
-
-Project baru tidak wajib. Anda dapat memperbarui project lama jika memiliki
-akses edit dan project tersebut masih dapat di-deploy sebagai Web App. Gunakan
-project yang sama agar Script Properties, counter, dan akses ke arsip Drive
-tetap berada di project yang sama.
-
-1. Buka project lama dan pastikan project itu memang aplikasi memo yang ingin
-   diperbarui. Buat salinan project atau simpan salinan kode lama sebelum
-   mengganti apa pun. Pastikan juga akun Google yang menjalankan project masih
-   memiliki akses ke folder arsip di Drive.
-2. Di editor Apps Script, perbarui file HTML `Index`, `Styles`, `RPBStyles`,
-   `MemoClient`, `RPD`, `RPBView`, dan `RPBClient` dari berkas bernama sama di
-   folder `shared/`, `memo/`, `rpd/`, atau `rpb/`. Ganti nama backend memo lama
-   (misalnya `kode.gs`) menjadi `Memo.gs`, lalu salin `memo/Memo.gs`. Tambahkan
-   `rpb/RPB.gs` sebagai file `.gs` terpisah. Hindari menyimpan dua salinan
-   fungsi memo yang sama. Jangan unggah
-   `preview/Index-demo-lokal.html` atau `legacy/Client.html` ke Apps Script.
-3. Periksa manifest `shared/appsscript.json` dan sesuaikan dengan manifest ini.
-   Jika project lama memiliki konfigurasi atau cakupan izin tambahan yang
-   masih digunakan, tinjau sebelum menggantinya; jangan menghapus kebutuhan
-   project lama tanpa memastikan dampaknya.
-4. Buka **Project Settings → Script Properties**. Pertahankan properti lama
-   yang masih dibutuhkan dan pastikan properti berikut tersedia. Nilai token
-   bot yang sudah ada boleh digunakan kembali jika botnya sama.
-
-   | Nama | Nilai |
-   | --- | --- |
-   | `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
-   | `APP_OWNER_NAME` | Nama akun pemilik yang ditampilkan, mis. `IQBAL` |
-   | `BOT_WEBHOOK_KEY` | Nilai rahasia untuk webhook |
-   | `OWNER_TELEGRAM_ID` | ID Telegram pemilik |
-   | `TEMPLATE_PN_ID` | ID Google Sheets template Penambahan Manpower |
-   | `TEMPLATE_PG_ID` | ID Google Sheets template Penggantian OS |
-   | `TEMPLATE_SP_ID` | ID Google Sheets template Surplus Manpower |
-
-   Jangan menghapus atau mengubah properti `COUNTER_...` secara manual. Counter
-   disimpan di Script Properties; menggunakan project yang sama akan
-   mempertahankan counter tersebut. Jangan menyalin rahasia ke source code.
-   Untuk ID template, gunakan file Google Sheets hasil konversi dari tiga file
-   Excel template baku—bukan file `.xlsx` aslinya. Jalankan `checkMemoTemplates`
-   di editor Apps Script untuk memeriksa ketiga ID sebelum deploy.
-   Perubahan desain dan teks statis pada file template sumber digunakan oleh
-   memo baru. Sel isian seperti nomor, tanggal, nama proyek, penerima, dan tabel
-   personel tetap ditulis oleh aplikasi. Reset counter hanya mengatur nomor
-   selanjutnya. **Hard Reset** pada Web App meminta kode konfirmasi.
-   Hard reset
-   memindahkan file di dalam folder arsip ke Sampah Google Drive, mengosongkan
-   riwayat, serta mereset counter dari semua periode. Tiga file template, spreadsheet
-   penyimpanan riwayat, dan Data Manpower tetap dipertahankan. Penghapusan dari
-   Sampah Drive secara permanen tetap perlu dilakukan manual jika diinginkan.
-5. Simpan perubahan dan jalankan fungsi yang diperlukan untuk memberikan izin
-   Google jika diminta. Pastikan pengaturan Script Properties sudah benar
-   sebelum memasang ulang webhook.
-6. Pilih **Deploy → Manage deployments**, edit deployment Web App yang lama,
-   pilih **New version**, lalu deploy. Pertahankan pengaturan yang sesuai:
-   **Execute as: Me** dan **Who has access: Anyone**. URL `/exec` lama biasanya
-   tetap sama; gunakan URL deployment yang ditampilkan setelah deploy.
-7. Buka URL `/exec` (tidak ada langkah login), lalu uji aplikasi dengan
-   data non-sensitif. Periksa bahwa memo uji tersimpan di folder Drive yang
-   benar. Untuk menggunakan bot dengan deployment ini, buka menu
-   **Pengaturan** dan tekan **Hubungkan Bot Telegram** agar webhook menunjuk ke
-   URL deployment yang aktif. Tindakan ini tidak mereset counter, tetapi akan
-   mengarahkan bot yang tokennya digunakan ke deployment ini.
-8. Setelah pengujian berhasil, pastikan bot dan proses arsip berjalan sesuai
-   kebutuhan sebelum digunakan untuk memo sungguhan. Jangan gunakan tombol
-   reset counter sebagai bagian dari proses pembaruan.
-
-## Operasional dan batasan
-
-- Spreadsheet/PDF/foto dimiliki akun Google yang memasang Apps Script.
-  Penerima tautan memerlukan izin Drive; aplikasi tidak membuat file publik.
-- Bot hanya menjawab pemilik yang ID-nya cocok. Jika bot dapat menerima pesan
-  di grup, bot tetap tidak memproses perintah anggota lain.
-- Web App sengaja tidak memakai autentikasi. Pada deployment yang
-  **Who has access: Anyone**, setiap orang yang mengetahui URL dapat melihat
-  data, membuat memo, mengubah data manpower, dan menjalankan reset. Jangan
-  gunakan mode akses publik untuk data sensitif atau rahasia perusahaan.
-- Perintah `/reset` Telegram mengarahkan pengguna ke Web App. Reset dari menu
-  **Pengaturan** meminta konfirmasi di layar, tanpa PIN. Counter disimpan per
-  bulan Jakarta dan tidak bergantung pada penyimpanan browser.
-- Google Apps Script memiliki kuota dan batas waktu eksekusi. Jika Google
-  mencapai kuota, operasi akan gagal dengan pesan error dan counter tidak
-  sengaja dinaikkan sebelum arsip selesai.
-- Ini bukan layanan arsip perusahaan dengan SLA. Tinjau kebijakan perusahaan
-  untuk penyimpanan KTP, batasi akses folder Drive, dan jangan membagikan
-  token bot atau URL rahasia webhook.
-- Saat ini nomor dibuat dari counter aplikasi. Arsip yang dibuat di luar aplikasi
-  tidak otomatis masuk ke counter; lakukan rekonsiliasi sebelum penggunaan
-  produksi.
+Memo/RPB sudah ada; frontend material terintegrasi masih perlu pemeriksaan lanjutan dan kontrak backend per item. Tidak ada klaim runtime cloud atau deployment baru berhasil. Rincian dan hasil tes aktual ada di checkpoint.

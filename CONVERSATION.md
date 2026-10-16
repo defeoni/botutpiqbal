@@ -1,5 +1,7 @@
 # Riwayat Percakapan Codex — UTP Memo Cloud App
 
+> Catatan awal dipertahankan. Riwayat lebih baru berada di `panduan/riwayat/`; status terkini di `panduan/STATUS-BREAK.md` dan perubahan lokasi di `panduan/STRUKTUR-FOLDER.md`.
+
 Riwayat ini menyimpan percakapan proyek yang tersedia saat dipindahkan ke Git. Percakapan berikutnya perlu ditambahkan secara ringkas atau verbatim oleh Codex saat berlangsung; automation backup tidak dapat membaca chat aktif yang tidak ditulis ke file ini. Tanggal mengikuti tanggal lokal perangkat; waktu pesan lama tidak tersedia.
 
 ## 15 Oktober 2026 — Akses lintas perangkat dan backup proyek

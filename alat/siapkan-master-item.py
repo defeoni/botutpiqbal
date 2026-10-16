@@ -1,6 +1,6 @@
 """Read the official item workbook and produce a deterministic local CSV.
 
-Usage: python tools/prepare_master_items.py "C:/path/PT.UTP - Master Item.xlsx"
+Usage: python alat/siapkan-master-item.py "C:/path/PT.UTP - Master Item.xlsx"
 Requires openpyxl for reading only. The input workbook is never saved or edited.
 """
 

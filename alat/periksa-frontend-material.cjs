@@ -1,5 +1,5 @@
 // Local browser checks for the integrated frontend; never calls Google services.
-// Usage: node tools/check_material_frontend.cjs <playwright module directory> <browser executable>
+// Usage: node alat/periksa-frontend-material.cjs <playwright module directory> <browser executable>
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,7 +12,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
   const errors = [];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://**/*', route=>route.abort());
-  const url = pathToFileURL(path.resolve(__dirname,'../preview/Index-demo-lokal.html')).href;
+  const url = pathToFileURL(path.resolve(__dirname,'../pratinjau/aplikasi.html')).href;
   const assets = path.resolve(__dirname,'../.local/frontend');
   fs.mkdirSync(assets,{recursive:true});
   let count=0;

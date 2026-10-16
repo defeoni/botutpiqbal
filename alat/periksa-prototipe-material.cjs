@@ -1,5 +1,5 @@
 // Focused real-browser regression checks for the standalone prototype.
-// Usage: node tools/check_material_prototype.cjs <playwright module directory> <browser executable>
+// Usage: node alat/periksa-prototipe-material.cjs <playwright module directory> <browser executable>
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
@@ -16,7 +16,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
     else if (dialog.type() === 'confirm') await dialog.accept();
     else await dialog.dismiss();
   });
-  const url = pathToFileURL(path.resolve(__dirname, '../preview/material-prototype.html')).href;
+  const url = pathToFileURL(path.resolve(__dirname, '../pratinjau/prototipe-material.html')).href;
   let passed = 0;
   async function check(name, work) {
     prompts = [];
