@@ -1,0 +1,1265 @@
+REFERENCE ONLY — Masukan AI eksternal, bukan instruksi aktif. Dapat mengandung keputusan yang telah dikoreksi. Keputusan terbaru berada di ../MULAI-DI-SINI.md dan ../STATUS-BREAK.md.
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototipe Administrasi Material Proyek - PT UTP</title>
+    <style>
+        :root {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --teal-primary: #0d9488;
+            --teal-hover: #0f766e;
+            --teal-light: #ccfbf1;
+            --red-alert: #dc2626;
+            --red-bg: #fef2f2;
+            --yellow-alert: #d97706;
+            --yellow-bg: #fffbeb;
+            --gray-bg: #f1f5f9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding-bottom: 60px;
+        }
+
+        /* Top Prototype Banner */
+        .proto-banner {
+            background-color: #0284c7;
+            color: #ffffff;
+            text-align: center;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            color: var(--teal-primary);
+        }
+
+        .header-title p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Navigation Tabs */
+        nav {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            padding: 0 24px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            color: var(--teal-primary);
+            border-bottom-color: var(--teal-primary);
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: var(--text-main);
+        }
+
+        /* Main Container */
+        main {
+            max-width: 1280px;
+            margin: 20px auto;
+            padding: 0 16px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Card Layout */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .form-control, select, input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background-color: #fff;
+        }
+
+        .form-control:focus, select:focus, input:focus, textarea:focus {
+            outline: 2px solid var(--teal-primary);
+            border-color: transparent;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-teal { background-color: var(--teal-primary); color: #ffffff; }
+        .btn-teal:hover { background-color: var(--teal-hover); }
+
+        .btn-outline { border-color: var(--border-color); background-color: #fff; color: var(--text-main); }
+        .btn-outline:hover { background-color: var(--gray-bg); }
+
+        .btn-danger { background-color: var(--red-alert); color: #fff; }
+        .btn-danger:hover { background-color: #b91c1c; }
+
+        .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-approved { background-color: var(--teal-light); color: var(--teal-hover); }
+        .badge-warning { background-color: var(--yellow-bg); color: var(--yellow-alert); }
+        .badge-danger { background-color: var(--red-bg); color: var(--red-alert); }
+        .badge-gray { background-color: var(--gray-bg); color: var(--text-muted); }
+        .badge-blue { background-color: #e0f2fe; color: #0284c7; }
+
+        /* Tables */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: var(--gray-bg);
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* Risk Row Styling - Red Warning without blinking */
+        tr.row-risk {
+            background-color: #fff5f5;
+        }
+
+        tr.row-risk td {
+            border-left: 3px solid var(--red-alert);
+        }
+
+        .risk-text-alert {
+            color: var(--red-alert);
+            font-weight: 700;
+            display: block;
+            margin-top: 4px;
+            font-size: 0.78rem;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: #fff;
+            border-radius: 8px;
+            max-width: 650px;
+            width: 100%;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Alerts & Toast */
+        .alert-banner {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .alert-banner.show { display: block; }
+        .alert-banner-danger { background-color: var(--red-bg); border: 1px solid var(--red-alert); color: var(--red-alert); }
+        .alert-banner-info { background-color: #f0f9ff; border: 1px solid #0284c7; color: #0369a1; }
+
+        .toast-notify {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 2000;
+        }
+
+        /* Responsive Mobile Styles */
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            nav { padding: 0 12px; }
+            main { padding: 0 8px; }
+            .card { padding: 12px; }
+            th, td { padding: 8px 6px; font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Banner -->
+    <div class="proto-banner">
+        PROTOTIPE — DATA CONTOH — TIDAK TERSIMPAN KE SERVER
+    </div>
+
+    <!-- Header Aplikasi -->
+    <header>
+        <div class="header-title">
+            <h1>PT. UTP | Administrasi Material Proyek</h1>
+            <p>Proyek: Terrasentra Bandung (TRSM-51D26-D-M) | PM: Juhana</p>
+        </div>
+    </header>
+
+    <!-- Navigasi Tab -->
+    <nav>
+        <button class="tab-btn active" onclick="switchTab('katalog')">1. Katalog Material</button>
+        <button class="tab-btn" onclick="switchTab('permintaan')">2. Permintaan Awal (<span id="draft-count">0</span>)</button>
+        <button class="tab-btn" onclick="switchTab('review')">3. Input Hasil Review</button>
+    </nav>
+
+    <main>
+        <!-- Simulation Action Tools -->
+        <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: #fff; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Uji Coba Simulasi:</span>
+            <button class="btn btn-outline btn-sm" onclick="triggerGagalSimpan()">Simulasi Gagal Simpan</button>
+            <button class="btn btn-outline btn-sm" onclick="triggerKonflik()">Simulasi Konflik Perubahan</button>
+            <span id="rev-badge" class="badge badge-gray" style="margin-left: auto;">Dokumen: REV.0</span>
+        </div>
+
+        <!-- Global Banner Alerts -->
+        <div id="global-alert" class="alert-banner alert-banner-danger">
+            <strong>[!] Gagal Menyimpan:</strong> Koneksi server terputus saat proses pengiriman. <u>Isian masih tersedia di halaman ini</u>. Anda dapat mencoba menekan tombol simpan kembali setelah koneksi stabil.
+        </div>
+
+        <!-- TAB 1: KATALOG MATERIAL -->
+        <div id="tab-katalog" class="tab-content active">
+            <div class="card">
+                <div class="card-title">
+                    <span>Katalog Material & Master Referensi</span>
+                    <button class="btn btn-teal btn-sm" onclick="openModalSementara()">+ Tambah Item Sementara (Non-Master)</button>
+                </div>
+                
+                <div class="form-row" style="margin-bottom: 16px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Pencarian (Kode / Nol Awal / Nama / Merek):</label>
+                        <input type="text" id="search-katalog" placeholder="Cari misal: 001, MAT-004, Besi, Wavin, Dulux..." onkeyup="filterKatalog()">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Filter Klasifikasi Material:</label>
+                        <select id="filter-klasifikasi" onchange="filterKatalog()">
+                            <option value="">-- Semua Klasifikasi --</option>
+                            <option value="Bermerek">Bermerek</option>
+                            <option value="Generik Terkonfirmasi">Generik Terkonfirmasi</option>
+                            <option value="Merek Belum Diketahui">Merek Belum Diketahui</option>
+                            <option value="By Owner">By Owner</option>
+                            <option value="By Other">By Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Kode</th>
+                                <th>Nama Material</th>
+                                <th>Klasifikasi Material</th>
+                                <th>Merek / Tipe</th>
+                                <th>Status Sumber</th>
+                                <th>Ref. Approval Proyek</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-katalog-body">
+                            <!-- Items populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: PERMINTAAN AWAL LAPANGAN -->
+        <div id="tab-permintaan" class="tab-content">
+            <div class="card">
+                <div class="card-title">Form Permintaan Awal Lapangan</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>No. Dokumen Fisik Lapangan (Opsional saat draf):</label>
+                        <input type="text" id="no-dokumen-fisik" placeholder="Contoh: TRSM/REQ/2026/081">
+                    </div>
+                    <div class="form-group">
+                        <label>Set Default Persetujuan Diperlukan (Hanya mengisi item baru/belum diatur):</label>
+                        <select id="default-approval" onchange="applyDefaultApproval(this.value)">
+                            <option value="PM">PM (Project Manager)</option>
+                            <option value="MK">MK (Manajemen Konstruksi)</option>
+                            <option value="HO" selected>HO (Head Office Pusat)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px; margin-bottom: 12px; font-weight: 700; font-size: 0.9rem;">
+                    Daftar Item Permintaan Lapangan:
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nama Material & Klasifikasi</th>
+                                <th>Status Sumber</th>
+                                <th>Jumlah Diminta</th>
+                                <th>Satuan</th>
+                                <th>Persetujuan Diperlukan (Jalur)</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-draft-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                    Belum ada item dipilih. Silakan pilih dari Tab 1 Katalog Material.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-outline" onclick="resetDraft()">Kosongkan Draf</button>
+                    <button class="btn btn-teal" onclick="simpanDraft()">Simpan Permintaan Awal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: INPUT HASIL REVIEW -->
+        <div id="tab-review" class="tab-content">
+            <div class="card">
+                <div class="card-title">
+                    <span>Input Hasil Review Luring (PM / MK / HO)</span>
+                    <button class="btn btn-outline btn-sm" onclick="openModalRevisi()">+ Terbitkan Revisi (Tindakan Eksplisit)</button>
+                </div>
+
+                <!-- Simulation Lampiran HO -->
+                <div style="background-color: var(--gray-bg); padding: 14px; border-radius: 6px; margin-bottom: 16px; border: 1px solid var(--border-color);">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Simulasi Lampiran PDF / Scan Final HO (1 File dapat mencakup banyak item):</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <input type="text" id="ho-filename" placeholder="Belum ada file PDF/Scan HO dilampirkan" readonly style="background-color: #fff; flex: 1; min-width: 200px;">
+                            <button class="btn btn-outline btn-sm" onclick="simulasiUploadHO()">Simulasi Pilih File PDF</button>
+                        </div>
+                    </div>
+                    <div id="ho-coverage-container" style="display: none; margin-top: 10px; font-size: 0.82rem;">
+                        <strong>Pilih Item yang Dicakup oleh PDF HO ini:</strong>
+                        <div id="ho-coverage-checkboxes" style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                            <!-- Checkboxes generated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Material & Permintaan Lapangan</th>
+                                <th>Status Sumber</th>
+                                <th>Jalur Diperlukan vs Persetujuan Aktual</th>
+                                <th>Keputusan Review</th>
+                                <th>Jumlah Disetujui & Spek Final</th>
+                                <th>Catatan & Alasan Risiko</th>
+                                <th>Aksi & Riwayat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-review-body">
+                            <!-- Items populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">
+                        *Simpan Hasil Review mencatat perubahan tanpa menaikkan versi REV.
+                    </span>
+                    <button class="btn btn-teal" onclick="simpanHasilReview()">Simpan Hasil Review</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL 1: ITEM SEMENTARA -->
+    <div id="modal-sementara" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>Tambah Item Sementara (Sumber Non-Master)</span>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-sementara')">X</button>
+            </div>
+            <div class="form-group">
+                <label>Nama Item Sementara:</label>
+                <input type="text" id="temp-nama" placeholder="Contoh: Triplek Cor 9mm Non-Standar">
+            </div>
+            <div class="form-group">
+                <label>Klasifikasi Material:</label>
+                <select id="temp-klasifikasi">
+                    <option value="Bermerek">Bermerek</option>
+                    <option value="Generik Terkonfirmasi">Generik Terkonfirmasi</option>
+                    <option value="Merek Belum Diketahui" selected>Merek Belum Diketahui</option>
+                    <option value="By Owner">By Owner</option>
+                    <option value="By Other">By Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Merek / Tipe:</label>
+                <input type="text" id="temp-merek" value="Belum diketahui" placeholder="Gunakan 'Belum diketahui' jika belum pasti">
+            </div>
+            <div style="margin-top: 16px; text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeModal('modal-sementara')">Batal</button>
+                <button class="btn btn-teal" onclick="tambahItemSementara()">Tambahkan Item Sementara</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: TERBITKAN REVISI -->
+    <div id="modal-revisi" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>Tindakan Eksplisit: Terbitkan Revisi Dokumen</span>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-revisi')">X</button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                Tindakan ini menaikkan nomor versi dokumen (REV.0 -> REV.1) secara resmi berdasarkan instruksi atasan luring.
+            </p>
+            <div class="form-group">
+                <label>Pihak Pemberi Instruksi Revisi:</label>
+                <select id="revisi-pihak">
+                    <option value="PM">Juhana (PM)</option>
+                    <option value="MK">Tim MK</option>
+                    <option value="HO">Manajemen HO Pusat</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Alasan Resmi Penerbitan Revisi (Wajib):</label>
+                <textarea id="revisi-alasan" rows="3" placeholder="Tuliskan alasan spesifik revisi..."></textarea>
+            </div>
+            <div style="margin-top: 16px; text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeModal('modal-revisi')">Batal</button>
+                <button class="btn btn-danger" onclick="prosesTerbitkanRevisi()">Terbitkan Revisi Resmi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PEMBATALAN ITEM HASIL REVIEW -->
+    <div id="modal-batal-item" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>Batalkan Item dalam Review</span>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-batal-item')">X</button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                Item yang sudah masuk review tidak dihapus permanen. Status akan diubah menjadi "Batal" dengan mempertahankan riwayat.
+            </p>
+            <input type="hidden" id="batal-item-index">
+            <div class="form-group">
+                <label>Alasan Pembatalan Item (Wajib):</label>
+                <textarea id="batal-item-alasan" rows="3" placeholder="Contoh: Dibatalkan luring oleh PM karena pekerjaan dialihkan..."></textarea>
+            </div>
+            <div style="margin-top: 16px; text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeModal('modal-batal-item')">Batal</button>
+                <button class="btn btn-danger" onclick="prosesBatalItem()">Proses Pembatalan Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: RIWAYAT PERUBAHAN -->
+    <div id="modal-riwayat" class="modal-overlay">
+        <div class="modal-box" style="max-width: 700px;">
+            <div class="modal-header">
+                <span>Riwayat Audit Perubahan Item</span>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-riwayat')">X</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Field Data</th>
+                            <th>Nilai Sebelum</th>
+                            <th>Nilai Sesudah</th>
+                            <th>Pihak / Alasan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="riwayat-tbody">
+                        <!-- History rows -->
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 16px; text-align: right;">
+                <button class="btn btn-outline" onclick="closeModal('modal-riwayat')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: KONFLIK PERUBAHAN -->
+    <div id="modal-konflik" class="modal-overlay">
+        <div class="modal-box" style="max-width: 700px;">
+            <div class="modal-header">
+                <span style="color: var(--red-alert);">Simulasi Perbandingan Konflik Perubahan</span>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-konflik')">X</button>
+            </div>
+            <p style="font-size: 0.85rem; margin-bottom: 12px;">
+                Versi server telah diperbarui. Pilih nilai yang akan disimpan per field terhadap versi terbaru:
+            </p>
+            <div class="table-responsive" style="margin-bottom: 16px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Data</th>
+                            <th>Versi Terbaru Server</th>
+                            <th>Isian Anda (Lokal)</th>
+                            <th>Pilihan Disimpan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Jumlah Disetujui Semen Padang</td>
+                            <td>80 Zak (Oleh MK)</td>
+                            <td>90 Zak (Input Anda)</td>
+                            <td>
+                                <select id="konflik-choice-1">
+                                    <option value="server">Gunakan Versi Server (80 Zak)</option>
+                                    <option value="local" selected>Gunakan Isian Saya (90 Zak)</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Catatan Pengecualian Risiko Besi 10mm</td>
+                            <td>"Approved darurat oleh PM"</td>
+                            <td>"Menunggu konfirmasi HO"</td>
+                            <td>
+                                <select id="konflik-choice-2">
+                                    <option value="server">Gunakan Versi Server</option>
+                                    <option value="local" selected>Gunakan Isian Saya</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeModal('modal-konflik')">Batal Simpan</button>
+                <button class="btn btn-teal" onclick="terapkanKonflik()">Simpan Hasil Perbandingan ke Server Terbaru</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast-notify">Simulasi tersimpan di memori halaman; akan hilang saat dimuat ulang</div>
+
+    <!-- JavaScript Engine -->
+    <script>
+        // Data Master Sintetis (10 Items)
+        const masterKatalog = [
+            { id: "MAT-001", nama: "Semen Padang 50kg", klasifikasi: "Bermerek", merek: "Semen Padang", isMaster: true, refApproval: "PM (ACC-01)" },
+            { id: "MAT-002", nama: "Cat Dinding Interior Dulux 5kg", klasifikasi: "Bermerek", merek: "Dulux", isMaster: true, refApproval: "HO (ACC-04)" },
+            { id: "MAT-003", nama: "Pipa PVC 2 Inci Standar", klasifikasi: "Generik Terkonfirmasi", merek: "Generik", isMaster: true, refApproval: "MK (ACC-02)" },
+            { id: "MAT-004", nama: "Besi Beton 10mm SNI", klasifikasi: "Merek Belum Diketahui", merek: "Belum diketahui", isMaster: true, refApproval: "-" },
+            { id: "MAT-005", nama: "Pasir Urug Pasang", klasifikasi: "By Owner", merek: "-", isMaster: true, refApproval: "Tidak diperlukan" },
+            { id: "MAT-006", nama: "Batu Belah Pondasi", klasifikasi: "By Other", merek: "-", isMaster: true, refApproval: "Tidak diperlukan" },
+            { id: "MAT-007", nama: "Keramik Floor 40x40 Roman", klasifikasi: "Bermerek", merek: "Roman", isMaster: true, refApproval: "PM (ACC-08)" },
+            { id: "MAT-008", nama: "Siku Besi 4x4", klasifikasi: "Generik Terkonfirmasi", merek: "Generik", isMaster: true, refApproval: "MK (ACC-11)" },
+            { id: "MAT-009", nama: "Lampu LED Panel 12W Philips", klasifikasi: "Bermerek", merek: "Philips", isMaster: true, refApproval: "HO (ACC-15)" },
+            { id: "MAT-010", nama: "Kawat Beton Tali", klasifikasi: "Generik Terkonfirmasi", merek: "Generik", isMaster: true, refApproval: "-" }
+        ];
+
+        // Global State (Memori Halaman)
+        let draftItems = [];
+        let revVersion = 0;
+        let hoFileUploaded = "";
+        let hoCoveredItemIds = [];
+        let sessionTempCounter = 100;
+
+        // On Load Init
+        window.onload = function() {
+            renderKatalog(masterKatalog);
+            // Default pre-select sample items
+            addToDraft("MAT-001");
+            addToDraft("MAT-004");
+            addToDraft("MAT-005");
+        };
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'katalog') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-katalog').classList.add('active');
+            } else if (tabName === 'permintaan') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-permintaan').classList.add('active');
+                renderDraftTable();
+            } else if (tabName === 'review') {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('tab-review').classList.add('active');
+                renderReviewTable();
+            }
+        }
+
+        // Render Katalog
+        function renderKatalog(items) {
+            const tbody = document.getElementById('table-katalog-body');
+            tbody.innerHTML = "";
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${item.id}</strong></td>
+                    <td>${item.nama}</td>
+                    <td><span class="badge ${getBadgeClass(item.klasifikasi)}">${item.klasifikasi}</span></td>
+                    <td>${item.merek}</td>
+                    <td>${item.isMaster ? '<span class="badge badge-approved">Master</span>' : '<span class="badge badge-warning">Item Sementara</span>'}</td>
+                    <td>${item.refApproval}</td>
+                    <td>
+                        <button class="btn btn-teal btn-sm" onclick="addToDraft('${item.id}')">+ Pilih ke Draf</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getBadgeClass(klasifikasi) {
+            if (klasifikasi === 'Bermerek' || klasifikasi === 'Generik Terkonfirmasi') return 'badge-approved';
+            if (klasifikasi === 'Merek Belum Diketahui') return 'badge-warning';
+            return 'badge-gray';
+        }
+
+        // Filter Katalog (Mendukung kode pendek & nol awal)
+        function filterKatalog() {
+            const searchVal = document.getElementById('search-katalog').value.trim().toLowerCase();
+            const filterKlas = document.getElementById('filter-klasifikasi').value;
+
+            const filtered = masterKatalog.filter(item => {
+                // Match search: handles '001', 'mat-001', 'mat', 'besi', etc.
+                const cleanId = item.id.toLowerCase();
+                const shortCodeMatch = cleanId.replace('mat-', '').includes(searchVal) || cleanId.includes(searchVal);
+                const matchesSearch = searchVal === "" || shortCodeMatch ||
+                                      item.nama.toLowerCase().includes(searchVal) ||
+                                      item.merek.toLowerCase().includes(searchVal);
+                const matchesKlas = filterKlas === "" || item.klasifikasi === filterKlas;
+                return matchesSearch && matchesKlas;
+            });
+
+            renderKatalog(filtered);
+        }
+
+        // Add to Draft
+        function addToDraft(itemId) {
+            const item = masterKatalog.find(i => i.id === itemId);
+            if (!item) return;
+
+            const existing = draftItems.find(i => i.id === itemId);
+            if (existing) {
+                showToast("Item sudah ada di Draf Permintaan.");
+                return;
+            }
+
+            const defaultJalur = (item.klasifikasi === 'By Owner' || item.klasifikasi === 'By Other') 
+                                 ? 'Tidak diperlukan' 
+                                 : document.getElementById('default-approval').value;
+
+            draftItems.push({
+                ...item,
+                qtyRequested: 100,
+                satuan: "Zak/Unit",
+                jalurRequired: defaultJalur,
+                userManuallySetJalur: false,
+
+                // Review state
+                statusReview: "Belum direview", // Belum direview, Disetujui, Ditolak, Ditunda, Batal
+                cancelledReason: "",
+                decisions: {
+                    PM: { decided: false, choice: "Pending", timestamp: "", note: "" },
+                    MK: { decided: false, choice: "Pending", timestamp: "", note: "" },
+                    HO: { decided: false, choice: "Pending", timestamp: "", note: "" }
+                },
+                qtyApproved: null,
+                spekApproved: item.merek,
+                pemberiInstruksi: "",
+                isRisk: false,
+                riskReason: "",
+                history: [
+                    { timestamp: getFormattedTime(), field: "Status", before: "-", after: "Ditambahkan ke Draf", party: "Admin", reason: "Input Awal" }
+                ],
+                barangDatang: false,
+                barangDatangTime: ""
+            });
+
+            document.getElementById('draft-count').innerText = draftItems.length;
+            showToast(`Item "${item.nama}" ditambahkan ke Draf.`);
+        }
+
+        // Render Draft Table
+        function renderDraftTable() {
+            const tbody = document.getElementById('table-draft-body');
+            tbody.innerHTML = "";
+
+            if (draftItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">Belum ada item dipilih. Silakan pilih dari Tab 1 Katalog Material.</td></tr>`;
+                return;
+            }
+
+            draftItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                const isByOwnerOther = item.klasifikasi === 'By Owner' || item.klasifikasi === 'By Other';
+
+                tr.innerHTML = `
+                    <td>
+                        <strong>${item.nama}</strong> (${item.id})<br>
+                        <span class="badge ${getBadgeClass(item.klasifikasi)}">${item.klasifikasi}</span>
+                    </td>
+                    <td>${item.isMaster ? 'Master Resmi' : '<strong style="color:var(--yellow-alert);">Item Sementara</strong>'}</td>
+                    <td>
+                        <input type="number" value="${item.qtyRequested}" onchange="updateDraftQty(${index}, this.value)" style="width: 90px;">
+                    </td>
+                    <td>
+                        <input type="text" value="${item.satuan}" onchange="updateDraftSatuan(${index}, this.value)" style="width: 90px;">
+                    </td>
+                    <td>
+                        ${isByOwnerOther ? '<span class="badge badge-gray">Tidak diperlukan</span>' : `
+                            <select onchange="updateDraftJalur(${index}, this.value)">
+                                <option value="PM" ${item.jalurRequired==='PM'?'selected':''}>PM (Project Manager)</option>
+                                <option value="MK" ${item.jalurRequired==='MK'?'selected':''}>MK (Manajemen Konstruksi)</option>
+                                <option value="HO" ${item.jalurRequired==='HO'?'selected':''}>HO (Head Office Pusat)</option>
+                            </select>
+                        `}
+                    </td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="removeDraft(${index})">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateDraftQty(index, val) {
+            const oldVal = draftItems[index].qtyRequested;
+            draftItems[index].qtyRequested = parseFloat(val) || 0;
+            addHistory(index, "Jumlah Diminta", oldVal, val, "Admin", "Koreksi Draf");
+        }
+
+        function updateDraftSatuan(index, val) { draftItems[index].satuan = val; }
+
+        function updateDraftJalur(index, val) {
+            const oldVal = draftItems[index].jalurRequired;
+            draftItems[index].jalurRequired = val;
+            draftItems[index].userManuallySetJalur = true; // Flagged so default selector doesn't overwrite
+            addHistory(index, "Jalur Persetujuan", oldVal, val, "Admin", "Pengaturan Jalur Khusus");
+        }
+
+        function applyDefaultApproval(defaultVal) {
+            draftItems.forEach((item, idx) => {
+                if (!item.userManuallySetJalur && item.klasifikasi !== 'By Owner' && item.klasifikasi !== 'By Other') {
+                    item.jalurRequired = defaultVal;
+                }
+            });
+            renderDraftTable();
+            showToast("Default jalur diterapkan pada item yang belum diatur khusus.");
+        }
+
+        function removeDraft(index) {
+            draftItems.splice(index, 1);
+            document.getElementById('draft-count').innerText = draftItems.length;
+            renderDraftTable();
+        }
+
+        function resetDraft() {
+            draftItems = [];
+            document.getElementById('draft-count').innerText = 0;
+            renderDraftTable();
+        }
+
+        function simpanDraft() {
+            if (draftItems.length === 0) {
+                alert("Draf kosong. Pilih item dari Katalog terlebih dahulu.");
+                return;
+            }
+            showToast("Simulasi tersimpan di memori halaman; akan hilang saat dimuat ulang");
+            switchTab('review');
+        }
+
+        // Render Review Table
+        function renderReviewTable() {
+            const tbody = document.getElementById('table-review-body');
+            tbody.innerHTML = "";
+
+            if (draftItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">Belum ada item permintaan untuk direview. Silakan isi draf di Tab 2.</td></tr>`;
+                renderHOCoverageCheckboxes();
+                return;
+            }
+
+            renderHOCoverageCheckboxes();
+
+            draftItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                if (item.isRisk) tr.classList.add('row-risk');
+
+                const isByOwnerOther = item.klasifikasi === 'By Owner' || item.klasifikasi === 'By Other';
+                const isCancelled = item.statusReview === "Batal";
+
+                // Check actual approval fulfillment
+                const isSatisfied = checkApprovalFulfillment(item);
+
+                tr.innerHTML = `
+                    <td>
+                        <strong>${item.nama}</strong> (${item.id})<br>
+                        <small>Permintaan Lapangan: <strong>${item.qtyRequested} ${item.satuan}</strong></small><br>
+                        <span class="badge ${getBadgeClass(item.klasifikasi)}">${item.klasifikasi}</span>
+                    </td>
+                    <td>${item.isMaster ? 'Master Resmi' : '<span class="badge badge-warning">Item Sementara</span>'}</td>
+                    <td>
+                        <div>Jalur Diperlukan: <strong>${item.jalurRequired}</strong></div>
+                        <div style="font-size: 0.78rem; margin-top: 4px; color: var(--text-muted);">
+                            Log Keputusan:<br>
+                            - PM: ${renderDecisionBadge(item.decisions.PM)}<br>
+                            - MK: ${renderDecisionBadge(item.decisions.MK)}<br>
+                            - HO: ${renderDecisionBadge(item.decisions.HO)}
+                        </div>
+                        <div style="margin-top:4px;">
+                            ${isSatisfied ? '<span class="badge badge-approved">Persetujuan Memenuhi</span>' : '<span class="badge badge-warning">Belum Memenuhi Jalur</span>'}
+                        </div>
+                    </td>
+                    <td>
+                        ${isCancelled ? '<span class="badge badge-danger">BATAL</span>' : `
+                            <select onchange="updateReviewStatus(${index}, this.value)" style="margin-bottom:4px;">
+                                <option value="Belum direview" ${item.statusReview==='Belum direview'?'selected':''}>Belum direview</option>
+                                <option value="Disetujui" ${item.statusReview==='Disetujui'?'selected':''}>Disetujui</option>
+                                <option value="Ditolak" ${item.statusReview==='Ditolak'?'selected':''}>Ditolak</option>
+                                <option value="Ditunda" ${item.statusReview==='Ditunda'?'selected':''}>Ditunda</option>
+                            </select>
+                            <br>
+                            <button class="btn btn-outline btn-sm" onclick="quickLogDecision(${index})">+ Log Keputusan Luring</button>
+                        `}
+                    </td>
+                    <td>
+                        <label style="font-size:0.72rem;">Jumlah Disetujui:</label>
+                        <input type="number" value="${item.qtyApproved !== null ? item.qtyApproved : ''}" placeholder="Belum diisi" onchange="updateReviewQtyApproved(${index}, this.value)" style="width: 100px; margin-bottom:4px;" ${isCancelled?'disabled':''}>
+                        <br>
+                        <label style="font-size:0.72rem;">Spek/Merek Final:</label>
+                        <input type="text" value="${item.spekApproved}" onchange="updateReviewSpekApproved(${index}, this.value)" style="width: 120px;" ${isCancelled?'disabled':''}>
+                        <br>
+                        <label style="font-size:0.72rem;">Pemberi Instruksi:</label>
+                        <select onchange="updatePemberiInstruksi(${index}, this.value)" ${isCancelled?'disabled':''}>
+                            <option value="">-- Pilih --</option>
+                            <option value="PM" ${item.pemberiInstruksi==='PM'?'selected':''}>PM (Juhana)</option>
+                            <option value="MK" ${item.pemberiInstruksi==='MK'?'selected':''}>Tim MK</option>
+                            <option value="HO" ${item.pemberiInstruksi==='HO'?'selected':''}>HO Pusat</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
+                            <input type="checkbox" id="risk-chk-${index}" ${item.isRisk?'checked':''} onchange="toggleRisk(${index}, this.checked)">
+                            <label for="risk-chk-${index}" style="font-size:0.78rem; font-weight:700; color:var(--red-alert);">Risiko di Luar Approval</label>
+                        </div>
+                        ${item.isRisk ? `
+                            <textarea id="risk-reason-${index}" placeholder="Alasan Pengecualian Risiko (Wajib)..." onchange="updateRiskReason(${index}, this.value)" rows="2" style="border-color:var(--red-alert); font-size:0.78rem;">${item.riskReason}</textarea>${!item.riskReason ? '<span class="risk-text-alert">[!] Alasan Risiko Wajib Diisi</span>' : ''}
+                        ` : ''}
+                    </td>
+                    <td>
+                        ${isCancelled ? `
+                            <small style="color:var(--red-alert);">Dibatalkan: ${item.cancelledReason}</small><br>
+                        ` : `
+                            <button class="btn btn-danger btn-sm" onclick="openModalBatalItem(${index})">Batalkan Item</button>
+                        `}
+                        <button class="btn btn-outline btn-sm" onclick="openModalRiwayat(${index})" style="margin-top:4px;">Riwayat (${item.history.length})</button>
+                        <br>
+                        ${item.barangDatang ? `
+                            <span class="badge badge-blue" style="margin-top:4px;">Barang Datang (${item.barangDatangTime})</span>
+                        ` : `
+                            <button class="btn btn-teal btn-sm" onclick="tandaiBarangDatang(${index})" style="margin-top:4px;">Tandai Barang Datang</button>
+                        `}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderDecisionBadge(dec) {
+            if (!dec.decided) return `<span style="color:var(--text-muted);">Pending</span>`;
+            if (dec.choice === 'Disetujui') return `<strong style="color:var(--teal-primary);">Disetujui (${dec.timestamp})</strong>`;
+            if (dec.choice === 'Ditolak') return `<strong style="color:var(--red-alert);">Ditolak (${dec.timestamp})</strong>`;
+            return `<strong style="color:var(--yellow-alert);">${dec.choice} (${dec.timestamp})</strong>`;
+        }
+
+        function checkApprovalFulfillment(item) {
+            if (item.klasifikasi === 'By Owner' || item.klasifikasi === 'By Other') return true;
+            if (item.jalurRequired === 'PM') return item.decisions.PM.decided && item.decisions.PM.choice === 'Disetujui';
+            if (item.jalurRequired === 'MK') return item.decisions.MK.decided && item.decisions.MK.choice === 'Disetujui';
+            if (item.jalurRequired === 'HO') return item.decisions.HO.decided && item.decisions.HO.choice === 'Disetujui';
+            return false;
+        }
+
+        function quickLogDecision(index) {
+            const party = prompt("Masukkan pihak keputusan (PM / MK / HO):", "PM");
+            if (!party || !['PM', 'MK', 'HO'].includes(party.toUpperCase())) return;
+            const choice = prompt("Masukkan status (Disetujui / Ditolak / Ditunda):", "Disetujui");
+            if (!choice) return;
+
+            const p = party.toUpperCase();
+            const timeStr = getFormattedTime();
+            draftItems[index].decisions[p] = { decided: true, choice: choice, timestamp: timeStr, note: "Input Coretan Luring" };
+            
+            addHistory(index, `Keputusan ${p}`, "Pending", choice, p, "Input Coretan Luring");
+            renderReviewTable();
+        }
+
+        function updateReviewStatus(index, val) {
+            const oldVal = draftItems[index].statusReview;
+            draftItems[index].statusReview = val;
+            addHistory(index, "Status Review", oldVal, val, "Admin", "Update Status Review");
+        }
+
+        function updateReviewQtyApproved(index, val) {
+            const oldVal = draftItems[index].qtyApproved;
+            draftItems[index].qtyApproved = parseFloat(val) || 0;
+            addHistory(index, "Jumlah Disetujui", oldVal, val, "Admin", "Input Jumlah Disetujui");
+        }
+
+        function updateReviewSpekApproved(index, val) {
+            const oldVal = draftItems[index].spekApproved;
+            draftItems[index].spekApproved = val;
+            addHistory(index, "Spek Final", oldVal, val, "Admin", "Update Spek Final");
+        }
+
+        function updatePemberiInstruksi(index, val) {
+            const oldVal = draftItems[index].pemberiInstruksi;
+            draftItems[index].pemberiInstruksi = val;
+            addHistory(index, "Pemberi Instruksi", oldVal, val, "Admin", "Penetapan Pemberi Instruksi");
+        }
+
+        function toggleRisk(index, checked) {
+            draftItems[index].isRisk = checked;
+            if (!checked) draftItems[index].riskReason = "";
+            renderReviewTable();
+        }
+
+        function updateRiskReason(index, val) {
+            draftItems[index].riskReason = val;
+            addHistory(index, "Alasan Risiko", "-", val, "Admin", "Pencatatan Alasan Pengecualian Risiko");
+        }
+
+        function tandaiBarangDatang(index) {
+            draftItems[index].barangDatang = true;
+            draftItems[index].barangDatangTime = getFormattedTime();
+            addHistory(index, "Barang Datang", "Belum", "Datang", "Admin", "Konfirmasi Kedatangan Logistik");
+            alert("Kedatangan logistik berhasil ditandai. (Sistem hanya mencatat konfirmasi kedatangan, bukan kuantitas fisik atau pemeriksaan kerusakan).");
+            renderReviewTable();
+        }
+
+        // HO Multi-Coverage Logic
+        function simulasiUploadHO() {
+            hoFileUploaded = "Scan_Approval_HO_Terrasentra_081.pdf";
+            document.getElementById('ho-filename').value = hoFileUploaded;
+            renderHOCoverageCheckboxes();
+            showToast("File Scan PDF HO berhasil dilampirkan.");
+        }
+
+        function renderHOCoverageCheckboxes() {
+            const container = document.getElementById('ho-coverage-container');
+            const box = document.getElementById('ho-coverage-checkboxes');
+            box.innerHTML = "";
+
+            const hoItems = draftItems.filter(i => i.jalurRequired === 'HO' && i.statusReview !== 'Batal');
+
+            if (!hoFileUploaded || hoItems.length === 0) {
+                container.style.display = "none";
+                return;
+            }
+
+            container.style.display = "block";
+            hoItems.forEach(item => {
+                const isChecked = hoCoveredItemIds.includes(item.id);
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label style="font-weight:normal;">
+                        <input type="checkbox" value="${item.id}" ${isChecked?'checked':''} onchange="toggleHOCoverage('${item.id}', this.checked)">
+                        ${item.nama} (${item.id})
+                    </label>
+                `;
+                box.appendChild(div);
+            });
+        }
+
+        function toggleHOCoverage(itemId, isChecked) {
+            if (isChecked) {
+                if (!hoCoveredItemIds.includes(itemId)) hoCoveredItemIds.push(itemId);
+            } else {
+                hoCoveredItemIds = hoCoveredItemIds.filter(id => id !== itemId);
+            }
+        }
+
+        function simpanHasilReview() {
+            // Check for unhandled Risk Reasons
+            const invalidRisk = draftItems.find(i => i.isRisk && !i.riskReason.trim());
+            if (invalidRisk) {
+                alert(`Gagal Simpan: Item "${invalidRisk.nama}" ditandai Risiko di Luar Approval namun Alasan Risiko belum diisi.`);
+                return;
+            }
+
+            showToast("Simulasi tersimpan di memori halaman; akan hilang saat dimuat ulang");
+        }
+
+        // History Log Helpers
+        function addHistory(itemIdx, field, before, after, party, reason) {
+            if (!draftItems[itemIdx]) return;
+            draftItems[itemIdx].history.push({
+                timestamp: getFormattedTime(),
+                field: field,
+                before: before !== null && before !== undefined ? before : "-",
+                after: after,
+                party: party,
+                reason: reason
+            });
+        }
+
+        function openModalRiwayat(index) {
+            const tbody = document.getElementById('riwayat-tbody');
+            tbody.innerHTML = "";
+            const item = draftItems[index];
+
+            item.history.forEach(h => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${h.timestamp}</td>
+                    <td><strong>${h.field}</strong></td>
+                    <td>${h.before}</td>
+                    <td><strong style="color:var(--teal-primary);">${h.after}</strong></td>
+                    <td>${h.party} (${h.reason})</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            openModal('modal-riwayat');
+        }
+
+        // Modals Operations
+        function openModalSementara() { openModal('modal-sementara'); }
+        function openModalRevisi() { openModal('modal-revisi'); }
+        function openModalBatalItem(index) {
+            document.getElementById('batal-item-index').value = index;
+            document.getElementById('batal-item-alasan').value = "";
+            openModal('modal-batal-item');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+
+        function tambahItemSementara() {
+            const nama = document.getElementById('temp-nama').value.trim();
+            const klas = document.getElementById('temp-klasifikasi').value;
+            const merek = document.getElementById('temp-merek').value.trim();
+
+            if (!nama) { alert("Nama item sementara wajib diisi."); return; }
+
+            sessionTempCounter++;
+            const newId = "TEMP-" + sessionTempCounter;
+            const newItem = {
+                id: newId,
+                nama: nama,
+                klasifikasi: klas,
+                merek: merek || "Belum diketahui",
+                isMaster: false, // Item Sementara flag
+                refApproval: "Item Sementara Non-Master"
+            };
+
+            masterKatalog.unshift(newItem);
+            renderKatalog(masterKatalog);
+            addToDraft(newId);
+            closeModal('modal-sementara');
+        }
+
+        function prosesTerbitkanRevisi() {
+            const pihak = document.getElementById('revisi-pihak').value;
+            const alasan = document.getElementById('revisi-alasan').value.trim();
+
+            if (!alasan) { alert("Alasan resmi penerbitan revisi wajib diisi."); return; }
+
+            revVersion++;
+            document.getElementById('rev-badge').innerText = `Dokumen: REV.${revVersion}`;
+            showToast(`Revisi Resmi REV.${revVersion} Diterbitkan oleh ${pihak}.`);
+            closeModal('modal-revisi');
+        }
+
+        function prosesBatalItem() {
+            const index = document.getElementById('batal-item-index').value;
+            const alasan = document.getElementById('batal-item-alasan').value.trim();
+
+            if (!alasan) { alert("Alasan pembatalan item wajib diisi."); return; }
+
+            draftItems[index].statusReview = "Batal";
+            draftItems[index].cancelledReason = alasan;
+            addHistory(index, "Status Item", "Aktif", "Batal", "Admin", `Dibatalkan: ${alasan}`);
+
+            renderReviewTable();
+            closeModal('modal-batal-item');
+            showToast("Item berhasil dibatalkan dengan riwayat tersimpan.");
+        }
+
+        // Simulation Tool Triggers
+        function triggerGagalSimpan() {
+            const alertBox = document.getElementById('global-alert');
+            alertBox.classList.add('show');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function triggerKonflik() {
+            openModal('modal-konflik');
+        }
+
+        function terapkanKonflik() {
+            closeModal('modal-konflik');
+            showToast("Perbandingan konflik diterapkan. Simulasi tersimpan di memori halaman.");
+        }
+
+        function getFormattedTime() {
+            const now = new Date();
+            return now.getHours().toString().padStart(2, '0') + ":" + 
+                   now.getMinutes().toString().padStart(2, '0');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.display = "block";
+            setTimeout(() => { toast.style.display = "none"; }, 3500);
+        }
+    </script>
+</body>
+</html>

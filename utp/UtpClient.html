@@ -1,0 +1,573 @@
+<script>
+(function () {
+  'use strict';
+  const preview = window.UTP_FRONTEND_PREVIEW === true;
+  const parties = ['PM', 'MK', 'HO'];
+  const classes = { BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi', UNKNOWN: 'Merek belum diketahui', OWNER: 'By Owner', OTHER: 'By Other' };
+  const decisions = { PENDING: 'Belum diinput', APPROVED: 'Disetujui', REJECTED: 'Ditolak', DEFERRED: 'Ditunda' };
+  const pages = { CATALOG: 'Katalog Material', APPROVALS: 'Persetujuan Material', REQUESTS: 'Permintaan & Review', ARRIVAL: 'Barang Datang' };
+  const contractNotice = 'Penyimpanan material langsung belum aktif: server belum menyimpan klasifikasi, otoritas, keputusan, dan cakupan final HO per item. Data yang tampil dibaca dari server.';
+  let epoch = 0, sequence = 0, timer, toastTimer, modal = null;
+  let state = freshState();
+  function freshState() {
+    return { page: 'CATALOG', data: null, loading: false, error: '', editor: null,
+      catalog: { query: '', brand: '', group: '', approvedOnly: false, favoriteOnly: false, items: [], total: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '' };
+  }
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const norm = value => String(value || '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+  const el = id => document.getElementById(id);
+  const now = () => new Date().toISOString();
+  const uid = () => 'local-' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '-' + (++sequence));
+  function today() { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }
+  function dateText(value) { return value ? new Date(value).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
+  function badge(text, kind) { return '<span class="utp-badge ' + esc(kind || '') + '">' + esc(text) + '</span>'; }
+  function button(label, action, attrs, kind, disabled) {
+    return '<button type="button" class="utp-button ' + esc(kind || '') + '" data-action="' + esc(action) + '" ' + (attrs || '') + (disabled ? ' disabled aria-disabled="true" title="' + esc(contractNotice) + '"' : '') + '>' + esc(label) + '</button>';
+  }
+  function input(name, label, value, type, attrs) {
+    return '<label class="utp-field">' + esc(label) + '<input name="' + esc(name) + '" type="' + (type || 'text') + '" value="' + esc(value) + '" ' + (attrs || '') + '></label>';
+  }
+  function select(name, label, value, options, attrs) {
+    return '<label class="utp-field">' + esc(label) + '<select name="' + esc(name) + '" ' + (attrs || '') + '>' + Object.keys(options).map(key => '<option value="' + esc(key) + '"' + (String(value) === key ? ' selected' : '') + '>' + esc(options[key]) + '</option>').join('') + '</select></label>';
+  }
+  function textArea(name, label, value, attrs) { return '<label class="utp-field">' + esc(label) + '<textarea name="' + esc(name) + '" ' + (attrs || '') + '>' + esc(value) + '</textarea></label>'; }
+  function check(name, label, checked, attrs) { return '<label class="utp-field"><span><input type="checkbox" name="' + esc(name) + '"' + (checked ? ' checked' : '') + ' ' + (attrs || '') + '> ' + esc(label) + '</span></label>'; }
+  function empty(title, text) { return '<div class="utp-empty"><strong>' + esc(title) + '</strong><p>' + esc(text || '') + '</p></div>'; }
+  function errorBox(message, action) { return '<div class="utp-error" role="alert"><p>' + esc(message) + '</p>' + (action ? button('Coba lagi', action) : '') + '</div>'; }
+  function header(title, description, action) { return '<header class="utp-page-head"><div><h2>' + esc(title) + '</h2><p class="utp-muted">' + esc(description) + '</p></div><div class="utp-actions">' + (action || '') + '</div></header>'; }
+  function toast(message, bad) {
+    const box = el('utpToast'); if (!box) return;
+    clearTimeout(toastTimer); box.textContent = message; box.classList.toggle('bad', !!bad); box.hidden = false;
+    toastTimer = setTimeout(() => { box.hidden = true; }, 6000);
+  }
+  function saved(message) { toast(message + ' · Simulasi tersimpan di memori sesi ini saja.'); }
+  function banner() {
+    const box = el('utpBanner'); if (!box) return;
+    box.hidden = false; box.textContent = preview ? 'PRATINJAU LOKAL · DATA ILUSTRASI. Simpan hanya di memori sesi; hilang saat halaman dimuat ulang atau keluar. Pemilihan file mencatat nama dan cakupan saja, tanpa unggah.' : contractNotice;
+  }
+  async function read(action, payload) {
+    if (!['bootstrap', 'searchItems', 'list', 'detail'].includes(action)) throw new Error('Tindakan tulis langsung belum tersedia.');
+    if (typeof window.utpRpc !== 'function') throw new Error('Koneksi pembacaan UTP belum tersedia. Isian tetap dipertahankan.');
+    const result = await window.utpRpc(action, payload || {});
+    if (!result || typeof result !== 'object') throw new Error('Respons server tidak dapat dibaca.');
+    return result;
+  }
+  function seed() {
+    const catalog = [
+      ['001', 'Pipa air PVC', 'RUCIKA', 'AW 1 inch', 'batang', 'Plumbing'], ['02', 'Semen Portland', 'TIGA RODA', 'PCC 40 kg', 'sak', 'Sipil'],
+      ['K1', 'Kabel NYM', 'SUPREME', '3 × 2.5 mm²', 'meter', 'Elektrikal'], ['004', 'Pasir pasang', '', '', 'm³', 'Sipil'],
+      ['005', 'Baut hexagonal', '', 'M10', 'buah', 'Mekanikal'], ['006', 'Lampu panel LED', 'PHILIPS', '36 W', 'buah', 'Elektrikal'],
+      ['007', 'Keramik lantai', 'ROMAN', '60 × 60 cm', 'dus', 'Arsitektur'], ['008', 'Pompa transfer', 'GRUNDFOS', 'CM 3', 'unit', 'Mekanikal'],
+      ['009', 'Cat dinding', 'DULUX', 'Interior', 'pail', 'Arsitektur'], ['010', 'Sealant sambungan', '', '', 'tube', 'Arsitektur']
+    ].map((row, i) => ({ code: row[0], name: row[1], brand: row[2], model: row[3], unit: row[4], group: row[5], family: row[5], favorite: [0, 2, 4].includes(i), brandStatus: row[2] ? 'CONFIRMED' : 'UNKNOWN' }));
+    const approvals = [
+      { id: 'app-pipe', material: 'Pipa air PVC', brand: 'RUCIKA', types: ['AW 1 inch'], itemCodes: ['001'], generic: false, authority: 'MK', status: 'APPROVED', version: 1, note: 'Ilustrasi approval sesuai merek dan tipe.' },
+      { id: 'app-sand', material: 'Pasir pasang', brand: '', types: [], itemCodes: ['004'], generic: true, authority: 'PM', status: 'APPROVED', version: 1, note: 'Ilustrasi persetujuan generik terkonfirmasi.' },
+      { id: 'app-cable', material: 'Kabel NYM', brand: 'SUPREME', types: ['3 × 2.5 mm²'], itemCodes: ['K1'], generic: false, authority: 'HO', status: 'COMPARE', version: 1, note: 'Compare belum membuktikan persetujuan.' }
+    ];
+    const pipe = newItem(catalog[0]), sand = newItem(catalog[3]), cable = newItem(catalog[2]);
+    pipe.requiredAuthority = 'MK'; sand.classification = 'GENERIC'; sand.requiredAuthority = 'PM';
+    cable.requiredAuthority = 'HO'; cable.exceptionReason = 'Contoh pengajuan di luar approval aktif; menunggu instruksi HO.';
+    const req = { id: 'request-demo', version: 1, title: 'Material pekerjaan lantai dasar — ilustrasi', number: '', date: today(), status: 'REVIEW', revision: 1, items: [pipe, sand, cable], files: [], revisions: [], history: [], note: '', arrived: false };
+    req.initialSnapshot = snapshot(req); req.initialSnapshot.submittedAt = now();
+    pipe.decisions.PM = { status: 'APPROVED', at: now(), reason: 'Sesuai kebutuhan lapangan (ilustrasi).' };
+    pipe.decisions.MK = { status: 'APPROVED', at: now(), reason: 'Merek dan tipe sesuai (ilustrasi).' };
+    sand.decisions.PM = { status: 'APPROVED', at: now(), reason: 'Generik disetujui (ilustrasi).' };
+    return { project: { name: 'Terrasentra Bandung', pm: 'Juhana', code: 'TRSM-51D26-D-M' }, catalog, approvals, requests: [req], documents: [], masterCount: catalog.length };
+  }
+  function newItem(source) {
+    const s = source || {};
+    return { id: uid(), code: String(s.code || ''), name: s.name || '', brand: s.brand || '', model: s.model || '', unit: s.unit || '', quantity: 1,
+      group: s.group || '', family: s.family || '', classification: s.brand ? 'BRANDED' : 'UNKNOWN', isTemporary: !s.code,
+      requiredAuthority: 'PM', decisions: { PM: { status: 'PENDING' }, MK: { status: 'PENDING' }, HO: { status: 'PENDING' } }, exceptionReason: '', note: '', finalFileId: '', supplyConfirmed: false };
+  }
+  function snapshot(record) {
+    return clone({ title: record.title, number: record.number || '', date: record.date, revision: record.revision, items: record.items || [], files: record.files || [], note: record.note || '' });
+  }
+  function freeze(value) { if (value && typeof value === 'object') { Object.freeze(value); Object.keys(value).forEach(key => freeze(value[key])); } return value; }
+  function owner(item) { return ['OWNER', 'OTHER'].includes(item.classification); }
+  function matches(item, approval) {
+    if (owner(item) || !approval || approval.archived || approval.status !== 'APPROVED') return false;
+    const codes = approval.itemCodes || [];
+    if (codes.length ? !codes.includes(String(item.code || '')) : !norm(approval.material).split(' ').filter(Boolean).every(word => norm([item.name, item.group, item.family].join(' ')).includes(word))) return false;
+    if (item.classification === 'UNKNOWN') return false;
+    if (item.classification === 'GENERIC' ? !approval.generic : approval.generic || !String(approval.brand || '').split(/[,;\n]/).some(brand => norm(brand) === norm(item.brand))) return false;
+    return !(approval.types || []).length || approval.types.some(type => norm(type) === norm(item.model));
+  }
+  function approvalFor(item) { return (state.data.approvals || []).find(approval => matches(item, approval)); }
+  function ready(item, request) {
+    if (!request.initialSnapshot) return { ok: false, text: 'Draf — belum diajukan' };
+    if (!item.classification || !item.decisions) return { ok: false, text: 'Kontrak per item belum tersedia pada data ini' };
+    if (owner(item)) return item.supplyConfirmed ? { ok: true, text: 'Penyediaan dikonfirmasi · menunggu barang' } : { ok: false, text: 'Menunggu konfirmasi penyediaan ' + classes[item.classification] };
+    if (!parties.includes(item.requiredAuthority)) return { ok: false, text: 'Tentukan persetujuan diperlukan' };
+    for (const party of parties.slice(0, parties.indexOf(item.requiredAuthority) + 1)) {
+      const status = (item.decisions[party] || {}).status || 'PENDING';
+      if (status !== 'APPROVED') return { ok: false, text: status === 'PENDING' ? 'Menunggu hasil review ' + party : decisions[status] + ' oleh ' + party };
+    }
+    if (!approvalFor(item) && !String(item.exceptionReason || '').trim()) return { ok: false, text: item.classification === 'UNKNOWN' ? 'Merek belum diketahui; konfirmasi klasifikasi atau catat pengecualian' : 'Belum sesuai approval aktif; perlu approval atau alasan pengecualian' };
+    if (item.requiredAuthority === 'HO' && !(request.files || []).some(file => file.id === item.finalFileId && (file.coveredItemIds || []).includes(item.id))) return { ok: false, text: 'Pilih bukti final HO yang mencakup item ini' };
+    return { ok: true, text: item.exceptionReason ? 'Dapat dilanjutkan dengan risiko pengecualian' : 'Dapat masuk daftar final' };
+  }
+  async function bootstrap() {
+    if (state.loading) return;
+    const generation = epoch; state.loading = true; state.error = ''; render();
+    try { const data = preview ? seed() : await read('bootstrap'); if (generation !== epoch) return; state.data = data; }
+    catch (error) { if (generation !== epoch) return; state.error = error.message || String(error); }
+    finally { if (generation === epoch) { state.loading = false; render(); if (state.data && state.page === 'CATALOG') searchCatalog(); } }
+  }
+  function render() {
+    const app = el('utpApp'), content = el('utpContent'); if (!app || !content) return;
+    banner(); app.hidden = false;
+    if (!state.data) { content.innerHTML = header(pages[state.page], 'Administrasi material proyek aktif') + (state.loading ? '<div class="utp-empty" role="status">Memuat data…</div>' : errorBox(state.error || 'Data belum dimuat.', 'retry-bootstrap')); return; }
+    if (state.page === 'CATALOG') renderCatalog();
+    else if (state.page === 'APPROVALS') renderApprovals();
+    else if (state.page === 'ARRIVAL') renderArrival();
+    else if (state.editor) renderEditor();
+    else renderRequests();
+  }
+  function renderCatalog() {
+    const c = state.catalog;
+    el('utpContent').innerHTML = header(pages.CATALOG, 'Identitas dan spesifikasi resmi · bukan saldo stok proyek', button('Muat ulang hasil', 'search-catalog')) +
+      '<div class="utp-toolbar" id="utpCatalogFilters">' + input('query', 'Cari kode, nama, merek, atau tipe', c.query, 'search', 'data-catalog="query" placeholder="Kode pendek juga dapat dicari" autocomplete="off"') +
+      input('brand', 'Merek persis', c.brand, 'text', 'data-catalog="brand"') + input('group', 'Kelompok persis', c.group, 'text', 'data-catalog="group"') +
+      check('approvedOnly', 'Sesuai approval aktif', c.approvedOnly, 'data-catalog="approvedOnly"') + check('favoriteOnly', 'Favorit saja', c.favoriteOnly, 'data-catalog="favoriteOnly"') + '</div><div id="utpCatalogResults" aria-live="polite"></div>';
+    renderCatalogResults();
+  }
+  function renderCatalogResults() {
+    const box = el('utpCatalogResults'); if (!box) return;
+    const c = state.catalog;
+    if (c.loading) { box.innerHTML = '<div class="utp-empty" role="status">Mencari material…</div>'; return; }
+    if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
+    if (!c.items.length) { box.innerHTML = empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.'); return; }
+    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview) + '</div></td></tr>').join('') + '</tbody></table></div>';
+  }
+  function previewSearch(filters) {
+    const terms = norm(filters.query).split(' ').filter(Boolean);
+    const items = state.data.catalog.filter(item => (!filters.favoriteOnly || item.favorite) && (!filters.brand || norm(item.brand) === norm(filters.brand)) && (!filters.group || norm(item.group) === norm(filters.group)) && terms.every(term => norm([item.code, item.name, item.brand, item.model, item.group, item.family].join(' ')).includes(term))).map(item => {
+      const candidate = Object.assign({}, item, { classification: item.code === '004' ? 'GENERIC' : item.brand ? 'BRANDED' : 'UNKNOWN' });
+      const approval = approvalFor(candidate);
+      return Object.assign({}, item, { approved: !!approval, approvalId: approval ? approval.id : '', approvalAuthority: approval ? approval.authority : '' });
+    }).filter(item => !filters.approvedOnly || item.approved);
+    items.sort((a, b) => Number(b.approved) - Number(a.approved) || Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name, 'id') || a.code.localeCompare(b.code));
+    return { items: items.slice(0, Math.min(50, filters.limit || 50)), total: items.length };
+  }
+  async function searchCatalog() {
+    if (!state.data) return;
+    clearTimeout(timer); const generation = epoch, requestId = ++sequence, c = state.catalog;
+    c.requestId = requestId; c.loading = true; c.error = ''; renderCatalogResults();
+    const filters = { query: c.query, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, limit: 50 };
+    try {
+      const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
+      if (generation !== epoch || c.requestId !== requestId) return;
+      if (!Array.isArray(result.items)) throw new Error('Hasil pencarian server tidak valid.');
+      c.items = result.items.slice(0, 50); c.total = result.total == null ? c.items.length : result.total;
+    } catch (error) { if (generation !== epoch || c.requestId !== requestId) return; c.error = error.message || String(error); }
+    finally { if (generation === epoch && c.requestId === requestId) { c.loading = false; if (state.page === 'CATALOG') renderCatalogResults(); } }
+  }
+  function renderApprovals() {
+    const rows = (state.data.approvals || []).filter(item => norm([item.material, item.brand, (item.types || []).join(' '), item.status].join(' ')).includes(norm(state.approvalQuery)));
+    el('utpContent').innerHTML = header(pages.APPROVALS, 'Satu material satu approval · otoritas dicatat sesuai dokumen', button('Tambah approval', 'new-approval', '', 'primary', !preview) + button('Muat ulang', 'refresh-approvals')) +
+      '<div class="utp-toolbar">' + input('approvalQuery', 'Cari persetujuan', state.approvalQuery, 'search', 'id="utpApprovalSearch"') + '</div><div id="utpApprovalList">' + (rows.length ? '<div class="utp-grid">' + rows.map(approval => '<article class="utp-card"><h3>' + esc(approval.material) + '</h3><p>' + esc(approval.generic ? 'Generik terkonfirmasi' : approval.brand || 'Merek belum diketahui') + ' · ' + esc((approval.types || []).join(', ') || 'Tipe tidak dibatasi') + '</p><div class="utp-actions">' + badge(approval.status === 'APPROVED' ? 'Disetujui ' + (approval.authority || '—') : approval.status === 'COMPARE' ? 'Compare · belum disetujui' : approval.status) + '</div><p class="utp-muted">' + esc(approval.note || '') + '</p><div class="utp-actions">' + button('Detail', 'approval-detail', 'data-id="' + esc(approval.id) + '"') + button('Edit', 'edit-approval', 'data-id="' + esc(approval.id) + '"', '', !preview) + '</div></article>').join('') + '</div>' : empty('Belum ada persetujuan yang cocok', 'Generik membutuhkan persetujuan tersendiri. Merek kosong tidak otomatis generik.')) + '</div>';
+  }
+  function renderRequests() {
+    const rows = (state.data.requests || []).filter(record => norm([record.title, record.number].join(' ')).includes(norm(state.requestQuery)));
+    el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview) + button('Muat ulang', 'refresh-requests')) +
+      '<div class="utp-toolbar">' + input('requestQuery', 'Cari judul atau nomor', state.requestQuery, 'search', 'id="utpRequestSearch"') + '</div>' +
+      (rows.length ? '<div class="utp-grid">' + rows.map(record => {
+        const count = (record.items || []).filter(item => ready(item, record).ok).length;
+        return '<article class="utp-card"><div class="utp-actions">' + badge(record.initialSnapshot ? record.status === 'FINAL' ? 'Daftar final' : 'Dalam review' : record.status === 'DRAFT' ? 'Draf' : record.status) + badge('REV ' + String(record.revision || 1).padStart(3, '0')) + '</div><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + ' · ' + esc(record.date || '—') + '</p><p class="utp-muted">' + (record.items || []).length + ' item · ' + count + ' dapat dilanjutkan · versi data ' + esc(record.version || 1) + '</p><div class="utp-actions">' + button(preview ? 'Buka permintaan' : 'Lihat detail', 'open-request', 'data-id="' + esc(record.id) + '"', 'primary') + '</div></article>';
+      }).join('') + '</div>' : empty('Belum ada permintaan', 'Buat draf dan pilih item melalui pencarian terbatas.'));
+  }
+  function createEditor() {
+    const record = { id: uid(), version: 0, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
+    state.editor = { record, base: null, dirty: true, error: '', party: '', reason: '', pendingHistory: [], failNext: false, busy: false };
+  }
+  function renderEditor() {
+    const e = state.editor, r = e.record, review = !!r.initialSnapshot;
+    const count = r.items.filter(item => ready(item, r).ok).length;
+    el('utpContent').innerHTML = header(review ? 'Input Hasil Review' : 'Permintaan awal · draf', (r.number || 'Nomor belum ditetapkan') + ' · REV ' + String(r.revision).padStart(3, '0') + ' · versi data ' + r.version, button('Daftar permintaan', 'back-requests') + button('Riwayat dokumen', 'document-history')) +
+      '<div class="utp-card"><form id="utpRequestFields"><div class="utp-grid">' + input('title', 'Judul permintaan', r.title, 'text', 'required maxlength="300" data-request-field="title"') + input('date', 'Tanggal', r.date, 'date', 'required data-request-field="date"') + input('number', 'Nomor dokumen (opsional, format bebas)', r.number, 'text', 'maxlength="160" data-request-field="number"') + textArea('note', 'Catatan permintaan', r.note, 'maxlength="5000" data-request-field="note"') + '</div></form>' +
+      (review ? '<div class="utp-grid">' + select('reviewParty', 'Pihak pemberi instruksi perubahan dokumen', e.party, { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'data-review-meta="party"') + input('reviewReason', 'Alasan perubahan dokumen', e.reason, 'text', 'data-review-meta="reason" maxlength="2000"') + '</div><p class="utp-muted">Admin mencatat instruksi luring. Simpan review tidak menaikkan REV. Keputusan HO tidak otomatis mengulang MK.</p>' : '<p class="utp-muted">Permintaan awal akan dibekukan saat diajukan. Item tambahan selalu mulai dari keputusan belum diinput.</p>') + '</div>' +
+      '<div class="utp-toolbar">' + button('Tambah dari katalog', 'add-master', '', 'primary') + button('Tambah item sementara', 'add-temporary') + (review ? button('Pilih item permintaan awal', 'choose-original') + button('Catat file final HO', 'add-final-file') : '') + '</div>' +
+      '<div id="utpRequestItems">' + (r.items.length ? r.items.map(item => itemCard(item, r)).join('') : empty('Draf belum memiliki item', 'Cari kode atau nama material. Barang yang belum ada dapat dicatat sebagai item sementara.')) + '</div>' +
+      (r.files.length ? '<div class="utp-card"><h3>Bukti final HO · metadata simulasi</h3>' + r.files.map(file => '<p><strong>' + esc(file.name) + '</strong> · ' + file.coveredItemIds.length + ' item dicakup · tidak diunggah</p>').join('') + '</div>' : '') +
+      '<div class="utp-sticky"><p id="utpEditorError" class="utp-error" role="alert"' + (e.error ? '' : ' hidden') + '>' + esc(e.error) + '</p><div class="utp-actions">' + button(e.busy ? 'Menyimpan…' : review ? 'Simpan hasil review' : 'Simpan draf', 'save-request', '', 'primary', e.busy) +
+      (!review ? button('Ajukan untuk review', 'submit-request', '', '', e.busy) : button('Lihat daftar final (' + count + ')', 'show-final') + button('Tetapkan daftar final', 'finalize-request', '', '', !count || e.busy) + button('Terbitkan Revisi', 'publish-revision', '', '', e.busy)) + '</div><p class="utp-muted">' + (e.dirty ? 'Ada isian belum disimpan. ' : 'Isian sama dengan simpan terakhir. ') + 'Pratinjau: simpan hanya di memori.</p><details><summary>Simulasi kendala penyimpanan</summary><div class="utp-actions">' + button('Gagal pada simpan berikutnya', 'simulate-failure') + button('Ubah versi dari sesi lain', 'simulate-conflict') + '</div></details></div>';
+  }
+  function itemCard(item, record) {
+    const status = ready(item, record), approval = approvalFor(item), risk = String(item.exceptionReason || '').trim();
+    return '<article class="utp-item-card' + (risk ? ' utp-risk' : '') + '" data-item-id="' + esc(item.id) + '"><div class="utp-page-head"><div><h3>' + esc(item.name) + '</h3><p class="utp-muted">' + esc(item.code || 'Tanpa kode resmi') + ' · ' + esc(item.quantity) + ' ' + esc(item.unit) + ' · ' + esc(item.brand || 'Merek belum diketahui') + ' ' + esc(item.model) + '</p></div><div class="utp-actions">' + button('Edit / input review', 'edit-item', 'data-id="' + esc(item.id) + '"') + button('Riwayat item', 'item-history', 'data-id="' + esc(item.id) + '"') + (!record.initialSnapshot ? button('Hapus dari draf', 'remove-item', 'data-id="' + esc(item.id) + '"', 'danger') : '') + '</div></div><div class="utp-actions">' + badge(classes[item.classification] || 'Klasifikasi belum tersedia') + (item.isTemporary ? badge('Item sementara') : '') + badge(owner(item) ? 'Tanpa otoritas approval' : 'Persetujuan diperlukan: ' + item.requiredAuthority) + badge(status.text, status.ok ? 'success' : '') + '</div>' +
+      (!owner(item) ? '<p class="utp-muted">' + parties.map(party => party + ': ' + decisions[((item.decisions || {})[party] || {}).status || 'PENDING']).join(' · ') + ' · ' + (approval ? 'Sesuai approval ' + esc(approval.authority) : 'Belum sesuai approval aktif') + '</p>' : '<p class="utp-muted">Tidak memerlukan approval/brosur/final HO. Penyediaan dan kedatangan dicatat terpisah.</p>') +
+      (risk ? '<p><strong>RISIKO — di luar approval aktif:</strong> ' + esc(risk) + '</p>' : '') + (item.note ? '<p>' + esc(item.note) + '</p>' : '') + '</article>';
+  }
+  function validateRequest(record) {
+    if (!record.title.trim()) throw new Error('Judul permintaan wajib diisi.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date) || Number.isNaN(Date.parse(record.date + 'T00:00:00'))) throw new Error('Tanggal permintaan wajib valid.');
+    if (!record.items.length) throw new Error('Tambahkan minimal satu item.');
+    record.items.forEach(item => {
+      if (!item.name.trim() || !item.unit.trim()) throw new Error('Nama dan satuan setiap item wajib diisi.');
+      if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0 || Number(item.quantity) > 1e12) throw new Error('Jumlah item harus lebih dari nol dan maksimal 1 triliun.');
+      if (item.classification === 'BRANDED' && !item.brand.trim()) throw new Error('Item bermerek wajib memiliki merek.');
+    });
+  }
+  function fieldChanges(before, after, itemId) {
+    return Object.keys(after).filter(key => !['id', 'version', 'history', 'revisions', 'initialSnapshot', 'updatedAt', 'createdAt', 'items', 'files'].includes(key) && JSON.stringify(before ? before[key] : null) !== JSON.stringify(after[key])).map(field => ({ itemId: itemId || '', field, before: before && before[field] != null ? clone(before[field]) : null, after: after[field] == null ? null : clone(after[field]), kind: field === 'quantity' && before && Number(after[field]) < Number(before[field]) ? 'QUANTITY_DECREASE' : 'CHANGE' }));
+  }
+  function audit(action, party, reason, changes) { return { at: now(), actor: party || 'Admin', action, reason: reason || '', changes: clone(changes) }; }
+  function editorError(message) { state.editor.error = message; const box = el('utpEditorError'); if (box) { box.textContent = message; box.hidden = false; box.scrollIntoView({ block: 'nearest' }); } }
+  function storeEditor(action, requireReason) {
+    if (!preview) throw new Error(contractNotice);
+    const e = state.editor, r = e.record;
+    validateRequest(r);
+    const server = state.data.requests.find(row => row.id === r.id);
+    if (server && (!e.base || server.version !== e.base.version)) { showConflict(server); return false; }
+    if (e.failNext) { e.failNext = false; throw new Error('Simulasi gagal simpan. Semua isian tetap ada. Tekan Simpan untuk mencoba lagi.'); }
+    const changes = fieldChanges(e.base, r);
+    if ((requireReason || (r.initialSnapshot && changes.length)) && (!parties.includes(e.party) || !e.reason.trim())) throw new Error('Pilih pihak PM/MK/HO dan isi alasan perubahan dokumen sebelum menyimpan.');
+    const result = clone(r);
+    result.history = clone(server ? server.history || [] : []);
+    result.history.push(...clone(e.pendingHistory));
+    if (changes.length || action !== 'SAVE') result.history.push(audit(action || (r.initialSnapshot ? 'SAVE_REVIEW' : 'SAVE_DRAFT'), r.initialSnapshot ? e.party : 'Admin', e.reason, changes));
+    result.version = server ? server.version + 1 : 1; result.updatedAt = now();
+    if (result.initialSnapshot) freeze(result.initialSnapshot);
+    const index = state.data.requests.findIndex(row => row.id === result.id);
+    if (index < 0) state.data.requests.push(result); else state.data.requests[index] = result;
+    e.record = clone(result); if (e.record.initialSnapshot) freeze(e.record.initialSnapshot);
+    e.base = clone(result); e.pendingHistory = []; e.dirty = false; e.error = ''; e.reason = ''; e.party = '';
+    renderEditor(); saved(action === 'SUBMIT' ? 'Permintaan diajukan; salinan awal dibekukan' : 'Permintaan disimpan');
+    return true;
+  }
+  function dialog(title, body, onSubmit, saveLabel) {
+    const d = el('utpDialog'); if (!d) return;
+    if (d.open) d.close();
+    modal = { onSubmit, searchId: 0 };
+    el('utpDialogTitle').textContent = title;
+    el('utpDialogBody').innerHTML = (onSubmit ? '<form id="utpDialogForm">' : '<div>') + body + '<p id="utpDialogError" class="utp-error" role="alert" hidden></p>' + (onSubmit ? '<div class="utp-actions"><button type="submit" class="utp-button primary">' + esc(saveLabel || 'Simpan simulasi') + '</button>' + button('Batal', 'close-dialog') + '</div></form>' : '<div class="utp-actions">' + button('Tutup', 'close-dialog') + '</div></div>');
+    d.showModal();
+  }
+  function closeDialog() { const d = el('utpDialog'); if (d && d.open) d.close(); modal = null; }
+  function dialogError(message) { const box = el('utpDialogError'); if (box) { box.textContent = message; box.hidden = false; } }
+  function formValue(form, name) { const field = form.elements.namedItem(name); return field ? field.value.trim() : ''; }
+  function editItem(id, source) {
+    const e = state.editor, r = e.record, original = r.items.find(item => item.id === id), item = original ? clone(original) : newItem(source);
+    const reviewing = !!r.initialSnapshot;
+    let body = '<div class="utp-grid">' + input('code', 'Kode resmi (boleh kosong untuk sementara)', item.code, 'text', 'maxlength="160"') + input('name', 'Nama material', item.name, 'text', 'required maxlength="500"') + input('brand', 'Merek', item.brand, 'text', 'maxlength="160"') + input('model', 'Tipe / spesifikasi', item.model, 'text', 'maxlength="160"') + input('quantity', 'Jumlah diminta', item.quantity, 'number', 'required min="0.000001" max="1000000000000" step="any"') + input('unit', 'Satuan', item.unit, 'text', 'required maxlength="80"') + select('classification', 'Klasifikasi per item', item.classification, classes, 'id="utpItemClassification"') + select('requiredAuthority', 'Persetujuan diperlukan', item.requiredAuthority || 'PM', { PM: 'Sampai PM', MK: 'Sampai MK', HO: 'Sampai HO' }, 'id="utpItemAuthority"') + check('isTemporary', 'Item sementara (terpisah dari klasifikasi)', item.isTemporary) + '</div><p class="utp-muted">Merek kosong tetap belum diketahui. By Owner / By Other tidak memerlukan jalur approval; bukan tanda barang datang.</p>';
+    if (reviewing) {
+      body += '<div id="utpItemReview"><div class="utp-grid">' + select('party', 'Pihak pemberi instruksi', '', { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required id="utpItemParty"') + select('decision', 'Keputusan pihak yang dipilih', 'PENDING', decisions, 'id="utpItemDecision"') + textArea('reason', 'Alasan / catatan instruksi', '', 'required maxlength="2000"') + '</div><p class="utp-muted">Keputusan ditolak/ditunda tetap tercatat. Pengurangan jumlah adalah perubahan jumlah, terpisah dari keputusan.</p></div>';
+      body += check('supplyConfirmed', 'Admin sudah mengonfirmasi penyediaan By Owner / By Other (bukan kedatangan)', item.supplyConfirmed, 'id="utpSupplyConfirmed"');
+      const files = { '': 'Belum dipilih' }; r.files.filter(file => file.coveredItemIds.includes(item.id)).forEach(file => { files[file.id] = file.name + ' · simulasi'; });
+      body += select('finalFileId', 'Bukti final HO yang mencakup item ini', item.finalFileId, files);
+    }
+    body += textArea('exceptionReason', 'Alasan pengecualian di luar approval (risiko merah)', item.exceptionReason, 'maxlength="2000"') + textArea('note', 'Catatan item', item.note, 'maxlength="2000"');
+    dialog(original ? 'Edit item / input hasil review' : 'Tambah item · keputusan awal belum diinput', body, form => {
+      const updated = clone(item);
+      ['code', 'name', 'brand', 'model', 'unit', 'classification', 'note', 'exceptionReason'].forEach(key => { updated[key] = formValue(form, key); });
+      updated.quantity = Number(formValue(form, 'quantity')); updated.isTemporary = form.elements.isTemporary.checked;
+      updated.requiredAuthority = owner(updated) ? '' : formValue(form, 'requiredAuthority');
+      if (!updated.name || !updated.unit || !Number.isFinite(updated.quantity) || updated.quantity <= 0 || updated.quantity > 1e12) throw new Error('Nama, satuan, dan jumlah positif wajib diisi.');
+      if (updated.classification === 'BRANDED' && !updated.brand) throw new Error('Isi merek untuk klasifikasi bermerek.');
+      if (updated.classification === 'GENERIC' && updated.brand) throw new Error('Generik terkonfirmasi tidak boleh berisi merek. Konfirmasi klasifikasi dengan jelas.');
+      let party = 'Admin', reason = '';
+      if (reviewing) {
+        party = formValue(form, 'party'); reason = formValue(form, 'reason');
+        if (!parties.includes(party) || !reason) throw new Error('Pihak dan alasan instruksi wajib diisi.');
+        updated.supplyConfirmed = owner(updated) && form.elements.supplyConfirmed.checked;
+        updated.finalFileId = !owner(updated) && updated.requiredAuthority === 'HO' ? formValue(form, 'finalFileId') : '';
+        if (original && !owner(updated)) updated.decisions[party] = { status: formValue(form, 'decision'), at: now(), reason };
+      }
+      // An added item never inherits approvals or review decisions from its source.
+      if (!original) updated.decisions = newItem().decisions;
+      const changes = original ? fieldChanges(original, updated, updated.id) : [{ itemId: updated.id, field: 'item', before: null, after: clone(updated), kind: 'ADD_ITEM' }];
+      if (original) r.items[r.items.findIndex(row => row.id === original.id)] = updated; else r.items.push(updated);
+      if (changes.length) e.pendingHistory.push(audit(reviewing ? 'INPUT_REVIEW' : 'EDIT_DRAFT_ITEM', party, reason, changes));
+      e.dirty = true; closeDialog(); renderEditor();
+    }, 'Terapkan ke isian');
+    modal.item = item;
+    toggleItemFields();
+  }
+  function toggleItemFields() {
+    const form = el('utpDialogForm'); if (!form || !form.elements.classification) return;
+    const owned = ['OWNER', 'OTHER'].includes(form.elements.classification.value);
+    form.elements.requiredAuthority.disabled = owned;
+    const supply = form.elements.supplyConfirmed; if (supply) { supply.disabled = !owned; supply.closest('label').hidden = !owned; }
+    const file = form.elements.finalFileId; if (file) { file.disabled = owned || form.elements.requiredAuthority.value !== 'HO'; file.closest('label').hidden = file.disabled; }
+    const decision = form.elements.decision; if (decision) decision.disabled = owned || !state.editor.record.items.some(item => item.id === modal.item.id);
+  }
+  function masterLookup() {
+    dialog('Rechercher un material'.replace('Rechercher un', 'Cari'), input('lookup', 'Kode atau nama material', '', 'search', 'id="utpLookupQuery" autocomplete="off" placeholder="Kode pendek dapat dicari"') + '<div id="utpLookupResults" aria-live="polite"></div>', null);
+    lookup('');
+  }
+  async function lookup(query) {
+    if (!modal) return;
+    const context = modal, id = ++context.searchId, generation = epoch, box = el('utpLookupResults'); if (!box) return;
+    context.query = query; box.innerHTML = '<p class="utp-muted" role="status">Mencari material…</p>';
+    try {
+      const result = preview ? await Promise.resolve(previewSearch({ query, limit: 50 })) : await read('searchItems', { query, limit: 50 });
+      if (generation !== epoch || context !== modal || id !== context.searchId) return;
+      context.items = result.items.slice(0, 50);
+      box.innerHTML = context.items.length ? '<div class="utp-tablewrap"><table><thead><tr><th>Material</th><th>Merek / tipe</th><th>Pilih</th></tr></thead><tbody>' + context.items.map(item => '<tr><td>' + esc(item.code) + ' · ' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br>' + esc(item.model) + '</td><td>' + button('Pilih', 'lookup-select', 'data-code="' + esc(item.code) + '"') + '</td></tr>').join('') + '</tbody></table></div>' : empty('Tidak ditemukan', 'Ubah kata pencarian atau tambah item sementara.');
+    } catch (error) { if (context === modal && id === context.searchId) box.innerHTML = errorBox(error.message + ' Kata pencarian tetap ada.', 'retry-lookup'); }
+  }
+  function chooseOriginal() {
+    const r = state.editor.record, originals = r.initialSnapshot.items;
+    dialog('Pilih item dari permintaan awal', '<p class="utp-muted">Salinan awal tetap utuh. Pilihan ini membuka item saat ini untuk input review.</p>' + select('originalItem', 'Item permintaan awal', originals[0] ? originals[0].id : '', Object.fromEntries(originals.map(item => [item.id, (item.code || 'Sementara') + ' · ' + item.name]))), form => {
+      const id = formValue(form, 'originalItem'); if (!r.items.some(item => item.id === id)) throw new Error('Item awal tidak ditemukan pada isian saat ini.');
+      editItem(id);
+    }, 'Buka item');
+  }
+  function addFinalFile() {
+    const r = state.editor.record, candidates = r.items.filter(item => !owner(item) && item.requiredAuthority === 'HO');
+    if (!candidates.length) { toast('Belum ada item yang memerlukan final HO.', true); return; }
+    dialog('Catat bukti final HO · simulasi', '<p class="utp-muted">File tidak diunggah dan isinya tidak dibaca. Satu nama file dapat mencakup beberapa item HO. Setelah dicatat, pilih bukti tersebut pada setiap item yang sesuai.</p>' + input('file', 'Pilih PDF / scan final HO', '', 'file', 'required accept="application/pdf,image/jpeg,image/png"') + '<fieldset><legend>Item yang dicakup file</legend>' + candidates.map(item => check('coverage', item.name, false, 'value="' + esc(item.id) + '"')).join('') + '</fieldset>' + select('party', 'Pihak pemberi instruksi', 'HO', { HO: 'HO' }) + textArea('reason', 'Catatan pemberkasan', '', 'required maxlength="2000"'), form => {
+      const file = form.elements.file.files[0], coverage = Array.from(form.querySelectorAll('[name="coverage"]:checked')).map(node => node.value), reason = formValue(form, 'reason');
+      if (!file || !/\.(pdf|jpe?g|png)$/i.test(file.name) || !coverage.length || !reason) throw new Error('Pilih PDF/scan, minimal satu item cakupan, dan catatan.');
+      const metadata = { id: uid(), name: file.name, mime: file.type || '', coveredItemIds: coverage, at: now(), simulated: true };
+      r.files.push(metadata); state.editor.pendingHistory.push(audit('FINAL_FILE_METADATA', 'HO', reason, [{ field: 'files', before: null, after: metadata }]));
+      state.editor.dirty = true; closeDialog(); renderEditor(); toast('Nama dan cakupan file ditambahkan ke isian. File belum diunggah.');
+    }, 'Catat metadata simulasi');
+  }
+  function editApproval(id) {
+    const original = (state.data.approvals || []).find(row => row.id === id);
+    const a = clone(original || { id: uid(), version: 0, material: '', brand: '', types: [], itemCodes: [], generic: false, authority: 'PM', status: 'COMPARE', note: '' });
+    dialog(original ? 'Edit persetujuan · simulasi' : 'Tambah persetujuan · simulasi', '<div class="utp-grid">' + input('material', 'Material', a.material, 'text', 'required maxlength="300"') + select('classification', 'Jenis approval', a.generic ? 'GENERIC' : 'BRANDED', { BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi' }) + input('brand', 'Merek (pisahkan beberapa merek dengan koma)', a.brand, 'text', 'maxlength="160"') + input('types', 'Tipe yang diizinkan (pisahkan dengan koma)', a.types.join(', '), 'text', 'maxlength="2000"') + input('itemCodes', 'Kode item terkait (pisahkan dengan koma)', a.itemCodes.join(', '), 'text', 'maxlength="2000"') + select('authority', 'Otoritas sesuai bukti', a.authority, { PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + select('status', 'Status persetujuan', a.status, { COMPARE: 'Compare · belum disetujui', APPROVED: 'Disetujui', REJECTED: 'Ditolak' }) + input('brochure', 'Brosur (opsional, metadata simulasi)', '', 'file', 'accept=".pdf,.doc,.docx"') + '</div>' + textArea('note', 'Catatan / alasan perubahan', a.note, 'required maxlength="2000"'), form => {
+      const changed = clone(a); ['material', 'brand', 'authority', 'status', 'note'].forEach(key => { changed[key] = formValue(form, key); });
+      changed.generic = formValue(form, 'classification') === 'GENERIC';
+      if (changed.generic && changed.brand) throw new Error('Hapus merek untuk approval generik terkonfirmasi.');
+      if (!changed.generic && changed.status === 'APPROVED' && !changed.brand) throw new Error('Approval bermerek memerlukan merek.');
+      if (!changed.material || !changed.note) throw new Error('Material dan catatan wajib diisi.');
+      ['types', 'itemCodes'].forEach(key => { changed[key] = formValue(form, key).split(',').map(value => value.trim()).filter(Boolean); });
+      const file = form.elements.brochure.files[0]; if (file) changed.brochure = { name: file.name, simulated: true };
+      changed.version = a.version + 1; changed.history = clone(a.history || []); changed.history.push(audit('APPROVAL_EDIT', changed.authority, changed.note, fieldChanges(a, changed)));
+      const index = state.data.approvals.findIndex(row => row.id === changed.id); if (index < 0) state.data.approvals.push(changed); else state.data.approvals[index] = changed;
+      closeDialog(); renderApprovals(); saved('Persetujuan dicatat. Kecocokan item dihitung ulang; snapshot dokumen tetap tersimpan');
+    });
+  }
+  function describe(value) {
+    if (value == null || value === '') return '—';
+    if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+  function historyBody(events, itemId) {
+    const filtered = events.filter(event => !itemId || (event.changes || []).some(change => change.itemId === itemId));
+    return filtered.length ? filtered.slice().reverse().map(event => '<article class="utp-card"><h3>' + esc(event.action) + ' · ' + esc(event.actor) + '</h3><p class="utp-muted">' + esc(dateText(event.at)) + ' · ' + esc(event.reason || event.note || '') + '</p><div class="utp-tablewrap"><table><thead><tr><th>Field</th><th>Sebelum</th><th>Sesudah</th></tr></thead><tbody>' + (event.changes || []).filter(change => !itemId || change.itemId === itemId).map(change => '<tr><td>' + esc(change.field) + (change.kind === 'QUANTITY_DECREASE' ? '<br><strong>Pengurangan jumlah</strong>' : '') + '</td><td>' + esc(describe(change.before !== undefined ? change.before : change.oldValue)) + '</td><td>' + esc(describe(change.after !== undefined ? change.after : change.newValue)) + '</td></tr>').join('') + '</tbody></table></div></article>').join('') : empty('Belum ada riwayat tersimpan', 'Perubahan pada isian dicatat ketika disimpan.');
+  }
+  function snapshotBody(s) {
+    if (!s) return empty('Salinan awal belum dibekukan', 'Ajukan permintaan draf untuk membuat salinan awal.');
+    return '<p><strong>' + esc(s.title) + '</strong> · ' + esc(s.number || 'Nomor belum ditetapkan') + ' · ' + esc(s.date) + '</p><div class="utp-tablewrap"><table><thead><tr><th>Item</th><th>Merek / tipe</th><th>Jumlah</th><th>Klasifikasi / otoritas</th></tr></thead><tbody>' + (s.items || []).map(item => '<tr><td>' + esc(item.code) + ' ' + esc(item.name) + '</td><td>' + esc(item.brand || '—') + ' ' + esc(item.model) + '</td><td>' + esc(item.quantity) + ' ' + esc(item.unit) + '</td><td>' + esc(classes[item.classification] || 'Belum tersedia') + ' / ' + esc(item.requiredAuthority || 'Tanpa approval') + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  function documentHistory(record) {
+    const r = record || state.editor.record;
+    dialog('Riwayat permintaan dan revisi', '<details open><summary>Permintaan awal · salinan saat diajukan</summary>' + snapshotBody(r.initialSnapshot) + '</details>' + (r.revisions || []).slice().reverse().map(revision => '<details><summary>REV ' + String(revision.revision).padStart(3, '0') + ' · ' + esc(revision.actor) + ' · ' + esc(dateText(revision.publishedAt)) + '</summary><p>' + esc(revision.reason || revision.note) + '</p>' + snapshotBody(revision.snapshot) + '</details>').join('') + '<h3>Riwayat perubahan per field</h3>' + historyBody(r.history || []), null);
+  }
+  function showFinal() {
+    const r = state.editor.record, final = r.items.filter(item => ready(item, r).ok), pending = r.items.filter(item => !ready(item, r).ok);
+    dialog('Daftar final · pratinjau simulasi', '<p class="utp-muted">Hanya item yang memenuhi jalurnya masuk daftar final. Pengecualian tetap berisiko; barang belum otomatis datang.</p>' + (final.length ? final.map(item => itemCard(item, r).replace(/<div class="utp-actions"><button[\s\S]*?<\/div><\/div>/, '</div>')).join('') : empty('Belum ada item dapat dilanjutkan', 'Lengkapi keputusan dan bukti yang diperlukan.')) + '<h3>Ditahan dari daftar final</h3>' + (pending.length ? pending.map(item => '<p>' + esc(item.name) + ' — ' + esc(ready(item, r).text) + '</p>').join('') : '<p>Semua item memenuhi jalurnya.</p>'), null);
+  }
+  function publishRevision() {
+    const e = state.editor;
+    if (e.dirty) { editorError('Simpan hasil review terlebih dahulu agar revisi memuat perubahan yang sudah dicatat.'); return; }
+    dialog('Terbitkan Revisi · instruksi resmi', '<p class="utp-muted">REV naik hanya melalui tindakan ini. Salinan lengkap item dan cakupan dokumen disimpan dalam memori simulasi.</p>' + select('party', 'Instruksi pihak', '', { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + textArea('reason', 'Alasan penerbitan revisi', '', 'required maxlength="2000"'), form => {
+      const party = formValue(form, 'party'), reason = formValue(form, 'reason'); if (!parties.includes(party) || !reason) throw new Error('Pihak dan alasan penerbitan revisi wajib diisi.');
+      const server = state.data.requests.find(row => row.id === e.record.id);
+      if (!server || server.version !== e.base.version) { showConflict(server); return; }
+      if (e.failNext) { e.failNext = false; throw new Error('Simulasi gagal terbit. Isian dan REV tetap sama. Coba lagi.'); }
+      const next = clone(server); next.revision += 1; next.version += 1; next.revisions.push({ revision: next.revision, publishedAt: now(), actor: party, reason, snapshot: snapshot(next) });
+      next.history.push(audit('PUBLISH_REVISION', party, reason, [{ field: 'revision', before: server.revision, after: next.revision }]));
+      if (next.initialSnapshot) freeze(next.initialSnapshot);
+      state.data.requests[state.data.requests.findIndex(row => row.id === next.id)] = next; e.record = clone(next); e.base = clone(next); e.dirty = false; e.error = '';
+      closeDialog(); renderEditor(); saved('REV ' + String(next.revision).padStart(3, '0') + ' diterbitkan');
+    }, 'Terbitkan Revisi simulasi');
+  }
+  function flat(record) {
+    const fields = {};
+    ['title', 'number', 'date', 'note', 'status', 'revision', 'arrived', 'arrivedAt', 'arrivalNote'].forEach(key => { fields[key] = record[key] == null ? null : record[key]; });
+    (record.items || []).forEach(item => { Object.keys(item).forEach(key => { if (key !== 'id') fields['item:' + item.id + ':' + key] = clone(item[key]); }); });
+    fields.files = clone(record.files || []);
+    return fields;
+  }
+  function applyFlat(record, key, value) {
+    if (key.startsWith('item:')) { const parts = key.split(':'), item = record.items.find(row => row.id === parts[1]); if (item) item[parts[2]] = clone(value); }
+    else record[key] = clone(value);
+  }
+  function showConflict(server) {
+    if (!server) throw new Error('Versi pembanding tidak tersedia. Isian tetap dipertahankan.');
+    const e = state.editor, localFields = flat(e.record), serverFields = flat(server), baseFields = flat(e.base || {});
+    const keys = Array.from(new Set(Object.keys(localFields).concat(Object.keys(serverFields)))).filter(key => JSON.stringify(localFields[key]) !== JSON.stringify(serverFields[key]));
+    const local = clone(e.record), comparedVersion = server.version;
+    dialog('Konflik simpan · bandingkan per field', '<p class="utp-error">Isian belum disimpan. Versi isian ' + (e.base ? e.base.version : 0) + ', versi sesi lain ' + comparedVersion + '. Pilih nilai yang akan dipakai untuk setiap perbedaan.</p><div class="utp-tablewrap utp-compare"><table><thead><tr><th>Field</th><th>Isian saya</th><th>Sesi lain</th><th>Gunakan</th></tr></thead><tbody>' + keys.map((key, index) => '<tr><td>' + esc(key) + '</td><td>' + esc(describe(localFields[key])) + '</td><td>' + esc(describe(serverFields[key])) + '</td><td><select name="compare' + index + '" aria-label="Gunakan nilai untuk ' + esc(key) + '"><option value="local">Isian saya</option><option value="server"' + (JSON.stringify(localFields[key]) === JSON.stringify(baseFields[key]) ? ' selected' : '') + '>Sesi lain</option></select></td></tr>').join('') + '</tbody></table></div><p class="utp-muted">Penerapan pilihan belum menyimpan data. Periksa lagi lalu tekan Simpan; versi diperiksa kembali.</p>', form => {
+      const current = state.data.requests.find(row => row.id === server.id);
+      if (!current || current.version !== comparedVersion) throw new Error('Versi sesi lain berubah lagi. Tutup perbandingan dan tekan Simpan untuk membandingkan versi terbaru.');
+      // Start with local input so newly added local items are retained.
+      const merged = clone(local);
+      keys.forEach((key, index) => { if (formValue(form, 'compare' + index) === 'server') applyFlat(merged, key, serverFields[key] === undefined ? null : serverFields[key]); });
+      (current.items || []).forEach(item => { if (!merged.items.some(row => row.id === item.id)) merged.items.push(clone(item)); });
+      merged.version = current.version; merged.history = clone(current.history || []); merged.revisions = clone(current.revisions || []); merged.initialSnapshot = clone(current.initialSnapshot);
+      e.base = clone(current); e.record = merged; e.pendingHistory = []; e.dirty = true; e.error = 'Pilihan konflik diterapkan ke isian. Periksa kemudian simpan kembali.';
+      closeDialog(); renderEditor();
+    }, 'Terapkan pilihan ke isian');
+  }
+  function renderArrival() {
+    const rows = (state.data.requests || []).filter(record => record.status === 'FINAL' || record.arrived || record.status === 'ARRIVED');
+    el('utpContent').innerHTML = header(pages.ARRIVAL, 'Konfirmasi pengamatan admin / gudang · bukan pemeriksaan kuantitas atau kelengkapan', button('Muat ulang', 'refresh-requests')) +
+      (rows.length ? '<div class="utp-grid">' + rows.map(record => '<article class="utp-card"><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + '</p>' + badge(record.arrived || record.status === 'ARRIVED' ? 'Kedatangan dikonfirmasi' : 'Menunggu konfirmasi barang') + (record.arrivedAt ? '<p class="utp-muted">' + esc(dateText(record.arrivedAt)) + ' · ' + esc(record.arrivalNote) + '</p>' : '') + '<p class="utp-muted">Konfirmasi tidak mengukur jumlah diterima, kerusakan, atau kelengkapan, dan tidak otomatis menutup pekerjaan.</p><div class="utp-actions">' + button('Konfirmasi barang datang', 'confirm-arrival', 'data-id="' + esc(record.id) + '"', 'primary', !preview || record.arrived || record.status === 'ARRIVED') + button('Detail', 'open-request', 'data-id="' + esc(record.id) + '"') + '</div></article>').join('') + '</div>' : empty('Belum ada permintaan final', 'Item By Owner / By Other tidak otomatis dianggap sudah datang.'));
+  }
+  function confirmArrival(id) {
+    const record = state.data.requests.find(row => row.id === id), expectedVersion = record.version;
+    dialog('Konfirmasi pengamatan barang datang', '<p>' + esc(record.title) + '</p><p class="utp-muted">Konfirmasi ini hanya mencatat kedatangan menurut admin/gudang. Tidak menyatakan jumlah lengkap atau kondisi barang.</p>' + check('confirmed', 'Saya telah menerima konfirmasi kedatangan / mengamati barang datang', false, 'required') + textArea('note', 'Sumber konfirmasi / catatan', '', 'required maxlength="2000"'), form => {
+      const current = state.data.requests.find(row => row.id === id); if (current.version !== expectedVersion) throw new Error('Versi data berubah. Isian tetap ada. Tutup, muat ulang daftar, lalu periksa kembali sebelum konfirmasi.');
+      if (!form.elements.confirmed.checked || !formValue(form, 'note')) throw new Error('Centang konfirmasi dan isi sumber pengamatan.');
+      current.arrived = true; current.arrivedAt = now(); current.arrivalNote = formValue(form, 'note'); current.version += 1;
+      current.history.push(audit('ARRIVAL_CONFIRMATION', 'Admin', current.arrivalNote, [{ field: 'arrived', before: false, after: true }]));
+      closeDialog(); renderArrival(); saved('Konfirmasi kedatangan dicatat');
+    }, 'Konfirmasi simulasi');
+  }
+  async function refresh(entity) {
+    if (preview) { render(); return; }
+    const generation = epoch;
+    try { const result = await read('list', { entity }); if (generation !== epoch) return; if (!Array.isArray(result.records)) throw new Error('Daftar server tidak valid.'); state.data[entity] = result.records; render(); }
+    catch (error) { toast(error.message + ' Data yang telah tampil tetap dipertahankan.', true); }
+  }
+  async function openRequest(id) {
+    const generation = epoch;
+    try {
+      const record = preview ? clone(state.data.requests.find(row => row.id === id)) : (await read('detail', { entity: 'requests', id })).record;
+      if (generation !== epoch) return;
+      if (!record) throw new Error('Permintaan tidak ditemukan.');
+      if (!preview) { dialog('Detail permintaan · hanya baca', '<p class="utp-muted">' + esc(contractNotice) + '</p>' + snapshotBody(record) + '<h3>Riwayat tersimpan</h3>' + historyBody(record.history || []), null); return; }
+      if (state.editor && state.editor.dirty && state.editor.record.id !== id) {
+        dialog('Isian permintaan lain belum disimpan', '<p>Simpan isian yang sedang dikerjakan sebelum membuka permintaan lain. Isian tetap tersedia pada halaman Permintaan & Review.</p>', null); return;
+      }
+      state.editor = { record, base: clone(record), dirty: false, error: '', party: '', reason: '', pendingHistory: [], failNext: false, busy: false };
+      if (record.initialSnapshot) freeze(record.initialSnapshot); state.page = 'REQUESTS'; render();
+    } catch (error) { toast(error.message || String(error), true); }
+  }
+  function catalogDetail(code) {
+    const item = state.catalog.items.find(row => row.code === code);
+    dialog('Detail identitas material', '<h3>' + esc(item.name) + '</h3><p>Kode: <strong>' + esc(item.code) + '</strong></p><p>Merek: ' + esc(item.brand || 'Belum diketahui') + '</p><p>Tipe: ' + esc(item.model || '—') + '</p><p>Kelompok: ' + esc(item.group || '—') + ' · satuan: ' + esc(item.unit || '—') + '</p><p class="utp-muted">Identitas master bukan saldo stok. Nama/merek kosong tidak membuktikan material generik.</p>' + badge(item.approved ? 'Approval aktif ' + item.approvalAuthority : 'Belum sesuai approval aktif'), null);
+  }
+  async function action(name, target) {
+    const id = target.dataset.id, code = target.dataset.code;
+    if (!preview && ['favorite', 'use-item', 'new-request', 'new-approval', 'edit-approval', 'confirm-arrival', 'save-request', 'submit-request', 'publish-revision', 'finalize-request', 'edit-item', 'add-master', 'add-temporary', 'add-final-file'].includes(name)) { toast(contractNotice, true); return; }
+    if (name === 'retry-bootstrap') return bootstrap();
+    if (name === 'search-catalog') return searchCatalog();
+    if (name === 'close-dialog') return closeDialog();
+    if (name === 'catalog-detail') return catalogDetail(code);
+    if (name === 'favorite') { const item = state.data.catalog.find(row => row.code === code); item.favorite = !item.favorite; saved('Favorit diperbarui'); return searchCatalog(); }
+    if (name === 'new-approval') return editApproval();
+    if (name === 'edit-approval') return editApproval(id);
+    if (name === 'approval-detail') {
+      const row = preview ? state.data.approvals.find(a => a.id === id) : (await read('detail', { entity: 'approvals', id })).record;
+      if (!row) throw new Error('Approval tidak ditemukan.');
+      return dialog('Detail persetujuan', '<h3>' + esc(row.material) + '</h3><p>' + esc(row.generic ? 'Generik terkonfirmasi' : row.brand || 'Merek belum diketahui') + ' · ' + esc((row.types || []).join(', ') || 'Tipe tidak dibatasi') + '</p><p>Status: ' + esc(row.status) + ' · otoritas: ' + esc(row.authority || 'Belum dicatat') + '</p><p>Kode terkait: ' + esc((row.itemCodes || []).join(', ') || 'Pencocokan nama material') + '</p><p>' + esc(row.note) + '</p>' + (row.brochure ? '<p>Brosur simulasi: ' + esc(row.brochure.name) + ' · tanpa unggah</p>' : '') + '<p class="utp-muted">Compare dan kolom usulan bukan bukti persetujuan. Kecocokan approval dihitung lagi saat item dibuka; salinan revisi mempertahankan isi saat diterbitkan.</p>', null);
+    }
+    if (name === 'refresh-approvals') return refresh('approvals');
+    if (name === 'refresh-requests') return refresh('requests');
+    if (name === 'new-request') {
+      if (state.editor && state.editor.dirty) { renderEditor(); return editorError('Simpan isian permintaan ini sebelum membuat permintaan baru.'); }
+      createEditor(); state.page = 'REQUESTS'; return renderEditor();
+    }
+    if (name === 'open-request') return openRequest(id);
+    if (name === 'back-requests') { const e = state.editor; if (e.dirty) { editorError('Simpan isian sebelum kembali ke daftar. Isian yang belum disimpan tetap tersedia.'); return; } state.editor = null; return renderRequests(); }
+    if (name === 'use-item') {
+      if (!state.editor) createEditor();
+      if (state.editor.record.initialSnapshot) { toast('Buka draf atau gunakan Tambah dari katalog pada form review.', true); return; }
+      const item = state.catalog.items.find(row => row.code === code); state.page = 'REQUESTS'; renderEditor(); return editItem('', item);
+    }
+    if (name === 'add-master') return masterLookup();
+    if (name === 'add-temporary') return editItem();
+    if (name === 'retry-lookup') return lookup(modal.query || '');
+    if (name === 'lookup-select') return editItem('', modal.items.find(item => item.code === code));
+    if (name === 'choose-original') return chooseOriginal();
+    if (name === 'edit-item') return editItem(id);
+    if (name === 'remove-item') {
+      const e = state.editor; if (e.record.initialSnapshot) throw new Error('Item yang sudah direview dipertahankan dalam riwayat. Input keputusan ditolak/ditunda.');
+      const item = e.record.items.find(row => row.id === id); e.record.items = e.record.items.filter(row => row.id !== id); e.pendingHistory.push(audit('REMOVE_DRAFT_ITEM', 'Admin', '', [{ itemId: id, field: 'item', before: clone(item), after: null }])); e.dirty = true; return renderEditor();
+    }
+    if (name === 'save-request') { try { return storeEditor('SAVE'); } catch (error) { editorError(error.message); return; } }
+    if (name === 'submit-request') {
+      const e = state.editor; validateRequest(e.record);
+      return dialog('Ajukan permintaan untuk review', '<p>Salinan awal akan dibekukan. Item berikutnya tetap dapat ditambahkan melalui input hasil review dengan riwayat perubahannya.</p><p>Keputusan tiap pihak mulai dari belum diinput.</p>', () => {
+        const previous = clone(e.record); e.record.initialSnapshot = snapshot(e.record); e.record.initialSnapshot.submittedAt = now(); e.record.status = 'REVIEW';
+        try { if (storeEditor('SUBMIT')) closeDialog(); else { e.record = previous; } } catch (error) { e.record = previous; throw error; }
+      }, 'Ajukan simulasi');
+    }
+    if (name === 'add-final-file') return addFinalFile();
+    if (name === 'item-history') return dialog('Riwayat item · tersimpan', historyBody(state.editor.record.history || [], id) + (state.editor.pendingHistory.some(event => event.changes.some(change => change.itemId === id)) ? '<p class="utp-muted">Ada perubahan item pada isian yang belum disimpan.</p>' : ''), null);
+    if (name === 'document-history') return documentHistory();
+    if (name === 'show-final') return showFinal();
+    if (name === 'finalize-request') {
+      const e = state.editor; if (e.dirty) return editorError('Simpan hasil review sebelum menetapkan daftar final.');
+      return dialog('Tetapkan daftar final · sebagian item boleh lanjut', select('party', 'Pihak pemberi instruksi', '', { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + textArea('reason', 'Alasan penetapan daftar final', '', 'required maxlength="2000"') + '<p class="utp-muted">Item ditolak, ditunda, dan belum siap tetap tersimpan serta tidak masuk daftar final.</p>', form => {
+        const party = formValue(form, 'party'), reason = formValue(form, 'reason'); if (!party || !reason) throw new Error('Pihak dan alasan wajib diisi.');
+        const previous = e.record.status; e.record.status = 'FINAL'; e.party = party; e.reason = reason;
+        try { if (storeEditor('FINALIZE', true)) closeDialog(); else e.record.status = previous; } catch (error) { e.record.status = previous; throw error; }
+      }, 'Tetapkan simulasi');
+    }
+    if (name === 'publish-revision') return publishRevision();
+    if (name === 'confirm-arrival') return confirmArrival(id);
+    if (name === 'simulate-failure') { state.editor.failNext = true; return toast('Simpan berikutnya akan gagal sebagai simulasi. Isian akan dipertahankan.'); }
+    if (name === 'simulate-conflict') {
+      const e = state.editor, server = state.data.requests.find(row => row.id === e.record.id); if (!server) return editorError('Simpan draf sekali sebelum menyimulasikan versi sesi lain.');
+      server.title += ' (sesi lain)'; if (server.items[0]) server.items[0].quantity = Number(server.items[0].quantity) + 1; server.version += 1;
+      return toast('Versi simulasi sesi lain berubah pada judul dan jumlah item pertama. Tekan Simpan untuk membandingkan.');
+    }
+  }
+  function bind() {
+    const app = el('utpApp'), d = el('utpDialog'); if (!app || !d) return;
+    function click(event) {
+      const target = event.target.closest('[data-action]'); if (!target || target.disabled) return;
+      event.preventDefault(); Promise.resolve(action(target.dataset.action, target)).catch(error => { if (d.open) dialogError(error.message || String(error)); else if (state.editor && state.page === 'REQUESTS') editorError(error.message || String(error)); else toast(error.message || String(error), true); });
+    }
+    app.addEventListener('click', click); d.addEventListener('click', click);
+    el('utpCloseDialog').addEventListener('click', closeDialog); d.addEventListener('close', () => { modal = null; });
+    d.addEventListener('submit', event => {
+      event.preventDefault(); if (!modal || !modal.onSubmit) return;
+      const form = event.target; if (!form.reportValidity()) return;
+      Promise.resolve().then(() => modal.onSubmit(form)).catch(error => dialogError(error.message || String(error)));
+    });
+    app.addEventListener('submit', event => event.preventDefault());
+    app.addEventListener('input', event => {
+      const target = event.target;
+      if (target.dataset.catalog && target.type !== 'checkbox') {
+        state.catalog[target.dataset.catalog] = target.value; state.catalog.requestId = ++sequence;
+        clearTimeout(timer); timer = setTimeout(searchCatalog, 250);
+      }
+      if (target.dataset.requestField && state.editor) { state.editor.record[target.dataset.requestField] = target.value; state.editor.dirty = true; }
+      if (target.dataset.reviewMeta && state.editor) state.editor[target.dataset.reviewMeta] = target.value;
+      if (target.id === 'utpApprovalSearch') { state.approvalQuery = target.value; filterCards('APPROVALS', target.id); }
+      if (target.id === 'utpRequestSearch') { state.requestQuery = target.value; filterCards('REQUESTS', target.id); }
+    });
+    app.addEventListener('change', event => {
+      const target = event.target;
+      if (target.dataset.catalog && target.type === 'checkbox') { state.catalog[target.dataset.catalog] = target.checked; state.catalog.requestId = ++sequence; clearTimeout(timer); timer = setTimeout(searchCatalog, 250); }
+      if (target.dataset.reviewMeta && state.editor) state.editor[target.dataset.reviewMeta] = target.value;
+    });
+    d.addEventListener('input', event => {
+      if (event.target.id === 'utpLookupQuery') { if (modal) modal.searchId += 1; clearTimeout(timer); const query = event.target.value; timer = setTimeout(() => lookup(query), 250); }
+    });
+    d.addEventListener('change', event => {
+      if (['utpItemClassification', 'utpItemAuthority'].includes(event.target.id)) toggleItemFields();
+      if (event.target.id === 'utpItemParty' && modal && modal.item) { const status = (modal.item.decisions[event.target.value] || {}).status || 'PENDING'; el('utpItemDecision').value = status; }
+    });
+  }
+  function filterCards(page, focusId) {
+    const field = el(focusId), pos = field.selectionStart;
+    if (page === 'APPROVALS') renderApprovals(); else renderRequests();
+    const replacement = el(focusId); replacement.focus(); if (pos != null) replacement.setSelectionRange(pos, pos);
+  }
+  function open(page) {
+    state.page = Object.prototype.hasOwnProperty.call(pages, page) ? page : 'CATALOG';
+    closeDialog();
+    if (!state.data) return bootstrap();
+    render(); if (state.page === 'CATALOG') searchCatalog();
+  }
+  function resetSession() {
+    epoch += 1; sequence += 1; clearTimeout(timer); clearTimeout(toastTimer); closeDialog(); state = freshState();
+    if (el('utpApp')) el('utpApp').hidden = true; if (el('utpContent')) el('utpContent').textContent = ''; if (el('utpToast')) el('utpToast').hidden = true;
+  }
+  window.UTPFrontend = { open, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
+})();
+</script>

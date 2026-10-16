@@ -45,13 +45,14 @@ function environment() {
       createFolder() { const child = folder(uid(), this.access); state.folders.set(child.id, child); return child; },
       createFile(blob) {
         const fileId = uid();
-        const file = { id: fileId, access: this.access, trashed: false, getId: () => fileId, getUrl: () => `https://drive.google.com/file/d/${fileId}/view`, getBlob: () => blob, getMimeType: () => blob.mime, getName: () => blob.name, getSize: () => blob.bytes.length, getSharingAccess() { return this.access; }, setSharing(access) { this.access = access; return this; }, setTrashed(value) { this.trashed = value; return this; } };
+        const file = { id: fileId, folderId: id, access: this.access, trashed: false, getId: () => fileId, getUrl: () => `https://drive.google.com/file/d/${fileId}/view`, getBlob: () => blob, getMimeType: () => blob.mime, getName: () => blob.name, getSize: () => blob.bytes.length, getSharingAccess() { return this.access; }, setSharing(access) { this.access = access; return this; }, setTrashed(value) { this.trashed = value; return this; } };
         state.files.set(fileId, file); return file;
       }
     };
     return result;
   }
   const sharedArchive = folder('shared-archive', 'ANYONE');
+  state.folders.set(sharedArchive.id, sharedArchive);
   const sandbox = {
     console,
     PropertiesService: { getScriptProperties: () => ({ getProperty: key => state.props.get(key) || null, setProperty: (key, value) => state.props.set(key, value) }) },
@@ -60,7 +61,7 @@ function environment() {
     DriveApp: { Access: { PRIVATE: 'PRIVATE', ANYONE: 'ANYONE' }, Permission: { NONE: 'NONE', VIEW: 'VIEW' }, createFolder: () => { const created = folder(uid()); state.folders.set(created.id, created); return created; }, getFolderById: id => state.folders.get(id), getFileById: id => { if (!state.files.has(id)) throw new Error('File not found'); return state.files.get(id); } },
     GmailApp: { createDraft: (to, subject, body, options) => { const draft = { id: uid(), to, subject, body, options }; state.drafts.push(draft); return { getId: () => draft.id }; }, sendEmail: () => { throw new Error('Sending email is forbidden'); } },
     UrlFetchApp: { fetch: () => { throw new Error('Network calls are forbidden in storage tests'); } },
-    LockService: { getScriptLock: () => ({ waitLock: () => { state.locks++; }, releaseLock: () => { state.locks--; } }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => { state.locks++; if (state.onLock) state.onLock(); }, releaseLock: () => { state.locks--; } }) },
     requireAuthorized_: token => { if (token !== 'session') throw new Error('Unauthorized'); },
     requireDeletePin_: pin => { if (pin !== '123456') throw new Error('PIN salah'); },
     getArchiveRootFolder_: () => sharedArchive
@@ -94,6 +95,20 @@ test('record updates enforce optimistic versions and always release locks after 
   assert.throws(() => env.call('save', { entity: 'requests', record: { ...created, title: 'Stale tab' } }), /berubah/);
   assert.equal(env.call('detail', { entity: 'requests', id: created.id }).record.title, 'Perubahan judul');
   assert.equal(env.state.locks, 0);
+});
+
+test('mutation validation reads approval context after acquiring the lock', () => {
+  const env = environment();
+  const created = env.call('save', { entity: 'requests', record: draft() }).record;
+  env.state.onLock = () => {
+    env.state.onLock = null;
+    const book = Array.from(env.state.books.values())[0];
+    const approvals = book.insertSheet('approvals');
+    approvals.appendRow(['ID', 'Version', 'Data JSON', 'Updated']);
+    approvals.appendRow(['approval-1', 1, JSON.stringify({ id: 'approval-1', material: 'Pasir', brand: 'Rucika', status: 'APPROVED', authority: 'PM', types: [], itemCodes: [] }), 'now']);
+  };
+  const updated = env.call('save', { entity: 'requests', record: { ...created, items: [{ ...created.items[0], brand: 'Rucika', status: 'PENDING' }] } }).record;
+  assert.equal(updated.items[0].approvalId, 'approval-1');
 });
 
 test('approved decisions require PIN to edit and all archive operations preserve history', () => {
@@ -161,8 +176,13 @@ test('a confirmed receipt requires an active fund and an uploaded receipt file b
 
 test('uploaded files stay private even when an older archive root is public', () => {
   const env = environment();
+  env.state.props.set('UTP_FILES_FOLDER_ID', 'shared-archive');
   const result = env.call('upload', { name: 'persetujuan.pdf', mime: 'application/pdf', base64: Buffer.from('%PDF-1.7\nfixture').toString('base64'), kind: 'final' });
   assert.equal(env.state.files.get(result.id).getSharingAccess(), 'PRIVATE');
+  assert.equal(env.state.folders.get('shared-archive').getSharingAccess(), 'ANYONE');
+  assert.notEqual(env.state.files.get(result.id).folderId, 'shared-archive');
+  assert.equal(env.state.folders.get(env.state.files.get(result.id).folderId).getSharingAccess(), 'PRIVATE');
+  assert.notEqual(env.state.props.get('UTP_FILES_FOLDER_ID'), 'shared-archive');
   const stored = env.call('list', { entity: 'documents' }).records[0];
   assert.equal(stored.uploadedByUtp, true);
   assert.equal(stored.mime, 'application/pdf');
@@ -175,6 +195,10 @@ test('HO final cannot lose its mandatory evidence through a later protected save
   record = env.call('requestTransition', { id: record.id, version: record.version, status: 'HO' }).record;
   record = env.call('requestTransition', { id: record.id, version: record.version, status: 'FINAL' }).record;
   assert.throws(() => env.call('save', { entity: 'requests', record: { ...record, finalFileId: '' }, pin: '123456' }), /bukti|Bukti/);
+  const invalidFile = env.call('upload', { name: 'HO.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', base64: Buffer.from('not a final scan').toString('base64') });
+  assert.throws(() => env.call('save', { entity: 'requests', record: { ...record, finalFileId: invalidFile.id }, pin: '123456' }), /PDF\/JPG\/PNG/);
+  const amended = env.call('save', { entity: 'requests', record: { ...record, title: 'Koreksi judul' }, pin: '123456' }).record;
+  assert.equal(amended.finalFileId, file.id);
 });
 
 test('email drafting creates a draft with registered attachments and never sends', () => {
@@ -188,12 +212,18 @@ test('email drafting creates a draft with registered attachments and never sends
   assert.match(env.state.drafts[0].subject, /TRSM-51D26-D-M/);
 });
 
-test('persistent settings use Sheets and require PIN', () => {
+test('settings require PIN, persist only allowlisted fields in Sheets, and preserve fixed email recipients', () => {
   const env = environment();
-  assert.throws(() => env.call('settings', { settings: { defaultEmailTo: 'person@example.com' } }), /PIN/);
-  env.call('settings', { settings: { defaultEmailTo: 'person@example.com' }, pin: '123456' });
-  assert.equal(env.call('bootstrap').settings.defaultEmailTo, 'person@example.com');
-  assert.equal(Array.from(env.state.props.values()).some(value => String(value).includes('person@example.com')), false);
+  assert.throws(() => env.call('settings', { settings: { favorites: ['0001'] } }), /PIN/);
+  assert.throws(() => env.call('settings', { settings: { defaultEmailTo: 'person@example.com' }, pin: '123456' }), /tidak diizinkan/);
+  env.call('settings', { settings: { favorites: ['0001'] }, pin: '123456' });
+  assert.deepEqual(env.plain(env.call('bootstrap').settings.favorites), ['0001']);
+  assert.equal(Array.from(env.state.props.values()).some(value => String(value).includes('0001')), false);
+  const file = env.call('upload', { name: 'Final.pdf', mime: 'application/pdf', base64: Buffer.from('%PDF-1.7\nfinal').toString('base64') });
+  const record = env.call('save', { entity: 'requests', record: draft({ finalFileId: file.id }) }).record;
+  env.call('draftEmail', { id: record.id, version: record.version });
+  assert.equal(env.state.drafts[0].to, 'project.engineering@unicorn.co.id');
+  assert.equal(env.state.drafts[0].options.cc, 'Yuni.lestari@unicorn.co.id');
 });
 
 test('large valid request updates do not fail after writing because of an oversized audit cell', () => {
@@ -204,4 +234,26 @@ test('large valid request updates do not fail after writing because of an oversi
   const saved = env.call('save', { entity: 'requests', record: { ...created, title: 'Revisi judul' } }).record;
   assert.equal(saved.version, 2);
   assert.equal(env.call('detail', { entity: 'requests', id: saved.id }).record.title, 'Revisi judul');
+  const auditWrites = env.state.writes.filter(write => write.sheet === 'audit' && write.row > 1);
+  assert.equal(auditWrites.length, 2);
+});
+
+test('audit write errors explicitly report that the primary record was already saved', () => {
+  const env = environment();
+  const created = env.call('save', { entity: 'requests', record: draft() }).record;
+  const auditSheet = Array.from(env.state.books.values())[0].getSheetByName('audit');
+  auditSheet.appendRow = () => { throw new Error('audit unavailable'); };
+  assert.throws(() => env.call('save', { entity: 'requests', record: { ...created, title: 'Tersimpan' } }), /Data tersimpan pada versi 2, tetapi pencatatan audit gagal/);
+  assert.equal(env.call('detail', { entity: 'requests', id: created.id }).record.title, 'Tersimpan');
+});
+
+test('failed upload audit keeps the registered file instead of trashing a saved document', () => {
+  const env = environment();
+  env.sandbox.utpWrite_('config', { id: 'settings', favorites: [] }, null);
+  const auditSheet = Array.from(env.state.books.values())[0].getSheetByName('audit');
+  auditSheet.appendRow = () => { throw new Error('audit unavailable'); };
+  assert.throws(() => env.call('upload', { name: 'final.pdf', mime: 'application/pdf', base64: Buffer.from('%PDF-1.7\nfinal').toString('base64') }), /Data tersimpan.*audit gagal/);
+  const file = Array.from(env.state.files.values())[0];
+  assert.equal(file.trashed, false);
+  assert.equal(env.call('list', { entity: 'documents' }).records[0].fileId, file.id);
 });

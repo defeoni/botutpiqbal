@@ -1,5 +1,7 @@
 # Admin PT.UTP — lanjut dari komputer lain
 
+> **UPDATE CHECKPOINT BREAK:** Setelah membaca gambaran di sini, baca `STATUS-BREAK.md`. Backend kini telah lulus pemeriksaan aktual 45/45 bersama RPB, prototipe mandiri 17/17; frontend terintegrasi sudah ditulis tetapi pemeriksaan browser/build belum selesai. Catatan lama enam kegagalan storage di bawah sudah diperbaiki. Mode burst tidak otomatis berlaku pada chat baru.
+
 Checkpoint 16 Oktober 2026, WIB. Ini catatan keputusan dan progres untuk AI/pengguna di perangkat baru. Riwayat asli yang tersedia diekspor ke `riwayat/`; catatan ini bukan klaim seluruh lampiran dan semua chat lain telah tersalin.
 
 ## Cara melanjutkan

@@ -157,6 +157,7 @@ function showLoginPanel_(message = '') {
 function returnToLogin_() {
   const token = accessToken;
   accessToken = '';
+  if (window.UTPFrontend) window.UTPFrontend.resetSession();
   showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
   if (token) {
     invokeServer('apiLogout', [token], () => {}, (error) => {
@@ -249,8 +250,12 @@ function formatUiDate_(value) {
 }
 
 function switchMainPage(page) {
-  if (!['HOME', 'MEMO', 'RPD', 'RPB'].includes(page)) page = 'HOME';
+  const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
+  if (!['HOME', 'MEMO', 'RPD', 'RPB', ...materialPages].includes(page)) page = 'HOME';
   currentMainPage = page;
+  const titles = {HOME:'Beranda Admin PT. UTP',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana'};
+  const heading = document.querySelector('.app-main > .header h1');
+  if (heading) heading.textContent = titles[page];
   document.querySelectorAll('.main-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.main === page);
   });
@@ -261,8 +266,16 @@ function switchMainPage(page) {
   if (page === 'HOME') setHomeCurrentDate_();
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
+  if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
+  if (materialPages.includes(page) && window.UTPFrontend) window.UTPFrontend.open(page);
   if (window.matchMedia('(max-width: 900px)').matches) $('mainMenu').open = false;
 }
+
+// Use the existing authenticated session. The frontend never embeds a token in markup.
+window.utpRpc = (action, payload) => new Promise((resolve, reject) => {
+  if (!accessToken) return reject(new Error('Masuk terlebih dahulu untuk membaca data material.'));
+  invokeServer('apiUtp', [action, payload || {}, accessToken], resolve, reject);
+});
 
 function switchType(type) {
   if (!['PN', 'PG', 'SP', 'DIRECTORY', 'SETTINGS'].includes(type)) type = 'PN';

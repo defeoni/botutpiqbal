@@ -1,5 +1,7 @@
 # UTP implementation checkpoint — 2026-10-16
 
+> Latest break state: `panduan/STATUS-BREAK.md`. Frontend integration is partial/unverified, backend+RPB actual local tests 45/45 and standalone prototype browser scenarios 17/17 passed. Do not rebuild Graphify just for orientation. Do not deploy this checkpoint.
+
 > SUPERSEDED CHECKPOINT: Read `panduan/MULAI-DI-SINI.md` first for the current decisions and progress. Copilot has since integrated Auth.gs, login credentials, reset PIN, Home and navigation into the local build. RPB fixes and Home checks are reported in `panduan/laporan/`. Cloud authentication and Apps Script deployment remain unverified. The older notes below are retained as history and some integration blockers have been resolved locally.
 
 User authorized implementation/testing after extended brainstorming; goal broad contractor admin app, single admin, one project. User now concerned remaining token quota. No successful cloud push/deploy in this work. Preserve preexisting modified AGENTS.md.

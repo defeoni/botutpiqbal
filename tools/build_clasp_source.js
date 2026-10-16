@@ -6,6 +6,11 @@ const stagingDir = path.join(projectRoot, ".clasp-src");
 const sourceFiles = [
   ["memo/Memo.gs", "Memo.gs"],
   ["shared/Auth.gs", "Auth.gs"],
+  ["utp/UtpDomain.gs", "UtpDomain.gs"],
+  ["utp/Utp.gs", "Utp.gs"],
+  ["utp/UtpView.html", "UtpView.html"],
+  ["utp/UtpStyles.html", "UtpStyles.html"],
+  ["utp/UtpClient.html", "UtpClient.html"],
   ["rpb/RPB.gs", "RPB.gs"],
   ["shared/Index.html", "Index.html"],
   ["shared/HomeView.html", "HomeView.html"],

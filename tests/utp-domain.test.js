@@ -87,6 +87,16 @@ test('PM-only and MK review scopes can finalize without an invented HO step', ()
   assert.throws(() => domain.transition({ ...pm, requiredAuthority: 'MK' }, 'FINAL', context()), /review MK/);
 });
 
+test('HO final evidence persists through arrival without being inferred for PM/owner paths', () => {
+  const pmOwner = request({ status: 'PM', items: [item({ status: 'OWNER' })] });
+  const pmFinal = domain.transition(pmOwner, 'FINAL', context());
+  assert.equal(domain.transition(pmFinal, 'ARRIVED', context()).status, 'ARRIVED');
+  const hoOwner = request({ status: 'HO', authority: 'HO', items: [item({ status: 'OWNER' })] });
+  const hoFinal = domain.transition(hoOwner, 'FINAL', context({ validFinalEvidence: true }));
+  assert.throws(() => domain.transition(hoFinal, 'ARRIVED', context()), /bukti/);
+  assert.equal(domain.transition(hoFinal, 'ARRIVED', context({ validFinalEvidence: true })).status, 'ARRIVED');
+});
+
 test('HO final requires uploaded evidence even after returning to PM; partial approval is retained', () => {
   const ho = request({ status: 'HO', authority: 'HO', requiredAuthority: 'HO', items: [item({ status: 'APPROVED' }), item({ id: 'i-2', status: 'DEFERRED' })] });
   assert.throws(() => domain.transition(ho, 'FINAL', context()), /bukti/);

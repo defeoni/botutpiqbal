@@ -6,6 +6,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INDEX_PATH = PROJECT_ROOT / "shared" / "Index.html"
 PREVIEW_PATH = PROJECT_ROOT / "preview" / "Index-demo-lokal.html"
 PARTIALS = {
+    "UtpView": PROJECT_ROOT / "utp" / "UtpView.html",
+    "UtpStyles": PROJECT_ROOT / "utp" / "UtpStyles.html",
+    "UtpClient": PROJECT_ROOT / "utp" / "UtpClient.html",
     "HomeView": PROJECT_ROOT / "shared" / "HomeView.html",
     "Styles": PROJECT_ROOT / "shared" / "Styles.html",
     "RPBStyles": PROJECT_ROOT / "rpb" / "RPBStyles.html",
@@ -24,6 +27,9 @@ def main():
 
     html = html.replace("<?= initialType ?>", "PN")
     html = html.replace("<?= appVersion ?>", "LOCAL-PREVIEW")
+    # Explicit preview-only simulation, never emitted by the Apps Script source build.
+    html = html.replace("<head>", "<head><script>window.UTP_FRONTEND_PREVIEW = true;</script>", 1)
+    html = html.replace("</body>", "<script>showApplication('Pratinjau lokal'); document.getElementById('appStatus').textContent='PRATINJAU LOKAL — data contoh material hanya di memori halaman, bukan server.';</script></body>")
     if re.search(r"<\?\!=", html) or re.search(r"<\?=", html):
         raise RuntimeError("Pratinjau masih memiliki tag template Apps Script.")
 

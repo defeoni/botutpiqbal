@@ -6,6 +6,7 @@
 <title>Administrasi Memo — PT Unicorn Tosan Perkasa</title>
 <?!= include('Styles'); ?>
 <?!= include('RPBStyles'); ?>
+<?!= include('UtpStyles'); ?>
 </head>
 <body>
 <section id="loginPanel" class="login-screen" aria-labelledby="loginTitle">
@@ -27,18 +28,15 @@
     <summary>Menu navigasi</summary>
     <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
       <button type="button" class="tab main-nav-button active" data-main="HOME">Beranda</button>
+      <button type="button" class="tab main-nav-button" data-main="CATALOG">Katalog Material</button>
+      <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
+      <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
+      <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
       <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
       <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
       <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
     </nav>
   </details>
-  <div class="sidebar-group">
-    <h2>Menu proyek</h2>
-    <span class="sidebar-unavailable">Katalog Material <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Persetujuan Material <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Permintaan &amp; Review <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Barang Datang <small>Belum tersedia</small></span>
-  </div>
   <div class="sidebar-group">
     <h2>Menu lainnya</h2>
     <span class="sidebar-unavailable">Tugas <small>Belum tersedia</small></span>
@@ -60,6 +58,7 @@
   </header>
 
   <?!= include('HomeView'); ?>
+  <?!= include('UtpView'); ?>
 
   <section class="panel memo-area">
     <h2>Jenis Memo dan Proyek</h2>
@@ -229,5 +228,6 @@
 </script>
 <?!= include('MemoClient'); ?>
 <?!= include('RPBClient'); ?>
+<?!= include('UtpClient'); ?>
 </body>
 </html>

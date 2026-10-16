@@ -199,6 +199,11 @@ function utpItemChanges_(before, after) {
 function utpRequestSnapshot_(record) {
   return { number: record.number, date: record.date, title: record.title, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), finalFileId: record.finalFileId || '' };
 }
+function utpRequestReachedHo_(record) {
+  return !!record && (record.status === 'HO' || (record.history || []).some(function (event) {
+    return (event.changes || []).some(function (change) { return change.field === 'status' && (change.oldValue === 'HO' || change.newValue === 'HO'); });
+  }));
+}
 function utpRecordRequestSave_(record, previous, now, actor) {
   var changes = utpItemChanges_(previous ? previous.items : [], record.items);
   if (previous) ['title', 'number', 'date', 'authority', 'requiredAuthority', 'finalFileId', 'note'].forEach(function (field) {
@@ -215,11 +220,10 @@ function utpTransitionRequest_(record, status, context) {
   var allowed = { DRAFT: ['PM', 'MK', 'HO', 'CANCELLED'], PM: ['DRAFT', 'MK', 'HO', 'FINAL', 'CANCELLED'], MK: ['PM', 'HO', 'FINAL', 'CANCELLED'], HO: ['PM', 'MK', 'FINAL', 'CANCELLED'], FINAL: ['PM', 'MK', 'HO', 'ARRIVED', 'CANCELLED'], ARRIVED: ['PM', 'MK', 'HO'], CANCELLED: ['DRAFT'] };
   if ((allowed[record.status] || []).indexOf(target) < 0) throw new Error('Perubahan status ' + record.status + ' ke ' + target + ' tidak diperbolehkan.');
   if (target !== 'DRAFT' && target !== 'CANCELLED' && !next.items.length) throw new Error('Permintaan belum memiliki item.');
+  if ((target === 'FINAL' || target === 'ARRIVED') && utpRequestReachedHo_(record) && !ctx.validFinalEvidence) throw new Error('Final jalur HO memerlukan PDF/foto bukti persetujuan HO yang diunggah melalui aplikasi.');
   if (target === 'FINAL') {
     var required = record.requiredAuthority || record.authority || 'PM';
     if (['PM', 'MK', 'HO'].indexOf(record.status) < ['PM', 'MK', 'HO'].indexOf(required)) throw new Error('Permintaan masih memerlukan review ' + required + ' sebelum final.');
-    var reachedHo = record.status === 'HO' || required === 'HO' || (record.history || []).some(function (event) { return (event.changes || []).some(function (change) { return change.field === 'status' && (change.oldValue === 'HO' || change.newValue === 'HO'); }); });
-    if (reachedHo && !ctx.validFinalEvidence) throw new Error('Final jalur HO memerlukan PDF/foto bukti persetujuan HO yang diunggah melalui aplikasi.');
     if (!next.items.some(function (item) { return item.status === 'APPROVED' || item.status === 'OWNER'; })) throw new Error('Final memerlukan minimal satu item disetujui atau disediakan owner. Item lain boleh ditolak/ditunda.');
   }
   if (!next.initialSnapshot && record.status === 'DRAFT' && ['PM', 'MK', 'HO'].indexOf(target) >= 0) {
