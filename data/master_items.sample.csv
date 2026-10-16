@@ -1,0 +1,5 @@
+code,name,brand,brandCandidate,brandStatus,model,unit,group,family
+00001,"Lampu contoh, ACME | A-12",ACME,ACME,explicit,A-12,PCS,CONTOH,CONTOH
+00002,"Lampu contoh, NOVA | N-1",,NOVA,candidate,N-1,PCS,CONTOH,CONTOH
+00003,"Lampu contoh, UNKNOWNCO | X-1",,UNKNOWNCO,unknown,X-1,PCS,CONTOH,CONTOH
+00004,"Lampu contoh, LOKAL",LOKAL,,unknown,,PCS,CONTOH,CONTOH

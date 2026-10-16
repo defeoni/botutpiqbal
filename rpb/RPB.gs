@@ -46,15 +46,29 @@ function apiGetRpbData(token) {
     projectManager: RPB_CONFIG.projectManager,
     masterUrl: sheet.getParent().getUrl() + '#gid=' + sheet.getSheetId(),
     history: getRpbHistory_(),
-    nextSequence: getRpbNextSequence_()
+    nextSequence: getRpbNextSequence_(),
+    draftVersion: Number(PropertiesService.getUserProperties().getProperty('RPB_DRAFT_REVISION')) || 0
   };
 }
 
 function apiSaveRpbDraft(payload, token) {
   requireAuthorized_(token);
   const clean = validateRpbPayload_(payload, false);
-  PropertiesService.getUserProperties().setProperty('RPB_DRAFT', JSON.stringify(clean));
-  return { saved: true, savedAt: new Date().toISOString() };
+  const draftVersion = Number(payload.draftVersion);
+  if (!Number.isSafeInteger(draftVersion) || draftVersion < 0) throw new Error('Versi draf tidak valid. Muat ulang RPB sebelum menyimpan.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const props = PropertiesService.getUserProperties();
+    const currentVersion = Number(props.getProperty('RPB_DRAFT_REVISION')) || 0;
+    if (draftVersion <= currentVersion) return { saved: false, stale: true, draftVersion: currentVersion };
+    clean.draftVersion = draftVersion;
+    props.setProperty('RPB_DRAFT', JSON.stringify(clean));
+    props.setProperty('RPB_DRAFT_REVISION', String(draftVersion));
+    return { saved: true, draftVersion, savedAt: new Date().toISOString() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function apiLoadRpbDraft(token) {
@@ -103,13 +117,27 @@ function apiCreateRpb(payload, token, revisionOf) {
       id, number, revision, status: 'Diajukan', requestDate: clean.requestDate,
       lpdReceivedMonth: clean.lpdReceivedMonth, data: clean, outputs, parentId: clean.revisionOf
     });
-    PropertiesService.getUserProperties().deleteProperty('RPB_DRAFT');
+    const userProperties = PropertiesService.getUserProperties();
+    const submittedDraftVersion = Number(payload.draftVersion);
+    const currentDraftVersion = Number(userProperties.getProperty('RPB_DRAFT_REVISION')) || 0;
+    const consumedDraftVersion = Number.isSafeInteger(submittedDraftVersion) && submittedDraftVersion >= 0
+      ? Math.max(currentDraftVersion, submittedDraftVersion)
+      : currentDraftVersion;
+    userProperties.deleteProperty('RPB_DRAFT');
+    userProperties.setProperty('RPB_DRAFT_REVISION', String(consumedDraftVersion));
     return {
       id, number, revision, spreadsheetUrl: outputs.spreadsheetUrl, excelUrl: outputs.excelUrl,
       pdfUrl: outputs.pdfUrl, folderUrl: folder.getUrl(), waDraft: buildRpbWhatsAppDraft_(clean, number, outputs)
     };
   } catch (error) {
-    createdIds.forEach((id) => { try { DriveApp.getFileById(id).setTrashed(true); } catch (ignored) {} });
+    const cleanupFailures = [];
+    createdIds.forEach((id) => {
+      try { DriveApp.getFileById(id).setTrashed(true); } catch (cleanupError) { cleanupFailures.push(cleanupError); }
+    });
+    if (cleanupFailures.length) {
+      const message = error && error.message ? error.message : String(error);
+      throw new Error(`${message} Pembersihan gagal untuk ${cleanupFailures.length} file sementara; periksa folder arsip sebelum mengajukan ulang.`);
+    }
     throw error;
   } finally {
     lock.releaseLock();
@@ -118,6 +146,7 @@ function apiCreateRpb(payload, token, revisionOf) {
 
 function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token) {
   requireAuthorized_(token);
+  requireDeletePin_(pin);
   if (!RPB_STATUSES.includes(String(status))) throw new Error('Pilih status tracking yang tersedia.');
   const evidence = String(evidenceUrl || '').trim();
   if (evidence && !/^https:\/\//i.test(evidence)) throw new Error('Tautan bukti harus diawali https://.');
@@ -232,8 +261,14 @@ function validateRpbPayload_(payload, requireLpd) {
   if (requireLpd) {
     if (payload.lpdReceivedConfirmed !== true) throw new Error('Konfirmasi bahwa LPD bulan sebelumnya telah diterima Project HO terlebih dahulu.');
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(lpdReceivedMonth)) throw new Error('LPD bulan sebelumnya harus dicatat sudah diterima sebelum RPB diajukan.');
-    const expected = new Date(dateFromIso_(requestDate).getFullYear(), dateFromIso_(requestDate).getMonth() - 1, 1, 12);
-    const expectedMonth = Utilities.formatDate(expected, APP.timezone, 'yyyy-MM');
+    const dateParts = requestDate.match(/^(\d{4})-(\d{2})-\d{2}$/);
+    let expectedYear = Number(dateParts[1]);
+    let expectedMonthNumber = Number(dateParts[2]) - 1;
+    if (expectedMonthNumber === 0) {
+      expectedYear -= 1;
+      expectedMonthNumber = 12;
+    }
+    const expectedMonth = `${String(expectedYear).padStart(4, '0')}-${String(expectedMonthNumber).padStart(2, '0')}`;
     if (lpdReceivedMonth !== expectedMonth) throw new Error(`LPD bulan sebelumnya yang diterima harus bulan ${expectedMonth}.`);
   }
   const activeMaster = new Map(getRpbMasterItems_(!requireLpd).map((item) => [item.id, item]));
@@ -246,9 +281,11 @@ function validateRpbPayload_(payload, requireLpd) {
     const unitPrice = rawPrice === '' || rawPrice == null ? 0 : Number(rawPrice);
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Isi jumlah untuk ${master.name}.`);
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Isi harga acuan yang valid untuk ${master.name}.`);
+    const total = quantity * unitPrice;
+    if (!Number.isFinite(total)) throw new Error(`Jumlah dan harga untuk ${master.name} menghasilkan total yang tidak valid.`);
     const week = String(item.week || 'M1-M2');
     if (!['M1-M2', 'M3-M4'].includes(week)) throw new Error('Pilih periode M1-M2 atau M3-M4.');
-    return { itemId: master.id, category: master.category, name: master.name, unit: master.unit, quantity, unitPrice, total: quantity * (unitPrice || 0), week };
+    return { itemId: master.id, category: master.category, name: master.name, unit: master.unit, quantity, unitPrice, total, week };
   });
   if (requireLpd && !items.length) throw new Error('Tambahkan minimal satu barang.');
   return { projectName: RPB_CONFIG.projectName, projectCode: RPB_CONFIG.projectCode, projectManager: RPB_CONFIG.projectManager, requestDate, lpdReceivedMonth, lpdReceivedConfirmed: payload.lpdReceivedConfirmed === true, items, sequence: Number(payload.sequence) || 0, revision: Number(payload.revision) || 0, rootId: String(payload.rootId || ''), revisionOf: String(payload.revisionOf || ''), tracking: Array.isArray(payload.tracking) ? payload.tracking : [] };
@@ -589,7 +626,7 @@ function readRpbItemsFromTemplate_(spreadsheet) {
     if (!sheet || sheet.getLastRow() < 10) return;
     const values = sheet.getRange(10, 1, sheet.getLastRow() - 9, Math.max(14, sheet.getLastColumn())).getValues();
     let sectionCategory = '';
-    values.forEach((row) => {
+    values.forEach((row, offset) => {
       sectionCategory = normalizeRpbCategory_(row[2]) || sectionCategory;
       const name = String(row[3] || '').trim();
       const category = normalizeRpbCategory_(row[4]) || sectionCategory;

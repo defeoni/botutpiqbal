@@ -6,6 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INDEX_PATH = PROJECT_ROOT / "shared" / "Index.html"
 PREVIEW_PATH = PROJECT_ROOT / "preview" / "Index-demo-lokal.html"
 PARTIALS = {
+    "HomeView": PROJECT_ROOT / "shared" / "HomeView.html",
     "Styles": PROJECT_ROOT / "shared" / "Styles.html",
     "RPBStyles": PROJECT_ROOT / "rpb" / "RPBStyles.html",
     "MemoClient": PROJECT_ROOT / "memo" / "MemoClient.html",

@@ -9,6 +9,10 @@
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Arial,sans-serif;padding:16px}
 main{max-width:1100px;margin:auto}.header,.panel,.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
 h1{font-size:21px;color:var(--navy);margin:0 0 4px}h2{font-size:16px;margin:0 0 14px;color:var(--navy)}
+.login-screen{min-height:calc(100vh - 32px);display:grid;place-items:center}.login-card{width:min(430px,100%);padding:28px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.08)}.login-card h1{color:#0f766e}.login-card .btn{width:100%}
+.application-shell{--teal:#0f766e;--teal-dark:#115e59;display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;align-items:start;max-width:1500px;margin:0 auto}.app-sidebar{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:18px;background:#fff;border:1px solid var(--line);border-radius:12px}.sidebar-brand{display:grid;gap:2px;padding:2px 8px 18px;color:var(--teal-dark);font-size:18px}.sidebar-brand span{font-size:12px;color:#64748b}.app-menu summary{display:none}.sidebar-nav{display:grid;gap:6px}.sidebar-nav .tab{width:100%;margin:0;text-align:left}.sidebar-nav .main-nav-button.active{background:var(--teal);border-color:var(--teal);color:#fff}.sidebar-group{display:grid;gap:3px;margin-top:22px}.sidebar-group h2{margin:0 8px 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}.sidebar-unavailable{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;border-radius:6px;color:#475569;font-size:12px}.sidebar-unavailable small,.unavailable-label{color:#64748b;font-size:11px}
+.app-main{width:100%;max-width:none;min-width:0;margin:0}.app-main>.header{border-top:3px solid var(--teal)}.app-main .identity{margin-left:0}.app-main .app-status-row .actions{align-items:center}.app-main .btn.primary{background:var(--teal)}.app-main .btn.primary:hover{background:var(--teal-dark)}
+.home-page{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}.home-project-header,.home-card,.home-summary-card{min-width:0;padding:18px;background:#fff;border:1px solid var(--line);border-radius:10px}.home-project-header{display:flex;justify-content:space-between;align-items:center;gap:14px;border-left:4px solid var(--teal)}.home-project-header h2,.home-card h2,.home-section-heading h2{margin:0 0 4px}.home-project-header p{margin:0}.home-eyebrow{margin:0 0 5px!important;color:var(--teal);font-size:11px;font-weight:700;letter-spacing:.1em}.home-date{display:grid;gap:2px;text-align:right;color:#64748b;font-size:12px}.home-date strong{color:var(--ink);font-size:14px}.home-section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.home-section-heading>div{display:grid;gap:5px}.example-label{width:max-content;padding:3px 8px;border-radius:999px;background:#ccfbf1;color:#115e59;font-size:11px;font-weight:700}.home-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.home-summary-card{border-top:3px solid var(--teal)}.home-summary-number{font-size:26px;font-weight:700;color:var(--teal-dark)}.home-summary-card h3{margin:5px 0;font-size:14px}.home-summary-card p,.home-card p{margin:5px 0 0}.home-card .notice{margin:12px 0}.home-table-wrap{min-width:0;margin:12px 0}.home-request-table{min-width:700px}.home-status{color:#854d0e;font-weight:700}.home-risk{display:inline-block;padding:3px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:700}.home-support-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.home-support-grid .home-card{margin:0}.home-delivery-note{margin:0;padding:10px 12px;border-left:3px solid var(--teal);background:#f8fafc}
 .muted{color:#64748b;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
 .tab{border:1px solid var(--line);border-radius:7px;padding:10px 13px;background:#e2e8f0;cursor:pointer;font-weight:700;color:#334155}
 .tab.active{background:var(--blue);color:white;border-color:var(--blue)}
@@ -60,7 +64,8 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px soli
 .roster-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .blank-page{min-height:260px;display:flex;align-items:center;justify-content:center;text-align:center}
 .ktp-help{min-width:190px}.ktp-cell input[type=file]{font-size:12px}
-@media(max-width:600px){body{padding:8px}.header,.panel,.card{padding:13px}.main-nav{gap:5px}.main-nav .tab{padding:10px 5px}.output-grid{grid-template-columns:1fr}.output-choice{min-height:56px}}
+@media(max-width:900px){.application-shell{grid-template-columns:1fr}.app-sidebar{position:static;max-height:none;padding:12px 16px}.app-menu summary{display:list-item;padding:8px;cursor:pointer;font-weight:700;color:var(--teal-dark)}.app-menu:not([open]) .sidebar-nav{display:none}.sidebar-group{margin-top:12px}.sidebar-group:not(:first-of-type){grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.sidebar-group h2{grid-column:1/-1}.home-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){body{padding:8px}.header,.panel,.card,.home-project-header,.home-card,.home-summary-card{padding:13px}.main-nav{gap:5px}.main-nav .tab{padding:10px 5px}.output-grid{grid-template-columns:1fr}.output-choice{min-height:56px}.home-project-header{align-items:flex-start;flex-direction:column}.home-date{text-align:left}.home-section-heading{align-items:flex-start;flex-direction:column}.home-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.home-summary-card{min-width:0}.home-summary-card h3{font-size:13px}.home-support-grid{grid-template-columns:1fr;gap:10px}.home-section-heading>.btn{width:100%}.app-main .app-status-row{align-items:flex-start}.app-main .app-status-row .actions{align-items:flex-start;flex-direction:column}}
 @media(max-width:620px){.memo-history-card{grid-template-columns:1fr}.memo-history-preview{min-height:190px}.memo-history-actions .btn{flex:1 1 135px}}
 @media(max-width:520px){.app-status-row{align-items:stretch;flex-direction:column}.app-status-row .btn{margin:0}}
 </style>
@@ -75,22 +80,121 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px soli
 </style>
 </head>
 <body>
-<main>
+<section id="loginPanel" class="login-screen" aria-labelledby="loginTitle">
+  <div class="login-card">
+    <h1 id="loginTitle">Admin PT. UTP</h1>
+    <p class="muted">Masuk untuk membuka administrasi proyek.</p>
+    <form id="loginForm">
+      <div class="field"><label for="loginPassword">Kata sandi</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+      <button class="btn primary" type="submit" id="loginSubmit">Masuk</button>
+      <p id="loginError" class="error" role="alert" aria-live="polite"></p>
+    </form>
+  </div>
+</section>
+
+<div id="applicationShell" class="application-shell" hidden>
+<aside class="app-sidebar">
+  <div class="sidebar-brand"><strong>PT. UTP</strong><span>Administrasi Proyek</span></div>
+  <details id="mainMenu" class="app-menu" open>
+    <summary>Menu navigasi</summary>
+    <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
+      <button type="button" class="tab main-nav-button active" data-main="HOME">Beranda</button>
+      <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
+      <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
+      <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
+    </nav>
+  </details>
+  <div class="sidebar-group">
+    <h2>Menu proyek</h2>
+    <span class="sidebar-unavailable">Katalog Material <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Persetujuan Material <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Permintaan &amp; Review <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Barang Datang <small>Belum tersedia</small></span>
+  </div>
+  <div class="sidebar-group">
+    <h2>Menu lainnya</h2>
+    <span class="sidebar-unavailable">Tugas <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Nota/Keuangan <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Arsip <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">SDM <small>Belum tersedia</small></span>
+    <span class="sidebar-unavailable">Absensi <small>Belum tersedia</small></span>
+  </div>
+</aside>
+
+<main class="app-main">
   <header class="header">
-    <h1>PT. UNICORN TOSAN PERKASA</h1>
-    <div class="muted">Dashboard Administrasi Memo dan Arsip Proyek</div>
+    <h1>Beranda Admin PT. UTP</h1>
+    <div class="muted">Terrasentra Bandung · TRSM-51D26-D-M · PM: Juhana</div>
     <div class="app-status-row">
       <p id="appStatus" class="muted" role="status" aria-live="polite">Menghubungkan aplikasi...</p>
-      <button class="btn" type="button" id="btnReconnect">Coba Hubungkan Ulang</button>
+      <div class="actions"><span class="identity" id="userIdentity"></span><button class="btn" type="button" id="btnReconnect">Masuk ulang</button></div>
     </div>
   </header>
 
-  <nav class="main-nav" aria-label="Menu utama">
-    <button type="button" class="tab main-nav-button active" data-main="MEMO">MEMO</button>
-    <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
-    <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
-    <span class="identity" id="userIdentity"></span>
-  </nav>
+  <section id="blank-HOME" class="home-page" aria-labelledby="homeTitle">
+  <header class="home-project-header">
+    <div>
+      <p class="home-eyebrow">PROJECT OVERVIEW</p>
+      <h2 id="homeTitle">Terrasentra Bandung</h2>
+      <p class="muted">TRSM-51D26-D-M <span aria-hidden="true">·</span> PM: Juhana</p>
+    </div>
+    <div class="home-date"><span>Hari ini</span><strong id="homeCurrentDate"></strong></div>
+  </header>
+
+  <div class="home-section-heading">
+    <div><h2>Ringkasan tindakan</h2><span class="example-label">Contoh data</span></div>
+    <button type="button" class="btn primary" disabled aria-describedby="homeCreateHelp">Buat Permintaan</button>
+  </div>
+  <p id="homeCreateHelp" class="muted">Belum tersedia</p>
+  <div class="home-summary-grid" aria-label="Contoh ringkasan, bukan data tersimpan">
+    <article class="home-summary-card">
+      <span class="home-summary-number">2</span>
+      <h3>Menunggu Input Review</h3>
+      <p>Contoh data · Input Hasil Review</p>
+    </article>
+    <article class="home-summary-card">
+      <span class="home-summary-number">1</span>
+      <h3>Perlu Unggah Final HO</h3>
+      <p>Contoh data · belum terhubung</p>
+    </article>
+    <article class="home-summary-card">
+      <span class="home-summary-number">1</span>
+      <h3>Menunggu Barang</h3>
+      <p>Contoh data · konfirmasi kedatangan saja</p>
+    </article>
+  </div>
+
+  <section class="home-card" aria-labelledby="homeRequestsTitle">
+    <div class="home-section-heading">
+      <div><h2 id="homeRequestsTitle">Permintaan terbaru</h2><span class="example-label">Contoh data · bukan data tersimpan</span></div>
+    </div>
+    <p class="notice">“Input Hasil Review” mencatat hasil review. REV hanya bertambah melalui “Terbitkan Revisi”; fitur tersebut belum tersedia.</p>
+    <div class="tablewrap home-table-wrap">
+      <table class="home-request-table">
+        <thead><tr><th>Nomor referensi</th><th>Persetujuan diperlukan</th><th>Status proses</th><th>Peringatan risiko</th></tr></thead>
+        <tbody><tr>
+          <td>CONTOH-001</td>
+          <td>Contoh alur persetujuan</td>
+          <td><span class="home-status">Menunggu Input Hasil Review</span></td>
+          <td><span class="home-risk">Luar Persetujuan</span></td>
+        </tr></tbody>
+      </table>
+    </div>
+    <p class="muted">Contoh klasifikasi per item: kabel ties — <strong>By Owner</strong>. By Owner adalah klasifikasi item, bukan pihak pemberi persetujuan.</p>
+  </section>
+
+  <div class="home-support-grid">
+    <section class="home-card" aria-labelledby="homeTasksTitle">
+      <div class="home-section-heading"><h2 id="homeTasksTitle">Tugas</h2><span class="unavailable-label">Belum terhubung</span></div>
+      <p class="muted">Daftar tugas belum terhubung ke sumber data.</p>
+    </section>
+    <section class="home-card" aria-labelledby="homeTelegramTitle">
+      <div class="home-section-heading"><h2 id="homeTelegramTitle">Log Telegram</h2><span class="unavailable-label">Belum terhubung</span></div>
+      <p class="muted">Log Telegram belum terhubung ke sumber data.</p>
+    </section>
+  </div>
+  <p class="muted home-delivery-note">Barang Datang hanya untuk konfirmasi kedatangan. Kelengkapan, jumlah, dan kondisi barang tidak dicatat di sini.</p>
+</section>
 
   <section class="panel memo-area">
     <h2>Jenis Memo dan Proyek</h2>
@@ -262,6 +366,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px soli
     <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Riwayat dan Tracking RPB</h2><button class="btn" type="button" id="rpbRefreshHistory">Muat Ulang Riwayat</button></div><div id="rpbHistoryList" class="rpb-history-list"></div></div>
   </section>
 </main>
+</div>
 
 <dialog id="deletePinDialog" class="pin-dialog" aria-labelledby="deletePinTitle">
   <form id="deletePinForm">
@@ -335,7 +440,7 @@ document.addEventListener('click', (event) => {
 
   try {
     if (button.id === 'btnReconnect') {
-      startApplication();
+      returnToLogin_();
     } else if (button.matches('.main-nav-button')) {
       switchMainPage(button.dataset.main);
     } else if (button.matches('.subnav [data-type]')) {
@@ -426,13 +531,40 @@ function askDeletePin_(purpose = 'penghapusan') {
   });
 }
 
-function startApplication() {
-  switchMainPage('MEMO');
-  $('btnReconnect').disabled = true;
-  $('appStatus').classList.remove('error');
-  $('appStatus').textContent = 'Menghubungkan ke Google Apps Script...';
-  invokeServer('apiCreateSession', [], (result) => {
-    $('btnReconnect').disabled = false;
+function showLoginPanel_(message = '') {
+  $('applicationShell').hidden = true;
+  $('loginPanel').hidden = false;
+  $('loginError').textContent = message;
+  $('loginPassword').value = '';
+  $('loginPassword').focus();
+}
+
+function returnToLogin_() {
+  const token = accessToken;
+  accessToken = '';
+  showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
+  if (token) {
+    invokeServer('apiLogout', [token], () => {}, (error) => {
+      $('loginError').textContent = `Sesi lokal ditutup, tetapi logout server gagal: ${error.message}`;
+    });
+  }
+}
+
+function startApplication(event) {
+  if (event) event.preventDefault();
+  const credentials = { password: $('loginPassword').value };
+  const submit = $('loginSubmit');
+  if (!credentials.password) {
+    $('loginError').textContent = 'Masukkan kata sandi untuk melanjutkan.';
+    $('loginPassword').focus();
+    return;
+  }
+  submit.disabled = true;
+  $('loginError').textContent = 'Memverifikasi akses...';
+  $('loginPassword').value = '';
+  invokeServer('apiCreateSession', [credentials], (result) => {
+    submit.disabled = false;
+    $('loginPassword').value = '';
     accessToken = result.token;
     showApplication(result.owner);
     const serverVersion = result.version || 'versi server tidak diketahui';
@@ -441,15 +573,33 @@ function startApplication() {
     loadHistory();
     loadManpower();
   }, (error) => {
-    $('btnReconnect').disabled = false;
-    showApplicationError_('Gagal menghubungkan aplikasi', error);
+    submit.disabled = false;
+    accessToken = '';
+    $('loginPassword').value = '';
+    $('loginError').textContent = `Gagal masuk: ${error.message}`;
+    $('loginPassword').focus();
   });
 }
 
 function showApplication(owner) {
+  $('loginPanel').hidden = true;
+  $('applicationShell').hidden = false;
   $('userIdentity').textContent = `Akun: ${owner}`;
   $('counterStatus').textContent = `Pengguna: ${owner}.`;
-  switchMainPage('MEMO');
+  setHomeCurrentDate_();
+  switchMainPage('HOME');
+}
+
+function setHomeCurrentDate_() {
+  const date = $('homeCurrentDate');
+  if (!date) return;
+  date.textContent = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(new Date());
 }
 
 function loadCounters() {
@@ -484,17 +634,19 @@ function formatUiDate_(value) {
 }
 
 function switchMainPage(page) {
-  if (!['MEMO', 'RPD', 'RPB'].includes(page)) page = 'MEMO';
+  if (!['HOME', 'MEMO', 'RPD', 'RPB'].includes(page)) page = 'HOME';
   currentMainPage = page;
   document.querySelectorAll('.main-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.main === page);
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.blank-page, .rpb-page').forEach((element) => {
+  document.querySelectorAll('.home-page, .blank-page, .rpb-page').forEach((element) => {
     element.hidden = page !== element.id.replace('blank-', '');
   });
+  if (page === 'HOME') setHomeCurrentDate_();
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
+  if (window.matchMedia('(max-width: 900px)').matches) $('mainMenu').open = false;
 }
 
 function switchType(type) {
@@ -816,14 +968,17 @@ document.querySelectorAll('[data-reset]').forEach((button) => {
   button.addEventListener('click', () => {
     const type = button.dataset.reset;
     if (!confirm('Reset counter ' + (type === 'ALL' ? 'semua jenis memo' : type) + ' untuk bulan berjalan?')) return;
-    button.disabled = true;
-    invokeServer('apiResetCounter', [type, accessToken], (result) => {
-      button.disabled = false;
-      alert(result.message);
-      loadCounters();
-    }, (error) => {
-      button.disabled = false;
-      alert(`Gagal mereset counter: ${error.message}`);
+    askDeletePin_('reset counter').then((pin) => {
+      if (!pin) return;
+      button.disabled = true;
+      invokeServer('apiResetCounter', [type, accessToken, pin], (result) => {
+        button.disabled = false;
+        alert(result.message);
+        loadCounters();
+      }, (error) => {
+        button.disabled = false;
+        alert(`Gagal mereset counter: ${error.message}`);
+      });
     });
   });
 });
@@ -1264,19 +1419,24 @@ if (telegramApp) {
   telegramApp.ready();
   telegramApp.expand();
 }
-startApplication();
+$('loginForm').addEventListener('submit', startApplication);
+$('loginPassword').focus();
 </script>
 <script>
 let rpbState_ = { categories: [], items: [], statuses: [], history: [], nextSequence: 1 };
 let rpbRevisionOf_ = '';
 let rpbDraftTimer_ = null;
+let rpbDraftVersion_ = 0;
+let rpbFormEditVersion_ = 0;
+let rpbSubmitting_ = false;
 
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
   const button = target && target.closest('button');
   if (!button) return;
+  if (target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   try {
-    if (button.id === 'rpbAddLine') addRpbLine_();
+    if (button.id === 'rpbAddLine') { addRpbLine_(); scheduleRpbDraft_(); }
     else if (button.id === 'rpbSaveDraft') saveRpbDraft_();
     else if (button.id === 'rpbSubmit') submitRpb_();
     else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
@@ -1297,8 +1457,10 @@ document.addEventListener('click', (event) => {
 });
 
 function loadRpbData_() {
+  const formEditVersion = rpbFormEditVersion_;
   invokeServer('apiGetRpbData', [accessToken], (data) => {
     rpbState_ = data;
+    rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
     $('rpbMasterLink').href = data.masterUrl || '#';
     $('rpbMasterLink').hidden = !data.masterUrl;
     ['rpbCategoryFilter', 'rpbNewCategory', 'rpbMasterCategoryFilter'].forEach((id) => {
@@ -1319,9 +1481,12 @@ function loadRpbData_() {
     renderRpbHistory_();
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
       invokeServer('apiLoadRpbDraft', [accessToken], (draft) => {
+        if ($('rpbItemsTable').tBodies[0].rows.length || rpbFormEditVersion_ !== formEditVersion) return;
         if (draft) populateRpbForm_(draft);
         else addRpbLine_();
-      }, () => addRpbLine_());
+      }, () => {
+        if (!$('rpbItemsTable').tBodies[0].rows.length && rpbFormEditVersion_ === formEditVersion) addRpbLine_();
+      });
     } else refreshRpbItemChoices_();
     $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
   }, (error) => { $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
@@ -1403,10 +1568,11 @@ function collectRpbForm_() {
     unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
     week: row.querySelector('[data-rpb-field="week"]').value
   })).filter((item) => item.itemId);
-  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, items };
+  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
 }
 
 function populateRpbForm_(data) {
+  rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
   $('rpbRequestDate').value = data.requestDate || todayJakarta_();
   $('rpbLpdMonth').value = data.lpdReceivedMonth || '';
   $('rpbLpdConfirmed').checked = false;
@@ -1423,15 +1589,25 @@ function todayJakarta_() {
 }
 
 function scheduleRpbDraft_() {
+  if (rpbSubmitting_) return;
   clearTimeout(rpbDraftTimer_);
   rpbDraftTimer_ = setTimeout(saveRpbDraft_, 1000);
 }
 
 function saveRpbDraft_() {
+  if (rpbSubmitting_) return;
   const payload = collectRpbForm_();
   if (!payload.requestDate) payload.requestDate = todayJakarta_();
+  rpbDraftVersion_ = Math.max(Date.now(), rpbDraftVersion_ + 1);
+  payload.draftVersion = rpbDraftVersion_;
   $('rpbDraftStatus').textContent = 'Menyimpan draf...';
-  invokeServer('apiSaveRpbDraft', [payload, accessToken], () => { $('rpbDraftStatus').textContent = 'Draf tersimpan otomatis.'; }, (error) => { $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`; });
+  invokeServer('apiSaveRpbDraft', [payload, accessToken], (result) => {
+    if (payload.draftVersion !== rpbDraftVersion_) return;
+    if (!result.saved) rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(result.draftVersion) || 0);
+    $('rpbDraftStatus').textContent = result.saved ? 'Draf tersimpan otomatis.' : 'Draf tidak tersimpan karena ada perubahan dari sesi lain. Muat ulang sebelum melanjutkan.';
+  }, (error) => {
+    if (payload.draftVersion === rpbDraftVersion_) $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`;
+  });
 }
 
 function updateRpbTotal_() {
@@ -1452,9 +1628,14 @@ function submitRpb_() {
   const prevMonth = `${expectedPrev.getFullYear()}-${String(expectedPrev.getMonth() + 1).padStart(2, '0')}`;
   if (payload.lpdReceivedMonth !== prevMonth) { $('rpbFormError').textContent = `Pilih bulan LPD sebelumnya (${prevMonth}).`; return; }
   clearTimeout(rpbDraftTimer_);
+  $('rpbResult').hidden = true;
   const wasRevision = Boolean(rpbRevisionOf_);
+  rpbSubmitting_ = true;
+  setRpbFormDisabled_(true);
   const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
   invokeServer('apiCreateRpb', [payload, accessToken, rpbRevisionOf_], (result) => {
+    rpbSubmitting_ = false;
+    setRpbFormDisabled_(false);
     button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
     $('rpbResult').hidden = false; $('rpbResultNumber').textContent = `Nomor: ${result.number}${wasRevision ? ' (revisi baru; nomor versi sebelumnya tetap)' : ''}`;
     $('rpbExcelLink').href = result.excelUrl; $('rpbPdfLink').href = result.pdfUrl; $('rpbSheetLink').href = result.spreadsheetUrl; $('rpbFolderLink').href = result.folderUrl; $('rpbWaDraft').textContent = result.waDraft;
@@ -1464,7 +1645,18 @@ function submitRpb_() {
     $('rpbLpdConfirmed').checked = false;
     $('rpbFormError').textContent = '';
     loadRpbData_();
-  }, (error) => { button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan'; $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`; });
+  }, (error) => {
+    rpbSubmitting_ = false;
+    setRpbFormDisabled_(false);
+    button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan';
+    $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`;
+    scheduleRpbDraft_();
+  });
+}
+
+function setRpbFormDisabled_(disabled) {
+  document.querySelectorAll('#rpbRequestDate, #rpbLpdMonth, #rpbLpdConfirmed, #rpbCategoryFilter, #rpbAddLine, #rpbSaveDraft, #rpbItemsTable input, #rpbItemsTable select, #rpbItemsTable button')
+    .forEach((control) => { control.disabled = disabled; });
 }
 
 function renderRpbMaster_() {
@@ -1546,7 +1738,10 @@ function saveRpbTracking_(id) {
   const status=document.querySelector(`[data-status="${CSS.escape(id)}"]`).value;
   const note=document.querySelector(`[data-note="${CSS.escape(id)}"]`).value;
   const evidence=document.querySelector(`[data-evidence="${CSS.escape(id)}"]`).value;
-  invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,'',accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+  askDeletePin_('perubahan status tracking RPB').then((pin)=>{
+    if(!pin)return;
+    invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,pin,accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+  });
 }
 
 function beginRpbRevision_(id) {
@@ -1573,8 +1768,9 @@ function copyRpbToDraft_(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); } });
 document.addEventListener('change', (event) => {
+  if (event.target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
   if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
   if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();

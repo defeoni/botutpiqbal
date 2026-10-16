@@ -55,7 +55,7 @@ document.addEventListener('click', (event) => {
 
   try {
     if (button.id === 'btnReconnect') {
-      startApplication();
+      returnToLogin_();
     } else if (button.matches('.main-nav-button')) {
       switchMainPage(button.dataset.main);
     } else if (button.matches('.subnav [data-type]')) {
@@ -146,13 +146,40 @@ function askDeletePin_(purpose = 'penghapusan') {
   });
 }
 
-function startApplication() {
-  switchMainPage('MEMO');
-  $('btnReconnect').disabled = true;
-  $('appStatus').classList.remove('error');
-  $('appStatus').textContent = 'Menghubungkan ke Google Apps Script...';
-  invokeServer('apiCreateSession', [], (result) => {
-    $('btnReconnect').disabled = false;
+function showLoginPanel_(message = '') {
+  $('applicationShell').hidden = true;
+  $('loginPanel').hidden = false;
+  $('loginError').textContent = message;
+  $('loginPassword').value = '';
+  $('loginPassword').focus();
+}
+
+function returnToLogin_() {
+  const token = accessToken;
+  accessToken = '';
+  showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
+  if (token) {
+    invokeServer('apiLogout', [token], () => {}, (error) => {
+      $('loginError').textContent = `Sesi lokal ditutup, tetapi logout server gagal: ${error.message}`;
+    });
+  }
+}
+
+function startApplication(event) {
+  if (event) event.preventDefault();
+  const credentials = { password: $('loginPassword').value };
+  const submit = $('loginSubmit');
+  if (!credentials.password) {
+    $('loginError').textContent = 'Masukkan kata sandi untuk melanjutkan.';
+    $('loginPassword').focus();
+    return;
+  }
+  submit.disabled = true;
+  $('loginError').textContent = 'Memverifikasi akses...';
+  $('loginPassword').value = '';
+  invokeServer('apiCreateSession', [credentials], (result) => {
+    submit.disabled = false;
+    $('loginPassword').value = '';
     accessToken = result.token;
     showApplication(result.owner);
     const serverVersion = result.version || 'versi server tidak diketahui';
@@ -161,15 +188,33 @@ function startApplication() {
     loadHistory();
     loadManpower();
   }, (error) => {
-    $('btnReconnect').disabled = false;
-    showApplicationError_('Gagal menghubungkan aplikasi', error);
+    submit.disabled = false;
+    accessToken = '';
+    $('loginPassword').value = '';
+    $('loginError').textContent = `Gagal masuk: ${error.message}`;
+    $('loginPassword').focus();
   });
 }
 
 function showApplication(owner) {
+  $('loginPanel').hidden = true;
+  $('applicationShell').hidden = false;
   $('userIdentity').textContent = `Akun: ${owner}`;
   $('counterStatus').textContent = `Pengguna: ${owner}.`;
-  switchMainPage('MEMO');
+  setHomeCurrentDate_();
+  switchMainPage('HOME');
+}
+
+function setHomeCurrentDate_() {
+  const date = $('homeCurrentDate');
+  if (!date) return;
+  date.textContent = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(new Date());
 }
 
 function loadCounters() {
@@ -204,17 +249,19 @@ function formatUiDate_(value) {
 }
 
 function switchMainPage(page) {
-  if (!['MEMO', 'RPD', 'RPB'].includes(page)) page = 'MEMO';
+  if (!['HOME', 'MEMO', 'RPD', 'RPB'].includes(page)) page = 'HOME';
   currentMainPage = page;
   document.querySelectorAll('.main-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.main === page);
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.blank-page, .rpb-page').forEach((element) => {
+  document.querySelectorAll('.home-page, .blank-page, .rpb-page').forEach((element) => {
     element.hidden = page !== element.id.replace('blank-', '');
   });
+  if (page === 'HOME') setHomeCurrentDate_();
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
+  if (window.matchMedia('(max-width: 900px)').matches) $('mainMenu').open = false;
 }
 
 function switchType(type) {
@@ -536,14 +583,17 @@ document.querySelectorAll('[data-reset]').forEach((button) => {
   button.addEventListener('click', () => {
     const type = button.dataset.reset;
     if (!confirm('Reset counter ' + (type === 'ALL' ? 'semua jenis memo' : type) + ' untuk bulan berjalan?')) return;
-    button.disabled = true;
-    invokeServer('apiResetCounter', [type, accessToken], (result) => {
-      button.disabled = false;
-      alert(result.message);
-      loadCounters();
-    }, (error) => {
-      button.disabled = false;
-      alert(`Gagal mereset counter: ${error.message}`);
+    askDeletePin_('reset counter').then((pin) => {
+      if (!pin) return;
+      button.disabled = true;
+      invokeServer('apiResetCounter', [type, accessToken, pin], (result) => {
+        button.disabled = false;
+        alert(result.message);
+        loadCounters();
+      }, (error) => {
+        button.disabled = false;
+        alert(`Gagal mereset counter: ${error.message}`);
+      });
     });
   });
 });
@@ -984,5 +1034,6 @@ if (telegramApp) {
   telegramApp.ready();
   telegramApp.expand();
 }
-startApplication();
+$('loginForm').addEventListener('submit', startApplication);
+$('loginPassword').focus();
 </script>

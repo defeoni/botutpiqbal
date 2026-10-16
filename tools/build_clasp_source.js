@@ -5,8 +5,10 @@ const projectRoot = path.resolve(__dirname, "..");
 const stagingDir = path.join(projectRoot, ".clasp-src");
 const sourceFiles = [
   ["memo/Memo.gs", "Memo.gs"],
+  ["shared/Auth.gs", "Auth.gs"],
   ["rpb/RPB.gs", "RPB.gs"],
   ["shared/Index.html", "Index.html"],
+  ["shared/HomeView.html", "HomeView.html"],
   ["shared/Styles.html", "Styles.html"],
   ["rpb/RPBStyles.html", "RPBStyles.html"],
   ["memo/MemoClient.html", "MemoClient.html"],

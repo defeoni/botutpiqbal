@@ -26,7 +26,6 @@ const APP = {
     ]
   }
 };
-const DELETE_PIN = '461999';
 
 function doGet(event) {
   const template = HtmlService.createTemplateFromFile('Index');
@@ -65,16 +64,7 @@ function doPost(event) {
   return HtmlService.createHtmlOutput('OK');
 }
 
-function apiCreateSession() {
-  const props = PropertiesService.getScriptProperties();
-  const token = Utilities.getUuid();
-  CacheService.getScriptCache().put('auth_' + token, 'web-user', 21600);
-  return {
-    token,
-    owner: props.getProperty('APP_OWNER_NAME') || 'Pengguna',
-    version: APP.version
-  };
-}
+function apiCreateSession(credentials) { return ownerSession_(credentials); }
 
 function apiUploadKtpImage(dataUrl, originalName, token) {
   requireAuthorized_(token);
@@ -247,8 +237,9 @@ function trimMemoRequests_(props) {
   requests.slice(0, Math.max(0, requests.length - 250)).forEach((request) => props.deleteProperty(request.key));
 }
 
-function apiResetCounter(typeKey, token) {
+function apiResetCounter(typeKey, token, pin) {
   requireAuthorized_(token);
+  requireDeletePin_(pin);
   const key = String(typeKey || '');
   if (key !== 'ALL' && !APP.types[key]) throw new Error('Jenis memo tidak dikenal.');
   const message = resetCounter_(key);
@@ -425,7 +416,7 @@ function apiDeleteManpower(name, project, pin, token) {
 }
 
 function requireDeletePin_(pin) {
-  if (String(pin || '').trim() !== DELETE_PIN) throw new Error('Kode PIN salah. Data tidak dihapus.');
+  ownerCheck_(String(pin || '').trim(), 'PIN');
 }
 
 function apiGetManpower(token) {
@@ -571,9 +562,7 @@ function apiTelegramStatus(token) {
 }
 
 function requireAuthorized_(token) {
-  if (!token || !CacheService.getScriptCache().get('auth_' + token)) {
-    throw new Error('Sesi aplikasi berakhir. Muat ulang halaman untuk melanjutkan.');
-  }
+  ownerRequireSession_(token);
 }
 
 function validatePayload_(payload) {
@@ -1552,7 +1541,7 @@ function resetCounter_(type) {
   }
 }
 
-function getTelegramSetupInfo() {
+function getTelegramSetupInfo_() {
   const status = getTelegramStatus_();
   return [
     `Bot: @${status.botUsername}`,

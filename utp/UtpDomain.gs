@@ -1,0 +1,363 @@
+/* Pure UTP rules. Keep Apps Script services in Utp.gs so these rules run in Node. */
+var UTP_PROJECT = { name: 'Terrasentra Bandung', code: 'TRSM-51D26-D-M', pm: 'Juhana' };
+var UTP_ENTITIES = ['approvals', 'requests', 'tasks', 'purchases', 'receipts', 'funds', 'documents', 'contacts', 'housing', 'attendance'];
+var UTP_REQUEST_STATUSES = ['DRAFT', 'PM', 'MK', 'HO', 'FINAL', 'ARRIVED', 'CANCELLED'];
+var UTP_ITEM_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'DEFERRED', 'OWNER'];
+var UTP_MASTER_FIELDS = ['code', 'name', 'brand', 'brandCandidate', 'brandStatus', 'model', 'unit', 'group', 'family'];
+
+function utpClone_(value) { return JSON.parse(JSON.stringify(value)); }
+function utpText_(value, label, max, required) {
+  var text = value == null ? '' : String(value).trim();
+  if (required && !text) throw new Error(label + ' wajib diisi.');
+  if (text.length > (max || 500)) throw new Error(label + ' terlalu panjang (maksimal ' + (max || 500) + ' karakter).');
+  return text;
+}
+function utpNorm_(value) { return String(value == null ? '' : value).normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function utpEnum_(value, choices, label, fallback) {
+  var result = utpText_(value || fallback, label, 40, true).toUpperCase();
+  if (choices.indexOf(result) < 0) throw new Error(label + ' tidak valid: ' + result + '.');
+  return result;
+}
+function utpNumber_(value, label, minimum, allowZero) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+(?:\.\d+)?$/.test(value.trim()))) throw new Error(label + ' harus berupa angka biasa, tanpa pemisah ribuan.');
+  var number = Number(value);
+  if (!Number.isFinite(number) || number > 1e12 || (allowZero ? number < minimum : number <= minimum)) throw new Error(label + ' harus ' + (allowZero ? 'minimal ' : 'lebih dari ') + minimum + ' dan maksimal 1 triliun.');
+  return number;
+}
+function utpDate_(value, label, required) {
+  var text = utpText_(value, label, 10, required);
+  if (!text && !required) return '';
+  var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) throw new Error(label + ' harus menggunakan YYYY-MM-DD.');
+  var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  var date = new Date(Date.UTC(year, month - 1, day));
+  if (year < 1900 || year > 2200 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) throw new Error(label + ' tidak valid.');
+  return text;
+}
+function utpEntity_(entity) {
+  if (UTP_ENTITIES.indexOf(entity) < 0) throw new Error('Jenis data UTP tidak dikenal.');
+  return entity;
+}
+function utpArray_(value, label, max) {
+  if (!Array.isArray(value)) throw new Error(label + ' harus berupa daftar.');
+  if (value.length > max) throw new Error(label + ' maksimal ' + max + ' baris.');
+  return value;
+}
+function utpStrings_(value, label, max) {
+  var values = Array.isArray(value) ? value : String(value || '').split(/[,\n]/);
+  return utpArray_(values, label, max).map(function (x) { return utpText_(x, label, 160, false); }).filter(Boolean);
+}
+function utpFinanceCategory_(value) {
+  var category = utpText_(value, 'Kategori biaya', 100, true);
+  if (/material/i.test(category)) throw new Error('Biaya material tidak masuk keuangan operasional. Gunakan pencatatan pembelian material.');
+  return category;
+}
+function utpApprovalMatches_(item, approval) {
+  if (!approval || approval.archived || approval.status !== 'APPROVED') return false;
+  var codes = approval.itemCodes || [];
+  if (codes.length && codes.indexOf(String(item.code || '')) < 0) return false;
+  if (!codes.length) {
+    var material = utpNorm_(approval.material);
+    var haystack = utpNorm_([item.name, item.family, item.group].join(' '));
+    if (material && !material.split(' ').every(function (word) { return haystack.indexOf(word) >= 0; })) return false;
+  }
+  if (approval.generic && utpNorm_(item.brand)) return false;
+  if (!approval.generic && !String(approval.brand).split(/[,;\n]/).some(function(b){return utpNorm_(b)===utpNorm_(item.brand);})) return false;
+  var types = approval.types || [];
+  if (types.length && !types.some(function (type) { return utpNorm_(type) === utpNorm_(item.model); })) return false;
+  return true;
+}
+function utpFindApproval_(item, approvals) {
+  var candidates = approvals || [];
+  if (item.approvalId) candidates = candidates.filter(function (a) { return a.id === item.approvalId; });
+  return candidates.find(function (a) { return utpApprovalMatches_(item, a); }) || null;
+}
+function utpRequestItems_(items, context) {
+  var seen = Object.create(null);
+  context = context || {};
+  return utpArray_(items || [], 'Item permintaan', 150).map(function (source, index) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data item ' + (index + 1) + ' tidak valid.');
+    var item = {};
+    ['id', 'code', 'name', 'brand', 'model', 'unit', 'group', 'family', 'approvalId', 'exceptionApprovedBy'].forEach(function (key) {
+      item[key] = utpText_(source[key], 'Item ' + (index + 1) + ': ' + key, key === 'name' ? 500 : 160, ['name', 'unit'].indexOf(key) >= 0);
+    });
+    item.id = item.id || (context.newId ? context.newId() : 'item-' + (index + 1));
+    if (seen[item.id]) throw new Error('ID item permintaan duplikat.');
+    seen[item.id] = true;
+    item.quantity = utpNumber_(source.quantity, 'Jumlah item ' + (index + 1), 0, false);
+    item.status = utpEnum_(source.status, UTP_ITEM_STATUSES, 'Status item', 'PENDING');
+    item.note = utpText_(source.note, 'Catatan item', 2000, false);
+    item.exceptionReason = utpText_(source.exceptionReason, 'Alasan pengecualian', 2000, false);
+    var approval = utpFindApproval_(item, context.approvals);
+    item.approvalId = approval ? approval.id : item.approvalId;
+    item.approvalAuthority = approval ? approval.authority : '';
+    item.approvalWarning = '';
+    if (!approval && item.status !== 'OWNER') {
+      if (!item.exceptionReason) throw new Error('Item ' + item.name + ' belum sesuai approval merek/tipe. Isi alasan pengecualian.');
+      item.approvalWarning = 'Belum sesuai approval aktif; alasan pengecualian tercatat.';
+    }
+    return item;
+  });
+}
+function utpValidateRecord_(entity, source, existing, context) {
+  utpEntity_(entity);
+  if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data rekaman tidak valid.');
+  var record = {}, ctx = context || {};
+  function text(key, label, max, required) { record[key] = utpText_(source[key], label, max, required); }
+  function date(key, label, required) { record[key] = utpDate_(source[key], label, required); }
+  text('note', 'Catatan', 5000, false);
+  if (entity === 'approvals') {
+    record.generic = source.generic === true;
+    record.status = utpEnum_(source.status, ['COMPARE', 'APPROVED', 'REJECTED', 'OWNER'], 'Status approval', 'COMPARE');
+    text('material', 'Material', 300, true); text('brand', 'Merek', 160, !record.generic && record.status === 'APPROVED');
+    if (record.generic) record.brand = '';
+    record.types = utpStrings_(source.types, 'Tipe', 100);
+    record.itemCodes = utpStrings_(source.itemCodes, 'Kode item', 300);
+    record.authority = utpEnum_(source.authority, ['PM', 'MK', 'HO'], 'Pemberi approval', 'PM');
+    text('brochureId', 'ID brosur', 160, false);
+  } else if (entity === 'requests') {
+    text('number', 'Nomor permintaan', 160, false); text('title', 'Judul permintaan', 300, true);
+    date('date', 'Tanggal permintaan', true);
+    record.authority = utpEnum_(source.authority, ['PM', 'MK', 'HO'], 'Otoritas review', existing ? existing.authority : 'PM');
+    record.requiredAuthority = utpEnum_(source.requiredAuthority, ['PM', 'MK', 'HO'], 'Otoritas final yang dibutuhkan', existing ? existing.requiredAuthority || existing.authority : record.authority);
+    if (existing && existing.initialSnapshot && ['PM', 'MK', 'HO'].indexOf(record.requiredAuthority) < ['PM', 'MK', 'HO'].indexOf(existing.requiredAuthority || existing.authority)) throw new Error('Otoritas final tidak boleh diturunkan setelah permintaan diajukan.');
+    record.status = utpEnum_(source.status, UTP_REQUEST_STATUSES, 'Status permintaan', existing ? existing.status : 'DRAFT');
+    if ((!existing && record.status !== 'DRAFT') || (existing && record.status !== existing.status)) throw new Error('Ubah status melalui tindakan proses permintaan.');
+    record.items = utpRequestItems_(source.items, ctx);
+    record.revision = existing ? existing.revision || 0 : 0;
+    record.revisions = existing ? existing.revisions || [] : [];
+    record.history = existing ? existing.history || [] : [];
+    record.initialSnapshot = existing ? existing.initialSnapshot : null;
+    text('finalFileId', 'ID bukti final HO', 160, false);
+  } else if (entity === 'tasks') {
+    text('title', 'Tugas', 300, true); date('dueDate', 'Tenggat', false);
+    record.status = existing ? existing.status : 'OPEN';
+    if (source.status && source.status !== record.status) throw new Error('Gunakan tindakan selesai/buka kembali untuk status tugas.');
+    text('evidenceId', 'ID bukti tugas', 160, false);
+    record.completedAt = existing ? existing.completedAt || '' : '';
+    record.history = existing ? existing.history || [] : [];
+  } else if (entity === 'purchases') {
+    text('item', 'Nama material', 500, true); text('code', 'Kode item', 160, false);
+    text('brand', 'Merek', 160, false); text('unit', 'Satuan', 80, true); text('category', 'Kelompok material', 100, false);
+    record.quantity = utpNumber_(source.quantity, 'Jumlah pemesanan', 0, false);
+    date('orderDate', 'Tanggal pemesanan', true); date('receivedDate', 'Tanggal diterima', false);
+    if (record.receivedDate && record.receivedDate < record.orderDate) throw new Error('Tanggal diterima tidak boleh sebelum tanggal pemesanan.');
+    text('requestId', 'ID permintaan', 160, false);
+  } else if (entity === 'receipts') {
+    date('date', 'Tanggal nota', true); text('vendor', 'Penjual', 300, true);
+    record.total = utpNumber_(source.total, 'Total nota', 0, false);
+    record.category = utpFinanceCategory_(source.category);
+    record.status = utpEnum_(source.status, ['REVIEW', 'CONFIRMED'], 'Status nota', 'REVIEW');
+    text('fundId', 'Sumber dana', 160, record.status === 'CONFIRMED');
+    text('fileId', 'ID foto nota', 160, false); text('ocrText', 'Teks hasil OCR', 20000, false);
+  } else if (entity === 'funds') {
+    record.type = utpEnum_(source.type, ['RPB', 'RPD'], 'Jenis dana', 'RPB');
+    record.amount = utpNumber_(source.amount, 'Dana diterima', 0, false);
+    date('receivedDate', 'Tanggal dana diterima', true); text('recipient', 'Penerima dana', 300, true);
+  } else if (entity === 'documents') {
+    text('name', 'Nama dokumen', 300, true); text('fileId', 'ID file', 160, false);
+    text('kind', 'Jenis dokumen', 100, false); text('recordId', 'Referensi rekaman', 160, false);
+    text('mime', 'Tipe file', 100, false); text('url', 'URL dokumen', 1000, false);
+    // Trust file metadata only when written by the upload adapter.
+    record.uploadedByUtp = existing ? existing.uploadedByUtp === true : false;
+    record.size = existing ? existing.size || 0 : 0;
+    if (existing && existing.uploadedByUtp && record.fileId !== existing.fileId) throw new Error('File dokumen unggahan tidak boleh diganti melalui form.');
+    if (existing && existing.uploadedByUtp) {
+      record.mime = existing.mime; record.url = existing.url; record.digest = existing.digest || '';
+    }
+  } else if (entity === 'contacts') {
+    text('name', 'Nama kontak', 300, true); text('role', 'Jabatan', 160, false);
+    text('company', 'Perusahaan', 300, false); text('phone', 'Telepon', 80, false); text('email', 'Email', 300, false);
+    if (record.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email)) throw new Error('Alamat email kontak tidak valid.');
+  } else if (entity === 'housing') {
+    text('name', 'Nama mess', 300, true); text('address', 'Alamat mess', 2000, false);
+    record.capacity = source.capacity === '' || source.capacity == null ? 0 : utpNumber_(source.capacity, 'Kapasitas', 0, true);
+    if (!Number.isInteger(record.capacity)) throw new Error('Kapasitas harus bilangan bulat.');
+    record.occupants = utpStrings_(source.occupants, 'Penghuni', 300);
+    if (record.capacity && record.occupants.length > record.capacity) throw new Error('Penghuni melebihi kapasitas mess.');
+  } else if (entity === 'attendance') {
+    date('date', 'Tanggal absensi', true); text('person', 'Nama', 300, true);
+    record.status = utpEnum_(source.status, ['PRESENT', 'ABSENT', 'LEAVE', 'SICK'], 'Kehadiran', 'PRESENT');
+  }
+  return record;
+}
+function utpItemChanges_(before, after) {
+  var changes = [], oldMap = Object.create(null), newMap = Object.create(null);
+  (before || []).forEach(function (item) { oldMap[item.id] = item; });
+  (after || []).forEach(function (item) { newMap[item.id] = item; });
+  var fields = ['code', 'name', 'brand', 'model', 'unit', 'quantity', 'status', 'approvalId', 'exceptionReason', 'exceptionApprovedBy', 'note'];
+  Object.keys(oldMap).forEach(function (id) { if (!newMap[id]) changes.push({ itemId: id, code: oldMap[id].code, field: 'item', oldValue: utpClone_(oldMap[id]), newValue: null }); });
+  Object.keys(newMap).forEach(function (id) {
+    var oldItem = oldMap[id], newItem = newMap[id];
+    if (!oldItem) changes.push({ itemId: id, code: newItem.code, field: 'item', oldValue: null, newValue: utpClone_(newItem) });
+    else fields.forEach(function (field) {
+      if (JSON.stringify(oldItem[field] == null ? '' : oldItem[field]) !== JSON.stringify(newItem[field] == null ? '' : newItem[field])) changes.push({ itemId: id, code: newItem.code, field: field, oldValue: oldItem[field] == null ? '' : oldItem[field], newValue: newItem[field] == null ? '' : newItem[field] });
+    });
+  });
+  return changes;
+}
+function utpRequestSnapshot_(record) {
+  return { number: record.number, date: record.date, title: record.title, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), finalFileId: record.finalFileId || '' };
+}
+function utpRecordRequestSave_(record, previous, now, actor) {
+  var changes = utpItemChanges_(previous ? previous.items : [], record.items);
+  if (previous) ['title', 'number', 'date', 'authority', 'requiredAuthority', 'finalFileId', 'note'].forEach(function (field) {
+    if ((previous[field] || '') !== (record[field] || '')) changes.push({ field: field, oldValue: previous[field] || '', newValue: record[field] || '' });
+  });
+  record.history = utpClone_(previous ? previous.history || [] : []);
+  if (changes.length || !previous) record.history.push({ at: now, action: previous ? 'EDIT' : 'CREATE', actor: actor || 'Operator', note: '', changes: changes });
+  record.initialSnapshot = previous && previous.initialSnapshot ? utpClone_(previous.initialSnapshot) : null;
+  return record;
+}
+function utpTransitionRequest_(record, status, context) {
+  var next = utpClone_(record), ctx = context || {};
+  var target = utpEnum_(status, UTP_REQUEST_STATUSES, 'Status permintaan', 'DRAFT');
+  var allowed = { DRAFT: ['PM', 'MK', 'HO', 'CANCELLED'], PM: ['DRAFT', 'MK', 'HO', 'FINAL', 'CANCELLED'], MK: ['PM', 'HO', 'FINAL', 'CANCELLED'], HO: ['PM', 'MK', 'FINAL', 'CANCELLED'], FINAL: ['PM', 'MK', 'HO', 'ARRIVED', 'CANCELLED'], ARRIVED: ['PM', 'MK', 'HO'], CANCELLED: ['DRAFT'] };
+  if ((allowed[record.status] || []).indexOf(target) < 0) throw new Error('Perubahan status ' + record.status + ' ke ' + target + ' tidak diperbolehkan.');
+  if (target !== 'DRAFT' && target !== 'CANCELLED' && !next.items.length) throw new Error('Permintaan belum memiliki item.');
+  if (target === 'FINAL') {
+    var required = record.requiredAuthority || record.authority || 'PM';
+    if (['PM', 'MK', 'HO'].indexOf(record.status) < ['PM', 'MK', 'HO'].indexOf(required)) throw new Error('Permintaan masih memerlukan review ' + required + ' sebelum final.');
+    var reachedHo = record.status === 'HO' || required === 'HO' || (record.history || []).some(function (event) { return (event.changes || []).some(function (change) { return change.field === 'status' && (change.oldValue === 'HO' || change.newValue === 'HO'); }); });
+    if (reachedHo && !ctx.validFinalEvidence) throw new Error('Final jalur HO memerlukan PDF/foto bukti persetujuan HO yang diunggah melalui aplikasi.');
+    if (!next.items.some(function (item) { return item.status === 'APPROVED' || item.status === 'OWNER'; })) throw new Error('Final memerlukan minimal satu item disetujui atau disediakan owner. Item lain boleh ditolak/ditunda.');
+  }
+  if (!next.initialSnapshot && record.status === 'DRAFT' && ['PM', 'MK', 'HO'].indexOf(target) >= 0) {
+    next.initialSnapshot = utpRequestSnapshot_(record);
+    next.initialSnapshot.submittedAt = ctx.now;
+  }
+  next.status = target;
+  if (['PM', 'MK', 'HO'].indexOf(target) >= 0) next.authority = target;
+  next.history = next.history || [];
+  next.history.push({ at: ctx.now, action: 'STATUS', actor: ctx.actor || 'Operator', note: utpText_(ctx.note, 'Catatan perubahan', 2000, false), changes: [{ field: 'status', oldValue: record.status, newValue: target }] });
+  return next;
+}
+function utpPublishRevision_(record, context) {
+  if (record.archived) throw new Error('Permintaan diarsipkan.');
+  var result = utpClone_(record), ctx = context || {};
+  var actor = utpEnum_(ctx.actor, ['PM', 'MK', 'HO'], 'Penerbit revisi');
+  if (!(record.items || []).length) throw new Error('Revisi memerlukan minimal satu item.');
+  result.revision = (result.revision || 0) + 1;
+  result.revisions = result.revisions || [];
+  result.revisions.push({ revision: result.revision, publishedAt: ctx.now, actor: actor, note: utpText_(ctx.note, 'Alasan revisi', 2000, true), snapshot: utpRequestSnapshot_(result) });
+  result.history = result.history || [];
+  result.history.push({ at: ctx.now, action: 'PUBLISH_REVISION', actor: actor, note: ctx.note, changes: [{ field: 'revision', oldValue: record.revision || 0, newValue: result.revision }] });
+  return result;
+}
+function utpSearchItems_(items, filters, approvals) {
+  var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
+  var limit = Math.max(1, Math.min(50, Number(options.limit) || 30));
+  var matches = (items || []).filter(function (item) {
+    if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
+    if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
+    if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
+    var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).join(' '));
+    return terms.every(function (term) { return text.indexOf(term) >= 0; });
+  }).map(function (item) {
+    var copy = utpClone_(item), approval = utpFindApproval_(copy, approvals);
+    copy.approved = !!approval; copy.approvalId = approval ? approval.id : ''; copy.approvalAuthority = approval ? approval.authority : '';
+    return copy;
+  }).filter(function (item) { return !options.approvedOnly || item.approved; });
+  matches.sort(function (a, b) { return Number(b.approved) - Number(a.approved) || Number(!!b.favorite) - Number(!!a.favorite) || String(a.name).localeCompare(String(b.name), 'id') || String(a.code).localeCompare(String(b.code)); });
+  return { items: matches.slice(0, limit), total: matches.length };
+}
+function utpParseCsv_(source) {
+  var csv = String(source || '').replace(/^\uFEFF/, ''), rows = [], row = [], value = '', quoted = false, afterQuote = false;
+  if (csv.length > 8000000) throw new Error('CSV maksimal 8 MB. Bagi impor menjadi beberapa berkas.');
+  // RFC 4180 quoting: preserve item codes and embedded commas/newlines exactly.
+  for (var i = 0; i < csv.length; i++) {
+    var c = csv[i];
+    if (quoted) {
+      if (c === '"' && csv[i + 1] === '"') { value += '"'; i++; }
+      else if (c === '"') { quoted = false; afterQuote = true; }
+      else value += c;
+    } else if (c === '"') {
+      if (value || afterQuote) throw new Error('CSV memiliki tanda kutip yang tidak valid pada baris ' + (rows.length + 1) + '.');
+      quoted = true;
+    } else if (c === ',' || c === '\n' || c === '\r') {
+      row.push(value); value = ''; afterQuote = false;
+      if (c !== ',') { if (row.some(function (x) { return x !== ''; })) rows.push(row); row = []; if (c === '\r' && csv[i + 1] === '\n') i++; }
+    } else {
+      if (afterQuote && c.trim()) throw new Error('CSV memiliki karakter setelah tanda kutip penutup.');
+      if (!afterQuote) value += c;
+    }
+  }
+  if (quoted) throw new Error('CSV memiliki kutip yang belum ditutup.');
+  row.push(value); if (row.some(function (x) { return x !== ''; })) rows.push(row);
+  if (!rows.length) throw new Error('CSV kosong.');
+  var headers = rows.shift().map(function (x) { return x.trim(); });
+  if (new Set(headers).size !== headers.length) throw new Error('Header CSV duplikat.');
+  if (headers.indexOf('code') < 0 || headers.indexOf('name') < 0) throw new Error('CSV wajib memiliki kolom code dan name.');
+  if (rows.length > 30000) throw new Error('Satu impor maksimal 30.000 item.');
+  return { headers: headers, rows: rows };
+}
+function utpPreviewImport_(csv, existingItems) {
+  var parsed = utpParseCsv_(csv), existing = Object.create(null), seen = Object.create(null), plan = { total: parsed.rows.length, added: 0, updated: 0, unchanged: 0, invalid: [], sample: [], items: [] };
+  (existingItems || []).forEach(function (item) { existing[item.code] = item; });
+  parsed.rows.forEach(function (cells, index) {
+    try {
+      if (cells.length !== parsed.headers.length) throw new Error('Jumlah kolom tidak sesuai header.');
+      var incoming = {};
+      parsed.headers.forEach(function (key, column) { if (UTP_MASTER_FIELDS.indexOf(key) >= 0 || key === 'favorite') incoming[key] = cells[column]; });
+      var code = utpText_(incoming.code, 'Kode', 160, true);
+      if (seen[code]) throw new Error('Kode duplikat dalam CSV: ' + code + '.');
+      seen[code] = true;
+      var old = existing[code], item = old ? utpClone_(old) : {};
+      UTP_MASTER_FIELDS.forEach(function (field) {
+        if (Object.prototype.hasOwnProperty.call(incoming, field)) {
+          utpText_(incoming[field], field, field === 'name' ? 500 : 200, field === 'code' || field === 'name');
+          item[field] = field === 'code' ? code : incoming[field];
+        }
+        else if (item[field] == null) item[field] = '';
+      });
+      item.favorite = Object.prototype.hasOwnProperty.call(incoming, 'favorite') ? /^(1|true|yes|ya)$/i.test(incoming.favorite.trim()) : !!item.favorite;
+      var diffs = UTP_MASTER_FIELDS.concat(['favorite']).filter(function (field) { return !old || (old[field] || '') !== (item[field] || ''); }).map(function (field) { return { field: field, oldValue: old ? old[field] || '' : '', newValue: item[field] }; });
+      var change = !old ? 'added' : diffs.length ? 'updated' : 'unchanged';
+      plan[change]++;
+      if (plan.sample.length < 20 && change !== 'unchanged') plan.sample.push({ row: index + 2, code: code, name: item.name, change: change, diffs: diffs });
+      plan.items.push(item);
+    } catch (error) { plan.invalid.push({ row: index + 2, message: error.message }); }
+  });
+  return plan;
+}
+function utpMedian_(numbers) {
+  var sorted = numbers.slice().sort(function (a, b) { return a - b; }), mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+function utpForecast_(purchases) {
+  var groups = Object.create(null);
+  (purchases || []).filter(function (row) { return !row.archived; }).forEach(function (row) {
+    var key = utpNorm_(row.code || row.item) + '|' + utpNorm_(row.brand) + '|' + utpNorm_(row.unit);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(row);
+  });
+  return Object.keys(groups).map(function (key) {
+    var rows = groups[key].slice().sort(function (a, b) { return a.orderDate.localeCompare(b.orderDate); });
+    // Several order lines on the same day are one ordering event.
+    var events = Object.create(null);
+    rows.forEach(function (row) { events[row.orderDate] = (events[row.orderDate] || 0) + Number(row.quantity); });
+    var dates = Object.keys(events).sort(), last = rows[rows.length - 1];
+    var result = { item: last.item, code: last.code || '', brand: last.brand || '', unit: last.unit, sampleCount: dates.length, basis: 'ORDERING', confidence: 'INSUFFICIENT', averageIntervalDays: null, medianIntervalDays: null, nextOrderDate: '', projectedQuantity: null, quantityRange: [], warning: 'Data kurang dari 3 tanggal pemesanan. Belum cukup untuk prediksi. Angka ini pola pemesanan, bukan pemakaian aktual.' };
+    if (dates.length < 3) return result;
+    var intervals = dates.slice(1).map(function (date, i) { return (Date.parse(date + 'T00:00:00Z') - Date.parse(dates[i] + 'T00:00:00Z')) / 86400000; });
+    var quantities = dates.map(function (date) { return events[date]; }), mean = intervals.reduce(function (a, b) { return a + b; }, 0) / intervals.length;
+    var variance = intervals.reduce(function (sum, interval) { return sum + Math.pow(interval - mean, 2); }, 0) / intervals.length;
+    var irregular = Math.sqrt(variance) / mean > 0.5;
+    result.averageIntervalDays = Math.round(mean * 10) / 10;
+    result.medianIntervalDays = utpMedian_(intervals);
+    result.nextOrderDate = new Date(Date.parse(dates[dates.length - 1] + 'T00:00:00Z') + Math.round(result.medianIntervalDays) * 86400000).toISOString().slice(0, 10);
+    result.projectedQuantity = Math.round(utpMedian_(quantities) * 100) / 100;
+    result.quantityRange = [Math.min.apply(null, quantities), Math.max.apply(null, quantities)];
+    result.confidence = dates.length >= 5 && !irregular ? 'MODERATE' : 'LOW';
+    result.warning = (irregular ? 'Jarak pemesanan tidak teratur; perkiraan berisiko meleset. ' : 'Perkiraan sederhana dari riwayat pemesanan; bukan kebutuhan pasti. ') + 'Rentang jumlah adalah rentang historis, bukan interval kepercayaan. Bukan pemakaian aktual atau saldo gudang.';
+    return result;
+  });
+}
+function utpFinance_(funds, receipts) {
+  var activeFunds = (funds || []).filter(function (x) { return !x.archived; }), ids = Object.create(null);
+  var total = activeFunds.reduce(function (sum, fund) { ids[fund.id] = true; return sum + Number(fund.amount); }, 0);
+  var spent = (receipts || []).filter(function (receipt) { return !receipt.archived && receipt.status === 'CONFIRMED' && ids[receipt.fundId]; }).reduce(function (sum, receipt) { return sum + Number(receipt.total); }, 0);
+  return { funds: Math.round(total * 100) / 100, spent: Math.round(spent * 100) / 100, balance: Math.round((total - spent) * 100) / 100 };
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { project: UTP_PROJECT, validate: utpValidateRecord_, date: utpDate_, number: utpNumber_, approvalMatches: utpApprovalMatches_, requestItems: utpRequestItems_, itemChanges: utpItemChanges_, recordRequestSave: utpRecordRequestSave_, transition: utpTransitionRequest_, publishRevision: utpPublishRevision_, searchItems: utpSearchItems_, parseCsv: utpParseCsv_, previewImport: utpPreviewImport_, forecast: utpForecast_, finance: utpFinance_ };

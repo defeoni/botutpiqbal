@@ -2,13 +2,17 @@
 let rpbState_ = { categories: [], items: [], statuses: [], history: [], nextSequence: 1 };
 let rpbRevisionOf_ = '';
 let rpbDraftTimer_ = null;
+let rpbDraftVersion_ = 0;
+let rpbFormEditVersion_ = 0;
+let rpbSubmitting_ = false;
 
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
   const button = target && target.closest('button');
   if (!button) return;
+  if (target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   try {
-    if (button.id === 'rpbAddLine') addRpbLine_();
+    if (button.id === 'rpbAddLine') { addRpbLine_(); scheduleRpbDraft_(); }
     else if (button.id === 'rpbSaveDraft') saveRpbDraft_();
     else if (button.id === 'rpbSubmit') submitRpb_();
     else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
@@ -29,8 +33,10 @@ document.addEventListener('click', (event) => {
 });
 
 function loadRpbData_() {
+  const formEditVersion = rpbFormEditVersion_;
   invokeServer('apiGetRpbData', [accessToken], (data) => {
     rpbState_ = data;
+    rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
     $('rpbMasterLink').href = data.masterUrl || '#';
     $('rpbMasterLink').hidden = !data.masterUrl;
     ['rpbCategoryFilter', 'rpbNewCategory', 'rpbMasterCategoryFilter'].forEach((id) => {
@@ -51,9 +57,12 @@ function loadRpbData_() {
     renderRpbHistory_();
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
       invokeServer('apiLoadRpbDraft', [accessToken], (draft) => {
+        if ($('rpbItemsTable').tBodies[0].rows.length || rpbFormEditVersion_ !== formEditVersion) return;
         if (draft) populateRpbForm_(draft);
         else addRpbLine_();
-      }, () => addRpbLine_());
+      }, () => {
+        if (!$('rpbItemsTable').tBodies[0].rows.length && rpbFormEditVersion_ === formEditVersion) addRpbLine_();
+      });
     } else refreshRpbItemChoices_();
     $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
   }, (error) => { $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
@@ -135,10 +144,11 @@ function collectRpbForm_() {
     unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
     week: row.querySelector('[data-rpb-field="week"]').value
   })).filter((item) => item.itemId);
-  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, items };
+  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
 }
 
 function populateRpbForm_(data) {
+  rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
   $('rpbRequestDate').value = data.requestDate || todayJakarta_();
   $('rpbLpdMonth').value = data.lpdReceivedMonth || '';
   $('rpbLpdConfirmed').checked = false;
@@ -155,15 +165,25 @@ function todayJakarta_() {
 }
 
 function scheduleRpbDraft_() {
+  if (rpbSubmitting_) return;
   clearTimeout(rpbDraftTimer_);
   rpbDraftTimer_ = setTimeout(saveRpbDraft_, 1000);
 }
 
 function saveRpbDraft_() {
+  if (rpbSubmitting_) return;
   const payload = collectRpbForm_();
   if (!payload.requestDate) payload.requestDate = todayJakarta_();
+  rpbDraftVersion_ = Math.max(Date.now(), rpbDraftVersion_ + 1);
+  payload.draftVersion = rpbDraftVersion_;
   $('rpbDraftStatus').textContent = 'Menyimpan draf...';
-  invokeServer('apiSaveRpbDraft', [payload, accessToken], () => { $('rpbDraftStatus').textContent = 'Draf tersimpan otomatis.'; }, (error) => { $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`; });
+  invokeServer('apiSaveRpbDraft', [payload, accessToken], (result) => {
+    if (payload.draftVersion !== rpbDraftVersion_) return;
+    if (!result.saved) rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(result.draftVersion) || 0);
+    $('rpbDraftStatus').textContent = result.saved ? 'Draf tersimpan otomatis.' : 'Draf tidak tersimpan karena ada perubahan dari sesi lain. Muat ulang sebelum melanjutkan.';
+  }, (error) => {
+    if (payload.draftVersion === rpbDraftVersion_) $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`;
+  });
 }
 
 function updateRpbTotal_() {
@@ -184,9 +204,14 @@ function submitRpb_() {
   const prevMonth = `${expectedPrev.getFullYear()}-${String(expectedPrev.getMonth() + 1).padStart(2, '0')}`;
   if (payload.lpdReceivedMonth !== prevMonth) { $('rpbFormError').textContent = `Pilih bulan LPD sebelumnya (${prevMonth}).`; return; }
   clearTimeout(rpbDraftTimer_);
+  $('rpbResult').hidden = true;
   const wasRevision = Boolean(rpbRevisionOf_);
+  rpbSubmitting_ = true;
+  setRpbFormDisabled_(true);
   const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
   invokeServer('apiCreateRpb', [payload, accessToken, rpbRevisionOf_], (result) => {
+    rpbSubmitting_ = false;
+    setRpbFormDisabled_(false);
     button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
     $('rpbResult').hidden = false; $('rpbResultNumber').textContent = `Nomor: ${result.number}${wasRevision ? ' (revisi baru; nomor versi sebelumnya tetap)' : ''}`;
     $('rpbExcelLink').href = result.excelUrl; $('rpbPdfLink').href = result.pdfUrl; $('rpbSheetLink').href = result.spreadsheetUrl; $('rpbFolderLink').href = result.folderUrl; $('rpbWaDraft').textContent = result.waDraft;
@@ -196,7 +221,18 @@ function submitRpb_() {
     $('rpbLpdConfirmed').checked = false;
     $('rpbFormError').textContent = '';
     loadRpbData_();
-  }, (error) => { button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan'; $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`; });
+  }, (error) => {
+    rpbSubmitting_ = false;
+    setRpbFormDisabled_(false);
+    button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan';
+    $('rpbFormError').textContent = `RPB gagal dibuat: ${error.message}`;
+    scheduleRpbDraft_();
+  });
+}
+
+function setRpbFormDisabled_(disabled) {
+  document.querySelectorAll('#rpbRequestDate, #rpbLpdMonth, #rpbLpdConfirmed, #rpbCategoryFilter, #rpbAddLine, #rpbSaveDraft, #rpbItemsTable input, #rpbItemsTable select, #rpbItemsTable button')
+    .forEach((control) => { control.disabled = disabled; });
 }
 
 function renderRpbMaster_() {
@@ -278,7 +314,10 @@ function saveRpbTracking_(id) {
   const status=document.querySelector(`[data-status="${CSS.escape(id)}"]`).value;
   const note=document.querySelector(`[data-note="${CSS.escape(id)}"]`).value;
   const evidence=document.querySelector(`[data-evidence="${CSS.escape(id)}"]`).value;
-  invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,'',accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+  askDeletePin_('perubahan status tracking RPB').then((pin)=>{
+    if(!pin)return;
+    invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,pin,accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+  });
 }
 
 function beginRpbRevision_(id) {
@@ -305,8 +344,9 @@ function copyRpbToDraft_(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); } });
 document.addEventListener('change', (event) => {
+  if (event.target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
   if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
   if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
