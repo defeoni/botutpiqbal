@@ -59,7 +59,11 @@ Burst diminta pengguna; tiga penulis internal Codex dipakai dengan batas domain,
 
 Titik lanjut: tahap review/revisi per item di backend, lalu bukti HO/final. Uji runtime Google pada lingkungan uji sebelum capability draf produksi diaktifkan. Jangan menganggap kontrak draf sudah mencakup seluruh workflow.
 
-## Berikutnya
+## Berhenti setelah hasil ini
+
+Instruksi pengguna terbaru: selesai satu pekerjaan, tunggu konfirmasi. Pekerjaan simpan/buka draf v1 selesai secara lokal/mock; tidak melanjutkan tahap review/revisi otomatis. Backup kode a239cf2 sudah di-push. Aktivasi produksi/deployment belum dilakukan.
+
+## Berikutnya (menunggu konfirmasi)
 
 - Kontrak draf per item sudah terimplementasi dan diuji lokal; berikutnya review/revisi per item. Aktivasi Google belum dilakukan.
 - Lengkapi pemeriksaan alur revisi, bukti HO multi-item, finalisasi parsial, dan kegagalan/conflict saat submit/finalisasi. 19 pemeriksaan di atas belum membuktikan seluruh frontend selesai.

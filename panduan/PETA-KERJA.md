@@ -2,6 +2,10 @@
 
 Keputusan pengguna 18 Oktober 2026: burst AKTIF atas permintaan "gas mode burst sekarang". Maksimal 3 penulis saat burst diminta; Codex termasuk penulis jika ikut mengedit. Ini menggantikan batas lama 2 penulis. Agen analisis/review tidak dihitung penulis selama tidak mengedit.
 
+## Batas berhenti terbaru
+
+Pengguna menetapkan: setelah satu pekerjaan selesai, berhenti dan tunggu konfirmasi sebelum pekerjaan berikutnya. Ini mengungguli instruksi sebelumnya untuk lanjut otomatis. Backup hasil pekerjaan boleh diselesaikan; jangan mulai tahap review/revisi berikutnya tanpa konfirmasi. Burst tidak berarti pekerjaan tanpa batas.
+
 ## Prinsip
 
 Kerjakan satu alur kecil dari input sampai data tersimpan dan dapat dibuka kembali. Jangan menyelesaikan seluruh backend sebelum mencoba sambungan frontend. Pakai Apps Script, Sheets/Drive dan struktur yang ada; tanpa framework, database, atau abstraksi tambahan sampai ada kebutuhan nyata.
