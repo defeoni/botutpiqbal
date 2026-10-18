@@ -6,6 +6,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INDEX_PATH = PROJECT_ROOT / "aplikasi" / "Index.html"
 PREVIEW_PATH = PROJECT_ROOT / ".local" / "aplikasi.html"
 PARTIALS = {
+    "HoHomeView": PROJECT_ROOT / "aplikasi" / "HoHomeView.html",
+    "ProjectTools": PROJECT_ROOT / "aplikasi" / "ProjectTools.html",
+    "WorkspaceClient": PROJECT_ROOT / "aplikasi" / "WorkspaceClient.html",
     "UtpView": PROJECT_ROOT / "aplikasi" / "UtpView.html",
     "UtpStyles": PROJECT_ROOT / "aplikasi" / "UtpStyles.html",
     "UtpClient": PROJECT_ROOT / "aplikasi" / "UtpClient.html",

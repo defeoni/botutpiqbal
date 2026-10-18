@@ -33,9 +33,13 @@ document.addEventListener('click', (event) => {
 });
 
 function loadRpbData_() {
+  window.hoRpbLoadState = 'loading';
+  if (window.refreshHoSummary) window.refreshHoSummary();
   const formEditVersion = rpbFormEditVersion_;
   invokeServer('apiGetRpbData', [accessToken], (data) => {
     rpbState_ = data;
+    window.hoRpbLoadState = 'ready';
+    if (window.refreshHoSummary) window.refreshHoSummary();
     rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
     $('rpbMasterLink').href = data.masterUrl || '#';
     $('rpbMasterLink').hidden = !data.masterUrl;
@@ -65,7 +69,7 @@ function loadRpbData_() {
       });
     } else refreshRpbItemChoices_();
     $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
-  }, (error) => { $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
+  }, (error) => { window.hoRpbLoadState = 'error'; if (window.refreshHoSummary) window.refreshHoSummary(); $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
 }
 
 function addRpbLine_(data = {}) {
@@ -322,7 +326,7 @@ function saveRpbTracking_(id) {
 
 function beginRpbRevision_(id) {
   const record=rpbState_.history.find((entry)=>entry.id===id);if(!record)return;
-  populateRpbForm_(record.data);rpbRevisionOf_=id;$('rpbResult').hidden=true;$('rpbFormError').textContent=`Mode revisi aktif: revisi lama tetap tersimpan. Nomor baru akan memakai urutan yang sama dengan Rev berikutnya.`;$('rpbSubmit').textContent='Simpan Revisi RPB';window.scrollTo({top:0,behavior:'smooth'});
+  populateRpbForm_(record.data);rpbRevisionOf_=id;$('rpbResult').hidden=true;$('rpbFormError').textContent=`Mode revisi aktif: revisi lama tetap tersimpan. Nomor baru akan memakai urutan yang sama dengan Rev berikutnya.`;$('rpbSubmit').textContent='Simpan Revisi RPB';window.scrollTo({top:0,behavior:'instant'});
   scheduleRpbDraft_();
 }
 
@@ -341,7 +345,7 @@ function copyRpbToDraft_(id) {
   $('rpbFormError').textContent = 'Salinan RPB dimuat sebagai draf baru. Periksa barang, tanggal, dan konfirmasi LPD sebelum mengajukan.';
   $('rpbSubmit').textContent = 'Buat RPB / Kirim Pengajuan';
   scheduleRpbDraft_();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); } });

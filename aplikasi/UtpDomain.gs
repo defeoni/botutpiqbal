@@ -155,6 +155,82 @@ function utpValidateMaterialDraft_(source, existing, context) {
   if (!record.items.length) throw new Error('Tambahkan minimal satu item.');
   return record;
 }
+function utpMaterialReady_(item, record, context) {
+  if (!record.initialSnapshot) return false;
+  if (['OWNER','OTHER'].indexOf(item.classification) >= 0) return item.supplyConfirmed === true;
+  var parties = ['PM','MK','HO'], stop = parties.indexOf(item.requiredAuthority);
+  if (stop < 0 || parties.slice(0, stop + 1).some(function(p){return !item.decisions[p] || item.decisions[p].status !== 'APPROVED';})) return false;
+  if (!utpFindApproval_(item, context.approvals || []) && !item.exceptionReason) return false;
+  return item.requiredAuthority !== 'HO' || (record.files || []).some(function(file){return file.id === item.finalFileId && file.coveredItemIds.indexOf(item.id) >= 0;});
+}
+function utpMaterialCommand_(operation, source, existing, context) {
+  var ctx=context||{}, parties=['PM','MK','HO'], now=ctx.now||new Date().toISOString();
+  if (!existing || existing.itemContractVersion!==1 || existing.archived) throw new Error('Permintaan Material per item tidak ditemukan.');
+  if (existing.arrived) throw new Error('Permintaan sudah dicatat datang; riwayat tetap terlindungi.');
+  var next=utpClone_(existing), party=utpText_(ctx.party,'Pihak instruksi',20,false), reason=utpText_(ctx.reason,'Alasan instruksi',2000,false), changes=[];
+  if (operation==='SAVE') {
+    if (!existing.initialSnapshot) throw new Error('Gunakan penyimpanan draf sebelum pengajuan.');
+    if (parties.indexOf(party)<0 || !reason) throw new Error('Pihak PM/MK/HO dan alasan instruksi wajib diisi.');
+    var clean=utpClone_(source); clean.status='DRAFT';clean.itemContractVersion=1;clean.revision=1;clean.revisions=[];clean.files=[];clean.initialSnapshot=null;clean.arrived=false;
+    clean.items=(clean.items||[]).map(function(item){item.decisions={PM:{status:'PENDING'},MK:{status:'PENDING'},HO:{status:'PENDING'}};item.finalFileId='';item.supplyConfirmed=false;delete item.status;return item;});
+    var normalized=utpValidateMaterialDraft_(clean,null,ctx), oldItems={};
+    existing.items.forEach(function(item){oldItems[item.id]=item;});
+    if(existing.items.some(function(item){return !normalized.items.some(function(candidate){return candidate.id===item.id;});}))throw new Error('Item review tidak boleh dihapus; catat ditolak atau ditunda.');
+    ['title','number','date','note'].forEach(function(key){if(next[key]!==normalized[key])changes.push({field:key,before:next[key],after:normalized[key]});next[key]=normalized[key];});
+    next.items=normalized.items.map(function(item){
+      var before=oldItems[item.id], input=source.items.find(function(x){return x.id===item.id;});
+      item.decisions=before?utpClone_(before.decisions):{PM:{status:'PENDING'},MK:{status:'PENDING'},HO:{status:'PENDING'}};
+      if(before && parties.indexOf(item.requiredAuthority)<parties.indexOf(before.requiredAuthority) && ['OWNER','OTHER'].indexOf(item.classification)<0)throw new Error('Jalur persetujuan tidak boleh diturunkan setelah pengajuan.');
+      parties.forEach(function(p){
+        var status=utpEnum_(input.decisions&&input.decisions[p]&&input.decisions[p].status,['PENDING','APPROVED','REJECTED','DEFERRED'],'Keputusan '+p,'PENDING');
+        if(before && status!==before.decisions[p].status){
+          if(p!==party)throw new Error('Simpan keputusan sesuai pihak instruksi yang dipilih.');
+          if(['OWNER','OTHER'].indexOf(item.classification)>=0)throw new Error('By Owner/Other tidak memakai keputusan approval.');
+          if(status!=='PENDING' && parties.slice(0,parties.indexOf(p)).some(function(previous){return item.decisions[previous].status!=='APPROVED';}))throw new Error('Catat persetujuan pihak sebelumnya lebih dahulu.');
+          item.decisions[p]={status:status,at:now,reason:reason,actor:'Admin'};
+        } else if(!before && status!=='PENDING')throw new Error('Item tambahan harus mulai PENDING.');
+      });
+      item.supplyConfirmed=['OWNER','OTHER'].indexOf(item.classification)>=0 && input.supplyConfirmed===true;
+      item.finalFileId=utpText_(input.finalFileId,'Bukti final',160,false);
+      if(item.finalFileId && (item.requiredAuthority!=='HO' || !(next.files||[]).some(function(file){return file.id===item.finalFileId&&file.coveredItemIds.indexOf(item.id)>=0;})))throw new Error('Bukti final tidak mencakup item HO ini.');
+      return item;
+    });
+    changes=changes.concat(utpItemChanges_(existing.items,next.items));
+    next.status='REVIEW';next.finalItemIds=[];next.finalSnapshot=null;
+  } else if(operation==='SUBMIT') {
+    if(existing.status!=='DRAFT'||existing.initialSnapshot)throw new Error('Hanya draf baru dapat diajukan.');
+    next.initialSnapshot=utpRequestSnapshot_(existing);next.initialSnapshot.submittedAt=now;next.status='REVIEW';
+    changes=[{field:'status',before:existing.status,after:'REVIEW'}];party='Admin';
+  } else if(operation==='FINAL_FILE') {
+    if(!existing.initialSnapshot)throw new Error('Ajukan permintaan sebelum pemberkasan.');
+    var evidence=ctx.evidence;
+    if(!evidence || !/^(application\/pdf|image\/(jpeg|png))$/.test(evidence.mime))throw new Error('Bukti final harus unggahan PDF/JPG/PNG terdaftar.');
+    var coverage=utpStrings_(ctx.coveredItemIds,'Cakupan item',150);
+    if(!coverage.length||coverage.some(function(id){return !next.items.some(function(item){return item.id===id&&item.requiredAuthority==='HO'&&['OWNER','OTHER'].indexOf(item.classification)<0;});}))throw new Error('Cakupan harus menunjuk item HO pada dokumen ini.');
+    var metadata={id:evidence.fileId,name:evidence.name,mime:evidence.mime,url:evidence.url,coveredItemIds:coverage,at:now};
+    next.files=next.files.filter(function(file){return file.id!==metadata.id;}).concat([metadata]);
+    next.items.forEach(function(item){if(coverage.indexOf(item.id)>=0)item.finalFileId=metadata.id;else if(item.finalFileId===metadata.id)item.finalFileId='';});
+    next.status='REVIEW';next.finalItemIds=[];next.finalSnapshot=null;
+    party='HO';reason=utpText_(ctx.reason,'Catatan pemberkasan',2000,true);changes=[{field:'files',before:existing.files,after:next.files}];
+  } else if(operation==='FINALIZE'||operation==='REVISION') {
+    if(!next.initialSnapshot || parties.indexOf(party)<0 || !reason)throw new Error('Permintaan diajukan, pihak, dan alasan diperlukan.');
+    if(operation==='FINALIZE') {
+      next.finalItemIds=next.items.filter(function(item){return utpMaterialReady_(item,next,ctx);}).map(function(item){return item.id;});
+      if(!next.finalItemIds.length)throw new Error('Belum ada item memenuhi jalur persetujuan dan bukti.');
+      next.status='FINAL';next.finalSnapshot=utpRequestSnapshot_(next);next.finalSnapshot.items=next.finalSnapshot.items.filter(function(item){return next.finalItemIds.indexOf(item.id)>=0;});
+      changes=[{field:'status',before:existing.status,after:'FINAL'},{field:'finalItemIds',before:existing.finalItemIds||[],after:next.finalItemIds}];
+    } else {
+      next.revision=(existing.revision||1)+1;next.revisions=(next.revisions||[]).concat([{revision:next.revision,publishedAt:now,actor:party,reason:reason,snapshot:utpRequestSnapshot_(next)}]);
+      changes=[{field:'revision',before:existing.revision,after:next.revision}];
+    }
+  } else if(operation==='ARRIVAL') {
+    if(next.status!=='FINAL'||ctx.confirmed!==true)throw new Error('Konfirmasi kedatangan hanya untuk permintaan final.');
+    next.arrived=true;next.arrivedAt=now;next.arrivalNote=utpText_(ctx.reason,'Sumber pengamatan',2000,true);party='Admin';reason=next.arrivalNote;
+    changes=[{field:'arrived',before:false,after:true}];
+  } else throw new Error('Tindakan Material tidak dikenal.');
+  next.history=(existing.history||[]).concat([{at:now,actor:party||'Admin',action:operation,reason:reason,changes:changes}]);
+  return next;
+}
 function utpValidateRecord_(entity, source, existing, context) {
   utpEntity_(entity);
   if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data rekaman tidak valid.');
@@ -241,7 +317,7 @@ function utpItemChanges_(before, after) {
   var changes = [], oldMap = Object.create(null), newMap = Object.create(null);
   (before || []).forEach(function (item) { oldMap[item.id] = item; });
   (after || []).forEach(function (item) { newMap[item.id] = item; });
-  var fields = ['code', 'name', 'brand', 'model', 'unit', 'quantity', 'status', 'approvalId', 'exceptionReason', 'exceptionApprovedBy', 'note'];
+  var fields = ['code', 'name', 'brand', 'model', 'unit', 'quantity', 'status', 'approvalId', 'exceptionReason', 'exceptionApprovedBy', 'note', 'classification', 'requiredAuthority', 'decisions', 'finalFileId', 'supplyConfirmed', 'isTemporary'];
   Object.keys(oldMap).forEach(function (id) { if (!newMap[id]) changes.push({ itemId: id, code: oldMap[id].code, field: 'item', oldValue: utpClone_(oldMap[id]), newValue: null }); });
   Object.keys(newMap).forEach(function (id) {
     var oldItem = oldMap[id], newItem = newMap[id];
@@ -253,7 +329,7 @@ function utpItemChanges_(before, after) {
   return changes;
 }
 function utpRequestSnapshot_(record) {
-  return { number: record.number, date: record.date, title: record.title, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), finalFileId: record.finalFileId || '' };
+  return { number: record.number, date: record.date, title: record.title, note: record.note || '', revision: record.revision, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), files: utpClone_(record.files || []), finalFileId: record.finalFileId || '' };
 }
 function utpRequestReachedHo_(record) {
   return !!record && (record.status === 'HO' || (record.history || []).some(function (event) {
@@ -420,4 +496,4 @@ function utpFinance_(funds, receipts) {
   return { funds: Math.round(total * 100) / 100, spent: Math.round(spent * 100) / 100, balance: Math.round((total - spent) * 100) / 100 };
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { project: UTP_PROJECT, validateMaterialDraft: utpValidateMaterialDraft_, validate: utpValidateRecord_, date: utpDate_, number: utpNumber_, approvalMatches: utpApprovalMatches_, requestItems: utpRequestItems_, itemChanges: utpItemChanges_, recordRequestSave: utpRecordRequestSave_, transition: utpTransitionRequest_, publishRevision: utpPublishRevision_, searchItems: utpSearchItems_, parseCsv: utpParseCsv_, previewImport: utpPreviewImport_, forecast: utpForecast_, finance: utpFinance_ };
+if (typeof module !== 'undefined' && module.exports) module.exports = { project: UTP_PROJECT, materialCommand: utpMaterialCommand_, materialReady: utpMaterialReady_, validateMaterialDraft: utpValidateMaterialDraft_, validate: utpValidateRecord_, date: utpDate_, number: utpNumber_, approvalMatches: utpApprovalMatches_, requestItems: utpRequestItems_, itemChanges: utpItemChanges_, recordRequestSave: utpRecordRequestSave_, transition: utpTransitionRequest_, publishRevision: utpPublishRevision_, searchItems: utpSearchItems_, parseCsv: utpParseCsv_, previewImport: utpPreviewImport_, forecast: utpForecast_, finance: utpFinance_ };

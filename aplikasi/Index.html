@@ -12,7 +12,7 @@
 <section id="loginPanel" class="login-screen" aria-labelledby="loginTitle">
   <div class="login-card">
     <h1 id="loginTitle">Admin PT. UTP</h1>
-    <p class="muted">Masuk untuk membuka administrasi proyek.</p>
+    <p class="muted">Masuk untuk membuka administrasi HO dan proyek.</p>
     <form id="loginForm">
       <div class="field"><label for="loginPassword">Kata sandi</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
       <button class="btn primary" type="submit" id="loginSubmit">Masuk</button>
@@ -34,11 +34,11 @@
         <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
         <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
         <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
-        <span class="sidebar-unavailable">Tugas <small>Belum tersedia</small></span>
-        <span class="sidebar-unavailable">Nota/Keuangan <small>Belum tersedia</small></span>
-        <span class="sidebar-unavailable">Arsip Proyek <small>Belum tersedia</small></span>
-        <span class="sidebar-unavailable">SDM <small>Belum tersedia</small></span>
-        <span class="sidebar-unavailable">Absensi <small>Belum tersedia</small></span>
+        <button class="tab" type="button" data-project-tool="Tugas">Tugas</button>
+        <button class="tab" type="button" data-project-tool="Nota/Keuangan">Nota/Keuangan</button>
+        <button class="tab" type="button" data-project-tool="Arsip Proyek">Arsip Proyek</button>
+        <button class="tab" type="button" data-project-tool="SDM">SDM</button>
+        <button class="tab" type="button" data-project-tool="Absensi">Absensi</button>
       </section>
       <section class="sidebar-menu-group" aria-labelledby="menuHo">
         <h2 id="menuHo">Administrasi HO</h2>
@@ -64,9 +64,11 @@
       <div class="actions"><span class="identity" id="userIdentity"></span><button class="btn" type="button" id="btnReconnect">Masuk ulang</button></div>
     </div>
   </header>
+  <div class="actions"><button id="dashboardReload" class="btn" type="button">Muat ulang ringkasan</button><span id="dashboardStatus" class="muted" role="status"></span></div>
 
   <?!= include('HomeView'); ?>
   <?!= include('HoHomeView'); ?>
+  <?!= include('ProjectTools'); ?>
   <?!= include('UtpView'); ?>
 
   <section class="panel memo-area">
@@ -148,6 +150,10 @@
   </section>
 
   <section id="settingsPage" class="settings-page" data-main-page="SETTINGS" hidden>
+    <div class="card"><h2>Ruang kerja Material</h2><p>Simulasi review, revisi, lampiran, dan final terpisah dari data server. Simulasi hanya dalam memori; hilang saat halaman dimuat ulang. File hanya dicatat namanya.</p><button id="materialLocalMode" type="button" class="btn">Buka simulasi material</button><button id="materialServerMode" type="button" class="btn">Kembali ke data server</button></div>
+    <div class="card"><h2>Reset Administrasi Proyek di perangkat</h2><p>Hanya draf modul proyek perangkat ini. Arsip Google dan administrasi HO tetap dipertahankan.</p><button id="resetProjectLocal" type="button" class="btn red">Hapus draf proyek perangkat</button><p id="projectResetStatus" role="status"></p></div>
+    <div class="card"><h2>Reset data Proyek di server</h2><p class="error">Arsipkan permintaan, persetujuan, tugas, keuangan, arsip proyek, SDM, dan absensi. Master, file Drive, Memo, RPB, RPD, dan akses login dipertahankan. Data tetap disimpan sebagai arsip audit.</p><label>Ketik RESET PROYEK<input id="projectResetConfirmation" autocomplete="off"></label><button id="resetProjectServer" class="btn red" type="button">Reset data Proyek dengan PIN</button></div>
+    <h2>Administrasi HO — arsip Memo dan penomoran</h2>
     <div class="notice">Beberapa tindakan memerlukan kode konfirmasi. Bagikan URL aplikasi hanya kepada orang yang berhak mengaksesnya.</div>
     <div class="card"><h2>Hapus Semua Riwayat Memo</h2><p class="error">Tindakan ini menghapus seluruh riwayat memo dan memindahkan file memo terkait ke Sampah Google Drive.</p>
       <button class="btn red" type="button" id="btnClearHistory">Hapus Semua Riwayat Memo</button>
@@ -237,5 +243,6 @@
 <?!= include('MemoClient'); ?>
 <?!= include('RPBClient'); ?>
 <?!= include('UtpClient'); ?>
+<?!= include('WorkspaceClient'); ?>
 </body>
 </html>

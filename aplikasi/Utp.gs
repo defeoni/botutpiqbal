@@ -82,9 +82,9 @@ function utpFilesFolder_() {
   props.setProperty('UTP_FILES_FOLDER_PRIVATE', 'true');
   return folder;
 }
-function utpMaterialDraftsEnabled_() { return PropertiesService.getScriptProperties().getProperty('UTP_MATERIAL_DRAFTS_ENABLED') === 'true'; }
+function utpMaterialDraftsEnabled_() { return PropertiesService.getScriptProperties().getProperty('UTP_MATERIAL_DRAFTS_ENABLED') !== 'false'; }
 function utpBootstrap_() {
-  var out={project:UTP_PROJECT, settings:utpGet_('config','settings')||{},dataInitialized:!!utpDb_(false),capabilities:{materialDrafts:utpMaterialDraftsEnabled_()}};
+  var out={project:UTP_PROJECT, settings:utpGet_('config','settings')||{},dataInitialized:!!utpDb_(false),capabilities:{materialDrafts:utpMaterialDraftsEnabled_(),materialWorkflow:utpMaterialDraftsEnabled_()}};
   UTP_ENTITIES.forEach(function(e){out[e]=utpRead_(e);});
   var sheet=utpSheet_('master',false); out.masterCount=sheet?Math.max(0,sheet.getLastRow()-1):0;
   out.forecasts=utpForecast_(out.purchases);out.finance=utpFinance_(out.funds,out.receipts);return out;
@@ -101,6 +101,28 @@ function apiUtp(action, payload, token) {
 }
 function utpMutate_(action,p,ctx) {
   var r,old,entity;
+  if(action==='materialCommand') {
+    if(!utpMaterialDraftsEnabled_())throw new Error('Workflow Material dinonaktifkan.');
+    old=utpGet_('requests',p.id);
+    if(!old||old.archived)throw new Error('Permintaan tidak ditemukan.');
+    if(old.version!==Number(p.version))return {conflict:true,record:old};
+    if(utpProtected_('requests',old)||['FINALIZE','REVISION','ARRIVAL'].indexOf(p.operation)>=0)requireDeletePin_(p.pin);
+    ctx.party=p.party;ctx.reason=p.reason;ctx.confirmed=p.confirmed;ctx.coveredItemIds=p.coveredItemIds;
+    if(p.operation==='FINAL_FILE') {
+      ctx.evidence=utpFinalEvidence_(p.fileId);
+      if(!ctx.evidence||ctx.evidence.recordId!==old.id||ctx.evidence.kind!=='MATERIAL_FINAL_HO')throw new Error('Bukti HO harus diunggah untuk permintaan ini.');
+      var evidenceFile=DriveApp.getFileById(ctx.evidence.fileId);
+      if(evidenceFile.isTrashed()||evidenceFile.getMimeType()!==ctx.evidence.mime)throw new Error('File bukti HO tidak tersedia atau format berubah.');
+    }
+    r=utpMaterialCommand_(p.operation,p.record,old,ctx);
+    if(p.operation==='FINALIZE')r.items.filter(function(item){return r.finalItemIds.indexOf(item.id)>=0&&item.requiredAuthority==='HO';}).forEach(function(item){
+      var finalDocument=utpFinalEvidence_(item.finalFileId);
+      if(!finalDocument||finalDocument.recordId!==r.id||finalDocument.kind!=='MATERIAL_FINAL_HO')throw new Error('Bukti final HO belum terdaftar untuk dokumen ini.');
+      var finalFile=DriveApp.getFileById(item.finalFileId);if(finalFile.isTrashed()||finalFile.getMimeType()!==finalDocument.mime)throw new Error('Bukti final HO sudah tidak tersedia.');
+    });
+    try{return {record:utpWrite_('requests',r,old.version),warnings:[]};}
+    catch(error){if(!error.recordSaved)throw error;return {record:utpGet_('requests',old.id),warnings:[error.message],recordSaved:true};}
+  }
   if(action==='saveMaterialDraft') {
     if(!utpMaterialDraftsEnabled_())throw new Error('Penyimpanan draf Material belum diaktifkan.');
     var source=p.record;
@@ -126,6 +148,10 @@ function utpMutate_(action,p,ctx) {
     if(entity==='requests' && (old && old.itemContractVersion===1 || p.record.itemContractVersion===1))throw new Error('Draf Material per item harus memakai penyimpanan khusus.');
     if(utpProtected_(entity,old))requireDeletePin_(p.pin);
     r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();
+    if(entity==='approvals') {
+      if(r.status==='APPROVED'&&(!old||old.status!=='APPROVED'))requireDeletePin_(p.pin);
+      if(r.brochureId&&!utpDocument_(r.brochureId))throw new Error('Brosur harus diunggah melalui aplikasi.');
+    }
     if(entity==='receipts' && r.status==='CONFIRMED') {
       if(!utpGet_('funds',r.fundId)||utpGet_('funds',r.fundId).archived)throw new Error('Pilih sumber dana aktif.');
       if(!utpDocument_(r.fileId))throw new Error('Unggah foto nota sebelum konfirmasi.');
@@ -213,7 +239,7 @@ function utpUpload_(p) {
   var bytes=Utilities.base64Decode(p.base64);if(!bytes.length||bytes.length>5*1024*1024)throw new Error('File kosong atau terlalu besar.');
   var name=utpText_(p.name,'Nama file',200,true).replace(/[\\/]/g,'_'),folder=utpFilesFolder_();
   var digest=Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes));
-  var duplicate=utpRead_('documents').find(function(d){return d.digest===digest;});if(duplicate)return {id:duplicate.fileId,url:duplicate.url,name:duplicate.name,mime:duplicate.mime,duplicate:true};
+  var duplicate=utpRead_('documents').find(function(d){return d.digest===digest&&d.recordId===(p.recordId||'')&&d.kind===(p.kind||'');});if(duplicate)return {id:duplicate.fileId,url:duplicate.url,name:duplicate.name,mime:duplicate.mime,duplicate:true};
   var file=folder.createFile(Utilities.newBlob(bytes,p.mime,name));
   try {utpWrite_('documents',{id:Utilities.getUuid(),fileId:file.getId(),name:name,mime:p.mime,size:bytes.length,url:file.getUrl(),kind:utpText_(p.kind,'Jenis',100,false),recordId:utpText_(p.recordId,'Referensi',160,false),digest:digest,uploadedByUtp:true},null);}
   catch(error){if(!error.recordSaved)file.setTrashed(true);throw error;}

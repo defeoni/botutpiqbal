@@ -9,55 +9,52 @@
   </header>
 
   <div class="home-section-heading">
-    <div><h2>Ringkasan tindakan</h2><span class="example-label">Contoh data</span></div>
+    <div><h2>Ringkasan tindakan</h2><span id="projectSource" class="muted">Data material belum dimuat.</span></div>
     <button type="button" class="btn primary main-nav-button" data-main="REQUESTS" aria-describedby="homeCreateHelp">Buat Permintaan</button>
   </div>
-  <p id="homeCreateHelp" class="muted">Buka ruang kerja material. Pratinjau lokal menggunakan data contoh; penyimpanan material cloud belum diaktifkan.</p>
+  <p id="homeCreateHelp" class="muted">Buka material untuk memuat ringkasan. Simulasi dapat diaktifkan terpisah melalui Pengaturan.</p>
   <div class="home-summary-grid" aria-label="Contoh ringkasan, bukan data tersimpan">
     <article class="home-summary-card">
-      <span class="home-summary-number">2</span>
+      <span id="projectReviewCount" class="home-summary-number">—</span>
       <h3>Menunggu Input Review</h3>
-      <p>Contoh data · Input Hasil Review</p>
+      <p>Permintaan aktif dalam proses review</p>
     </article>
     <article class="home-summary-card">
-      <span class="home-summary-number">1</span>
-      <h3>Perlu Unggah Final HO</h3>
-      <p>Contoh data · belum terhubung</p>
-    </article>
-    <article class="home-summary-card">
-      <span class="home-summary-number">1</span>
+      <span id="projectFinalCount" class="home-summary-number">—</span>
       <h3>Menunggu Barang</h3>
-      <p>Contoh data · konfirmasi kedatangan saja</p>
+      <p>Permintaan final, kedatangan belum dikonfirmasi</p>
+    </article>
+    <article class="home-summary-card">
+      <span id="projectArrivalCount" class="home-summary-number">—</span>
+      <h3>Kedatangan Dikonfirmasi</h3>
+      <p>Konfirmasi kedatangan saja</p>
     </article>
   </div>
 
   <section class="home-card" aria-labelledby="homeRequestsTitle">
     <div class="home-section-heading">
-      <div><h2 id="homeRequestsTitle">Permintaan terbaru</h2><span class="example-label">Contoh data · bukan data tersimpan</span></div>
+      <div><h2 id="homeRequestsTitle">Permintaan terbaru</h2></div>
     </div>
-    <p class="notice">“Input Hasil Review” mencatat hasil review. REV hanya bertambah melalui “Terbitkan Revisi”. Ringkasan di Beranda masih data contoh.</p>
+    <p class="notice">“Input Hasil Review” mencatat hasil review. REV hanya bertambah melalui “Terbitkan Revisi”.</p>
     <div class="tablewrap home-table-wrap">
       <table class="home-request-table">
-        <thead><tr><th>Nomor referensi</th><th>Persetujuan diperlukan</th><th>Status proses</th><th>Peringatan risiko</th></tr></thead>
-        <tbody><tr>
-          <td>CONTOH-001</td>
-          <td>Contoh alur persetujuan</td>
-          <td><span class="home-status">Menunggu Input Hasil Review</span></td>
-          <td><span class="home-risk">Luar Persetujuan</span></td>
-        </tr></tbody>
+        <thead><tr><th>Nomor referensi</th><th>Judul</th><th>Status proses</th><th>Kedatangan</th></tr></thead>
+        <tbody id="projectRecentRows"></tbody>
       </table>
     </div>
+    <p id="projectEmpty" class="muted">Belum ada permintaan yang dimuat.</p>
     <p class="muted">Contoh klasifikasi per item: kabel ties — <strong>By Owner</strong>. By Owner adalah klasifikasi item, bukan pihak pemberi persetujuan.</p>
   </section>
 
   <div class="home-support-grid">
     <section class="home-card" aria-labelledby="homeTasksTitle">
-      <div class="home-section-heading"><h2 id="homeTasksTitle">Tugas</h2><span class="unavailable-label">Belum terhubung</span></div>
-      <p class="muted">Daftar tugas belum terhubung ke sumber data.</p>
+      <div class="home-section-heading"><h2 id="homeTasksTitle">Tugas proyek</h2></div>
+      <p id="projectTaskSummary" class="muted">Belum ada draf tugas yang dimuat.</p>
+      <button type="button" class="btn" data-project-tool="Tugas">Buka Tugas</button>
     </section>
     <section class="home-card" aria-labelledby="homeTelegramTitle">
-      <div class="home-section-heading"><h2 id="homeTelegramTitle">Log Telegram</h2><span class="unavailable-label">Belum terhubung</span></div>
-      <p class="muted">Log Telegram belum terhubung ke sumber data.</p>
+      <div class="home-section-heading"><h2 id="homeTelegramTitle">Catatan proyek</h2></div>
+      <p id="projectLocalSummary" class="muted">Belum ada catatan yang dimuat.</p>
     </section>
   </div>
   <p class="muted home-delivery-note">Barang Datang hanya untuk konfirmasi kedatangan. Kelengkapan, jumlah, dan kondisi barang tidak dicatat di sini.</p>

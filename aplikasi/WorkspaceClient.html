@@ -1,0 +1,80 @@
+<script>
+(function () {
+  let generation = 0, loading = false, dashboard = null;
+  const get = id => document.getElementById(id);
+  const put = (id, value) => { if (get(id)) get(id).textContent = value; };
+  const rpc = (name, args) => new Promise((resolve, reject) => invokeServer(name, args, resolve, reject));
+  window.workspaceRpc = (action, payload) => {
+    if (!accessToken) return Promise.reject(new Error('Masuk dahulu untuk mengakses data proyek.'));
+    return rpc('apiWorkspace', [action, payload || {}, accessToken]);
+  };
+  function render() {
+    const d = dashboard;
+    put('hoMemoCount', d && d.memo ? d.memo.count : '—');
+    put('hoRpbCount', d && d.rpb ? d.rpb.count : '—');
+    put('hoMemoSummary', d && d.memo ? 'Memo tersimpan. Riwayat lengkap di bawah.' : 'Data memo belum tersedia.');
+    put('hoRpbSummary', d && d.rpb ? d.rpb.pending+' RPB masih dalam proses.' : 'Data RPB belum tersedia.');
+    const rawCounts = d && d.workspace && d.workspace.counts || {};
+    const counts = Object.fromEntries(Object.entries({Tugas:'tasks','Nota/Keuangan':'finance','Arsip Proyek':'archives',SDM:'people',Absensi:'attendance',RPD:'rpd'}).map(([name,key])=>[name,rawCounts[key]]));
+    put('hoRpdCount', counts.RPD == null ? '—' : counts.RPD);
+    put('hoRecent', d && d.activities.length ? d.activities.map(r => r.date+' · '+r.text).join('\n') : 'Belum ada aktivitas yang dimuat.');
+    const state = window.UTPFrontend && window.UTPFrontend.getState();
+    const simulation = state && state.preview && state.data;
+    const rows = simulation ? state.data.requests : d && d.material ? d.material.recent : [];
+    const material = simulation ? {
+      review: rows.filter(r => r.initialSnapshot && !['FINAL','ARRIVED','CANCELLED'].includes(r.status)).length,
+      waiting: rows.filter(r => r.status === 'FINAL' && !r.arrived).length,
+      arrived: rows.filter(r => r.arrived || r.status === 'ARRIVED').length
+    } : d && d.material;
+    put('projectSource', simulation ? 'Simulasi memori terpisah dari server' : d ? 'Data server · '+new Date(d.loadedAt).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'}) : 'Data belum dimuat.');
+    put('projectReviewCount', material ? material.review : '—');
+    put('projectFinalCount', material ? material.waiting : '—');
+    put('projectArrivalCount', material ? material.arrived : '—');
+    get('projectRecentRows').replaceChildren();
+    (rows || []).slice(0,5).forEach(r => {
+      const tr = document.createElement('tr');
+      [r.number || 'Draf',r.title,r.status,r.arrived ? 'Dikonfirmasi' : 'Belum dikonfirmasi'].forEach(value => { const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td); });
+      get('projectRecentRows').appendChild(tr);
+    });
+    put('projectEmpty', rows && rows.length ? '' : 'Belum ada permintaan yang dimuat.');
+    put('projectTaskSummary', counts.Tugas == null ? 'Data tugas belum tersedia.' : counts.Tugas+' tugas tersimpan.');
+    put('projectLocalSummary', ['Nota/Keuangan','Arsip Proyek','SDM','Absensi'].map(name => name+': '+(counts[name] == null ? '—' : counts[name])).join(' · '));
+    put('dashboardStatus', d && d.warnings.length ? 'Sebagian data gagal dimuat: '+d.warnings.join(' | ') : d ? 'Ringkasan server berhasil dimuat.' : '');
+  }
+  window.loadWorkspaceDashboard = async function () {
+    if (!accessToken || loading) { render(); return; }
+    const token=accessToken, epoch=generation; loading=true;
+    put('dashboardStatus','Memuat ringkasan server…');
+    try { const data=await rpc('apiDashboard',[token]);if(epoch===generation && token===accessToken){dashboard=data;render();} }
+    catch(error){if(epoch===generation)put('dashboardStatus','Gagal memuat ringkasan: '+error.message+' · tekan Muat ulang ringkasan.');}
+    finally {if(epoch===generation)loading=false;}
+  };
+  window.refreshHoSummary = render;
+  window.refreshProjectSummary = render;
+  window.resetWorkspaceSession = () => {generation++;loading=false;dashboard=null;render();if(window.WorkspaceTools)window.WorkspaceTools.reset();if(window.RpdWorkspace&&window.RpdWorkspace.reset)window.RpdWorkspace.reset();};
+  document.addEventListener('click', async event => {
+    const b=event.target.closest('button');if(!b)return;
+    if(b.dataset.projectTool){if(window.WorkspaceTools&&window.WorkspaceTools.isBusy())return;switchMainPage('TOOLS');window.openProjectTool(b.dataset.projectTool);}
+    if(b.id==='dashboardReload')window.loadWorkspaceDashboard();
+    if(b.id==='materialLocalMode' || b.id==='materialServerMode'){
+      if(!confirm('Tutup isian material saat ini dan pindah sumber data? Isian belum disimpan akan hilang.'))return;
+      window.UTPFrontend.setLocalMode(b.id==='materialLocalMode');switchMainPage('REQUESTS');
+    }
+    if(b.id==='resetProjectLocal'){
+      if(!confirm('Hapus draf perangkat Proyek? Data server dan HO tetap disimpan.'))return;
+      try{Object.keys(localStorage).filter(k=>k.startsWith('utp.fe.project.')||k==='utp.fe.material').forEach(k=>localStorage.removeItem(k));put('projectResetStatus','Draf perangkat Proyek dihapus.');}
+      catch(error){put('projectResetStatus','Gagal: '+error.message);}
+    }
+    if(b.id==='resetProjectServer'){
+      if(get('projectResetConfirmation').value!=='RESET PROYEK'){put('projectResetStatus','Ketik RESET PROYEK lebih dahulu.');return;}
+      const ticket=generation, token=accessToken;
+      const pin=await askDeletePin_('reset data proyek');if(!pin)return;
+      if(ticket!==generation || token!==accessToken)return;
+      b.disabled=true;
+      try{const r=await rpc('apiResetProject',[{pin,confirmation:get('projectResetConfirmation').value},token]);if(ticket!==generation || token!==accessToken)return;put('projectResetStatus',r.message+(r.warnings.length?' | '+r.warnings.join(' | '):''));window.UTPFrontend.resetSession();if(window.WorkspaceTools)window.WorkspaceTools.reset();get('projectResetConfirmation').value='';window.loadWorkspaceDashboard();}
+      catch(error){if(ticket===generation && token===accessToken)put('projectResetStatus','Reset gagal: '+error.message);}
+      finally{b.disabled=false;}
+    }
+  });
+})();
+</script>

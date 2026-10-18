@@ -6,6 +6,8 @@ const stagingDir = path.join(projectRoot, ".clasp-src");
 const sourceFiles = [
   ["aplikasi/Memo.gs", "Memo.gs"],
   ["aplikasi/Auth.gs", "Auth.gs"],
+  ["aplikasi/Dashboard.gs", "Dashboard.gs"],
+  ["aplikasi/Workspace.gs", "Workspace.gs"],
   ["aplikasi/UtpDomain.gs", "UtpDomain.gs"],
   ["aplikasi/Utp.gs", "Utp.gs"],
   ["aplikasi/UtpView.html", "UtpView.html"],
@@ -15,6 +17,8 @@ const sourceFiles = [
   ["aplikasi/Index.html", "Index.html"],
   ["aplikasi/HomeView.html", "HomeView.html"],
   ["aplikasi/HoHomeView.html", "HoHomeView.html"],
+  ["aplikasi/ProjectTools.html", "ProjectTools.html"],
+  ["aplikasi/WorkspaceClient.html", "WorkspaceClient.html"],
   ["aplikasi/Styles.html", "Styles.html"],
   ["aplikasi/RPBStyles.html", "RPBStyles.html"],
   ["aplikasi/MemoClient.html", "MemoClient.html"],

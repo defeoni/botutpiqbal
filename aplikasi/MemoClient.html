@@ -158,6 +158,7 @@ function returnToLogin_() {
   const token = accessToken;
   accessToken = '';
   if (window.UTPFrontend) window.UTPFrontend.resetSession();
+  if (window.resetWorkspaceSession) window.resetWorkspaceSession();
   showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
   if (token) {
     invokeServer('apiLogout', [token], () => {}, (error) => {
@@ -253,11 +254,12 @@ function formatUiDate_(value) {
 
 function switchMainPage(page) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', ...materialPages].includes(page)) page = 'HOME';
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
   currentMainPage = page;
+  document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
   const titles = {HOME:'Beranda Administrasi Proyek',HO:'Beranda Administrasi HO',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan Sistem'};
   const heading = document.querySelector('.app-main > .header h1');
-  if (heading) heading.textContent = titles[page];
+  if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
   document.querySelectorAll('.main-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.main === page);
   });
@@ -266,6 +268,10 @@ function switchMainPage(page) {
     element.hidden = page !== (element.dataset.mainPage || element.id.replace('blank-', ''));
   });
   if (page === 'HOME' || page === 'HO') setHomeCurrentDate_();
+  if (page === 'HO' && window.refreshHoSummary) window.refreshHoSummary();
+  if (page === 'HOME' && window.refreshProjectSummary) window.refreshProjectSummary();
+  if (['HOME','HO'].includes(page) && window.loadWorkspaceDashboard) window.loadWorkspaceDashboard();
+  if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
@@ -518,13 +524,13 @@ $('btnSubmit').addEventListener('click', () => {
     'Nomor dokumen akan dialokasikan setelah Anda mengonfirmasi.'
   ].join('\n');
   $('preview').hidden = false;
-  $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('preview').scrollIntoView({ behavior: 'instant', block: 'start' });
 });
 
 $('cancelPreview').addEventListener('click', () => {
   pendingPayload = null;
   $('preview').hidden = true;
-  $('common').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('common').scrollIntoView({ behavior: 'instant', block: 'start' });
 });
 
 $('confirmSubmit').addEventListener('click', () => {
@@ -565,7 +571,7 @@ $('confirmSubmit').addEventListener('click', () => {
       );
     }
     $('result').hidden = false;
-    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('result').scrollIntoView({ behavior: 'instant', block: 'start' });
     pendingPayload = null;
     loadCounters();
     loadHistory();
@@ -651,13 +657,19 @@ $('btnClearHistory').addEventListener('click', async () => {
 });
 
 function loadHistory() {
+  window.hoMemoLoadState = 'loading';
+  if (window.refreshHoSummary) window.refreshHoSummary();
   $('historyStatus').textContent = 'Memuat riwayat memo...';
   invokeServer('apiGetMemoHistory', [accessToken], (history) => {
     memoHistoryRecords = history;
+    window.hoMemoLoadState = 'ready';
     historyPage = 0;
     renderHistory();
+    if (window.refreshHoSummary) window.refreshHoSummary();
   }, (error) => {
     $('historyStatus').textContent = `Gagal memuat riwayat: ${error.message}`;
+    window.hoMemoLoadState = 'error';
+    if (window.refreshHoSummary) window.refreshHoSummary();
   });
 }
 

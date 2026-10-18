@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.18.1',
+  version: '2026.10.19.1',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
