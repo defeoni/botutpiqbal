@@ -1,0 +1,17 @@
+Anda coding agent untuk Admin PT.UTP. Tugas sempit: tanggal kalender material dan WIB. Gunakan file ZIP terlampir sebagai baseline terbaru, bukan main GitHub 0d4c417. Baca hanya prompt ini, aplikasi/material/UtpClient.html, dan pola tes pengujian/rpb-kontrak.test.js. Jangan memuat riwayat chat.
+
+Hak edit hanya:
+- aplikasi/material/UtpClient.html
+- pengujian/material-tanggal.test.js (baru bila perlu)
+
+Periksa today(), dateText(), validateRequest() beserta pemanggilnya. today() sekarang mengikuti timezone device; dateText() memakai timezone default browser; validasi Date.parse dapat menormalisasi tanggal mustahil.
+
+Hasil wajib:
+1. Tanggal permintaan YYYY-MM-DD divalidasi sebagai tanggal kalender nyata: 2026-02-29 dan 2026-04-31 ditolak; 2028-02-29 diterima. Tolak format salah. Hindari rollover dan kekeliruan tahun 0–99.
+2. Tanggal default memakai Asia/Jakarta walau device timezone berbeda. Timestamp audit tetap ISO UTC; hanya tampilannya WIB. Tanggal dokumen tanpa waktu tidak boleh bergeser hari karena timezone.
+3. Gunakan helper kecil dan Intl/Date bawaan. Tidak tambah library. Pertahankan isian saat validasi gagal dan perilaku review/PIN yang ada.
+4. Tes runnable node --test dengan node:test/assert/vm seperti pola repository. Uji kode nyata, bukan salinan implementasi. Cakup tanggal valid/tidak valid, pergantian hari UTC ke WIB, dan timestamp tanpa perubahan nilai sumber.
+
+Jangan edit file tes browser, CSS, preview hasil build, backend, panduan, auth atau konfigurasi. Jangan deploy, clasp push, commit atau push. Jangan mengaktifkan mutasi material live. Jangan membatalkan perbaikan grid, dialog, submit awal dan render yang sudah ada.
+
+Keluaran: unified diff hanya file berizin; ringkasan maksimal 8 baris berisi penyebab, perubahan, perintah tes, hasil aktual, batasan. Jika tidak bisa menjalankan tes, tulis BELUM DIJALANKAN. Jangan klaim lulus tanpa eksekusi. Jika perlu edit file lain, laporkan alasannya tanpa mengedit.

@@ -1,3 +1,45 @@
+# Kelanjutan device baru — 18 Oktober 2026
+
+Pengguna meminta lanjut. Bagian historis checkpoint 17 Oktober di bawah dipertahankan; status break lama tidak membatalkan izin lanjut pada sesi ini.
+
+## Hasil sesi ini
+
+- Git lokal di Desktop/botutpiqbal-main terhubung ke defeoni/botutpiqbal, main mengikuti origin/main; baseline 0d4c417. Akses fetch berhasil; push belum diuji.
+- Overflow Katalog 390px direproduksi. Penyebab: kolom grid otomatis mengikuti min-content tabel 640px. UtpStyles memakai minmax(0, 1fr); tabel tetap bergeser di dalam pembungkus.
+- Dialog pengganti tidak lagi close/reopen sehingga event close tertunda tidak membuang handler dialog baru. Alur lookup -> edit item dan pilih item awal -> input review diuji.
+- Pengajuan awal tidak lagi meminta metadata alasan review; perubahan dokumen setelah pengajuan tetap memerlukan pihak/alasan.
+- render tidak lagi membuka workspace material; open mengatur visibilitas. Bootstrap tertunda setelah pindah ke Memo diuji memakai stub RPC lokal.
+- Build 17 file dan pratinjau berhasil. Pemeriksaan browser frontend diperluas: 19/19 lulus. RPB 7/7 lulus; git diff --check lulus. Screenshot Katalog 390px diperiksa.
+- Semua verifikasi lokal/preview atau stub; tidak ada deployment, akses runtime Google, commit, atau push sesi ini.
+
+## Koordinasi lintas AI
+
+Pengguna meminta lanjut dengan metode pembagian tugas ke AI lain. Paket dan batas tugas di panduan/tugas-agen/MULAI.md; ZIP lokal .local/paket-agen/UTP-agen-2026-10-18.zip. Qwen: tanggal/WIB (UtpClient + tes baru); Gemini: skenario read-only; Claude: review setelah hasil. Status baru siap dikirim pengguna, belum ada eksekusi agen eksternal. Codex menunggu hasil dan tidak mengedit file milik Qwen selama tugas berlangsung.
+
+## Integrasi hasil Qwen Coder
+
+Patch tanggal diterima melalui pengguna dan diterapkan ke sumber Windows. today/dateText mengikuti Asia/Jakarta; validasi kalender menolak tanggal mustahil, audit tetap ISO UTC. Hook UTP_TEST__ hanya aktif pada preview eksplisit. Komentar patch yang tidak diperlukan dipangkas; perbaikan Codex sebelumnya dipertahankan.
+
+Bukti aktual Windows: node --test pengujian/material-tanggal.test.js pengujian/rpb-kontrak.test.js pengujian/material-domain.test.js pengujian/material-penyimpanan.test.js: 53/53 lulus. Build 17 file dan preview berhasil; pemeriksaan browser 19/19 lulus; git diff --check lulus. Tidak ada commit/push/deploy. Perintah node --test pengujian/ tidak menemukan direktori tes pada Node Windows ini; gunakan daftar file eksplisit di atas.
+
+Hasil skenario dari GOOGLE AI STUDIO (bukan aplikasi Gemini Chat) ditinjau di panduan/tugas-agen/GEMINI-HASIL-DITINJAU.md. Delapan skenario belum merupakan hasil eksekusi. Nama file historis dipertahankan; platform penghasilnya Google AI Studio.
+
+## Kelanjutan otomatis dan pembagian agen
+
+Pengguna mengizinkan lanjut tanpa konfirmasi rutin, termasuk commit/push/deploy bila memang diperlukan. Tetap gunakan AI eksternal untuk tugas terpisah agar hemat token; Codex melakukan integrasi dan verifikasi. Setiap prompt harus menyebut platform (Google AI Studio, Gemini Chat, Qwen Coder, dll). Qwen Coder diizinkan edit lokal dalam batas tugas; akses GitHub/push tetap oleh Codex/VS Code.
+
+Delapan skenario Google AI Studio dijadikan pengujian kode frontend nyata melalui VM/DOM stub di pengujian/material-alur.test.js: baseline 7/8 lulus, gagal pada pihak/alasan revisi hilang saat konflik. Codex memperbaiki konteks instruksi revisi agar bertahan setelah perbandingan, simpan, dan buka ulang penerbitan. Hasil 8/8 lulus. Ini tambahan pada 53 tes sebelumnya, bukan delapan tes browser atau bukti runtime Google.
+
+Tugas eksternal berikutnya: Qwen Coder meninjau kontrak searchItems dan klasifikasi merek kosong, read-only dahulu. Berikan file aktual dari Windows; jangan mengandalkan checkout /workspace lama atau mengizinkan akses GitHub.
+
+## Berikutnya
+
+- Tanggal kalender/WIB sudah diverifikasi lokal; berikutnya klasifikasi hasil search server bermerek kosong.
+- Lengkapi pemeriksaan alur revisi, bukti HO multi-item, finalisasi parsial, dan kegagalan/conflict saat submit/finalisasi. 19 pemeriksaan di atas belum membuktikan seluruh frontend selesai.
+- Kontrak backend per item/live tetap tugas terpisah; jangan aktifkan mutasi produksi dengan kontrak lama.
+
+---
+
 # Checkpoint break — 17 Oktober 2026
 
 **Status: PAUSE / BREAK.** Pengguna meminta commit seluruh pekerjaan, backup GitHub, dan prompt untuk perangkat lain. Mode burst berakhir; jangan melanjutkan coding otomatis.

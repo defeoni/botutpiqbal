@@ -18,7 +18,7 @@
 }
 :is(.utp, .utp-dialog) *, :is(.utp, .utp-dialog) *::before, :is(.utp, .utp-dialog) *::after { box-sizing: border-box; }
 .utp[hidden], .utp-dialog[hidden], :is(.utp, .utp-dialog) [hidden] { display: none !important; }
-.utp .utp-content { display: grid; gap: 22px; min-width: 0; padding-block: 8px 24px; }
+.utp .utp-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; min-width: 0; padding-block: 8px 24px; }
 :is(.utp, .utp-dialog) :is(h2, h3, h4) { color: var(--utp-ink); line-height: 1.25; }
 :is(.utp, .utp-dialog) h2 { font-size: clamp(23px, 2.5vw, 30px); font-weight: 700; letter-spacing: -.8px; margin: 0; }
 :is(.utp, .utp-dialog) h3 { font-size: 17px; font-weight: 650; margin: 0 0 12px; }

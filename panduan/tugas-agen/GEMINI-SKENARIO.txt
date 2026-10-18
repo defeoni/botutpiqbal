@@ -1,0 +1,11 @@
+Anda penyusun skenario uji Admin PT.UTP. Read-only; jangan mengubah kode. Gunakan ZIP terlampir. Baca panduan/MULAI-DI-SINI.md bagian keputusan material, aplikasi/material/UtpClient.html dan alat/periksa-frontend-material.cjs. Jangan memuat riwayat panjang.
+
+Tugas: susun maksimal 10 skenario frontend yang BELUM dicakup 19 pemeriksaan browser sekarang. Utamakan:
+- satu bukti final HO untuk dua item, cakupan salah ditolak;
+- item ditolak/ditunda tidak masuk daftar final, finalisasi sebagian;
+- By Owner/By Other tidak otomatis dianggap datang;
+- Terbitkan Revisi perlu pihak/alasan dan mempertahankan snapshot;
+- gagal simpan atau konflik ketika submit/finalisasi/revisi tidak membekukan status palsu atau menghilangkan isian;
+- merek kosong tidak otomatis generik/approved, hasil server berbeda dari seed preview.
+
+Keluaran satu tabel: ID | langkah konkret + selector nyata | hasil wajib | bukti/state yang diperiksa | cakupan saat ini. Pisahkan bug terbukti dari dugaan berdasarkan kode. Jangan mengklaim tes browser sudah dijalankan. Untuk potensi bug, cantumkan file/fungsi dan jalur pemicu. Maksimal 1000 kata, tanpa desain ulang UI atau fitur tambahan. Keputusan bisnis pada panduan terbaru mengungguli asumsi Anda. Tidak ada deployment atau API Google.

@@ -98,7 +98,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px soli
 }
 :is(.utp, .utp-dialog) *, :is(.utp, .utp-dialog) *::before, :is(.utp, .utp-dialog) *::after { box-sizing: border-box; }
 .utp[hidden], .utp-dialog[hidden], :is(.utp, .utp-dialog) [hidden] { display: none !important; }
-.utp .utp-content { display: grid; gap: 22px; min-width: 0; padding-block: 8px 24px; }
+.utp .utp-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; min-width: 0; padding-block: 8px 24px; }
 :is(.utp, .utp-dialog) :is(h2, h3, h4) { color: var(--utp-ink); line-height: 1.25; }
 :is(.utp, .utp-dialog) h2 { font-size: clamp(23px, 2.5vw, 30px); font-weight: 700; letter-spacing: -.8px; margin: 0; }
 :is(.utp, .utp-dialog) h3 { font-size: 17px; font-weight: 650; margin: 0 0 12px; }
@@ -1988,8 +1988,26 @@ document.addEventListener('change', (event) => {
   const el = id => document.getElementById(id);
   const now = () => new Date().toISOString();
   const uid = () => 'local-' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '-' + (++sequence));
-  function today() { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }
-  function dateText(value) { return value ? new Date(value).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
+  const WIB_TIME_ZONE = 'Asia/Jakarta';
+  function calendarPartsInZone(date, timeZone) {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const get = type => Number(parts.find(part => part.type === type).value);
+    return { year: get('year'), month: get('month'), day: get('day') };
+  }
+  function isValidCalendarDate(year, month, day) {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+    if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+    return day <= daysInMonth;
+  }
+  function isValidDocumentDate(value) {
+    const text = String(value || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+    return isValidCalendarDate(+text.slice(0, 4), +text.slice(5, 7), +text.slice(8, 10));
+  }
+  function today() { const p = calendarPartsInZone(new Date(), WIB_TIME_ZONE); return [String(p.year).padStart(4, '0'), String(p.month).padStart(2, '0'), String(p.day).padStart(2, '0')].join('-'); }
+  function dateText(value) { return value ? new Date(value).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: WIB_TIME_ZONE }) : '—'; }
   function badge(text, kind) { return '<span class="utp-badge ' + esc(kind || '') + '">' + esc(text) + '</span>'; }
   function button(label, action, attrs, kind, disabled) {
     return '<button type="button" class="utp-button ' + esc(kind || '') + '" data-action="' + esc(action) + '" ' + (attrs || '') + (disabled ? ' disabled aria-disabled="true" title="' + esc(contractNotice) + '"' : '') + '>' + esc(label) + '</button>';
@@ -2087,7 +2105,7 @@ document.addEventListener('change', (event) => {
   }
   function render() {
     const app = el('utpApp'), content = el('utpContent'); if (!app || !content) return;
-    banner(); app.hidden = false;
+    banner();
     if (!state.data) { content.innerHTML = header(pages[state.page], 'Administrasi material proyek aktif') + (state.loading ? '<div class="utp-empty" role="status">Memuat data…</div>' : errorBox(state.error || 'Data belum dimuat.', 'retry-bootstrap')); return; }
     if (state.page === 'CATALOG') renderCatalog();
     else if (state.page === 'APPROVALS') renderApprovals();
@@ -2172,7 +2190,7 @@ document.addEventListener('change', (event) => {
   }
   function validateRequest(record) {
     if (!record.title.trim()) throw new Error('Judul permintaan wajib diisi.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date) || Number.isNaN(Date.parse(record.date + 'T00:00:00'))) throw new Error('Tanggal permintaan wajib valid.');
+    if (!isValidDocumentDate(record.date)) throw new Error('Tanggal permintaan wajib berupa tanggal kalender yang valid (YYYY-MM-DD).');
     if (!record.items.length) throw new Error('Tambahkan minimal satu item.');
     record.items.forEach(item => {
       if (!item.name.trim() || !item.unit.trim()) throw new Error('Nama dan satuan setiap item wajib diisi.');
@@ -2193,7 +2211,7 @@ document.addEventListener('change', (event) => {
     if (server && (!e.base || server.version !== e.base.version)) { showConflict(server); return false; }
     if (e.failNext) { e.failNext = false; throw new Error('Simulasi gagal simpan. Semua isian tetap ada. Tekan Simpan untuk mencoba lagi.'); }
     const changes = fieldChanges(e.base, r);
-    if ((requireReason || (r.initialSnapshot && changes.length)) && (!parties.includes(e.party) || !e.reason.trim())) throw new Error('Pilih pihak PM/MK/HO dan isi alasan perubahan dokumen sebelum menyimpan.');
+    if ((requireReason || (action !== 'SUBMIT' && r.initialSnapshot && changes.length)) && (!parties.includes(e.party) || !e.reason.trim())) throw new Error('Pilih pihak PM/MK/HO dan isi alasan perubahan dokumen sebelum menyimpan.');
     const result = clone(r);
     result.history = clone(server ? server.history || [] : []);
     result.history.push(...clone(e.pendingHistory));
@@ -2209,11 +2227,10 @@ document.addEventListener('change', (event) => {
   }
   function dialog(title, body, onSubmit, saveLabel) {
     const d = el('utpDialog'); if (!d) return;
-    if (d.open) d.close();
     modal = { onSubmit, searchId: 0 };
     el('utpDialogTitle').textContent = title;
     el('utpDialogBody').innerHTML = (onSubmit ? '<form id="utpDialogForm">' : '<div>') + body + '<p id="utpDialogError" class="utp-error" role="alert" hidden></p>' + (onSubmit ? '<div class="utp-actions"><button type="submit" class="utp-button primary">' + esc(saveLabel || 'Simpan simulasi') + '</button>' + button('Batal', 'close-dialog') + '</div></form>' : '<div class="utp-actions">' + button('Tutup', 'close-dialog') + '</div></div>');
-    d.showModal();
+    if (!d.open) d.showModal();
   }
   function closeDialog() { const d = el('utpDialog'); if (d && d.open) d.close(); modal = null; }
   function dialogError(message) { const box = el('utpDialogError'); if (box) { box.textContent = message; box.hidden = false; } }
@@ -2337,8 +2354,10 @@ document.addEventListener('change', (event) => {
   function publishRevision() {
     const e = state.editor;
     if (e.dirty) { editorError('Simpan hasil review terlebih dahulu agar revisi memuat perubahan yang sudah dicatat.'); return; }
-    dialog('Terbitkan Revisi · instruksi resmi', '<p class="utp-muted">REV naik hanya melalui tindakan ini. Salinan lengkap item dan cakupan dokumen disimpan dalam memori simulasi.</p>' + select('party', 'Instruksi pihak', '', { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + textArea('reason', 'Alasan penerbitan revisi', '', 'required maxlength="2000"'), form => {
+    const instruction = e.revisionInstruction || { party: '', reason: '' };
+    dialog('Terbitkan Revisi · instruksi resmi', '<p class="utp-muted">REV naik hanya melalui tindakan ini. Salinan lengkap item dan cakupan dokumen disimpan dalam memori simulasi.</p>' + select('party', 'Instruksi pihak', instruction.party, { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + textArea('reason', 'Alasan penerbitan revisi', instruction.reason, 'required maxlength="2000"'), form => {
       const party = formValue(form, 'party'), reason = formValue(form, 'reason'); if (!parties.includes(party) || !reason) throw new Error('Pihak dan alasan penerbitan revisi wajib diisi.');
+      e.revisionInstruction = { party, reason };
       const server = state.data.requests.find(row => row.id === e.record.id);
       if (!server || server.version !== e.base.version) { showConflict(server); return; }
       if (e.failNext) { e.failNext = false; throw new Error('Simulasi gagal terbit. Isian dan REV tetap sama. Coba lagi.'); }
@@ -2346,6 +2365,7 @@ document.addEventListener('change', (event) => {
       next.history.push(audit('PUBLISH_REVISION', party, reason, [{ field: 'revision', before: server.revision, after: next.revision }]));
       if (next.initialSnapshot) freeze(next.initialSnapshot);
       state.data.requests[state.data.requests.findIndex(row => row.id === next.id)] = next; e.record = clone(next); e.base = clone(next); e.dirty = false; e.error = '';
+      delete e.revisionInstruction;
       closeDialog(); renderEditor(); saved('REV ' + String(next.revision).padStart(3, '0') + ' diterbitkan');
     }, 'Terbitkan Revisi simulasi');
   }
@@ -2490,7 +2510,7 @@ document.addEventListener('change', (event) => {
       event.preventDefault(); Promise.resolve(action(target.dataset.action, target)).catch(error => { if (d.open) dialogError(error.message || String(error)); else if (state.editor && state.page === 'REQUESTS') editorError(error.message || String(error)); else toast(error.message || String(error), true); });
     }
     app.addEventListener('click', click); d.addEventListener('click', click);
-    el('utpCloseDialog').addEventListener('click', closeDialog); d.addEventListener('close', () => { modal = null; });
+    el('utpCloseDialog').addEventListener('click', closeDialog); d.addEventListener('close', () => { if (!d.open) modal = null; });
     d.addEventListener('submit', event => {
       event.preventDefault(); if (!modal || !modal.onSubmit) return;
       const form = event.target; if (!form.reportValidity()) return;
@@ -2529,6 +2549,7 @@ document.addEventListener('change', (event) => {
   function open(page) {
     state.page = Object.prototype.hasOwnProperty.call(pages, page) ? page : 'CATALOG';
     closeDialog();
+    if (el('utpApp')) el('utpApp').hidden = false;
     if (!state.data) return bootstrap();
     render(); if (state.page === 'CATALOG') searchCatalog();
   }
@@ -2537,6 +2558,7 @@ document.addEventListener('change', (event) => {
     if (el('utpApp')) el('utpApp').hidden = true; if (el('utpContent')) el('utpContent').textContent = ''; if (el('utpToast')) el('utpToast').hidden = true;
   }
   window.UTPFrontend = { open, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
+  if (preview) window.UTP_TEST__ = { today, dateText, isValidDocumentDate, isValidCalendarDate, calendarPartsInZone, validateRequest, now };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
 })();
 </script>
