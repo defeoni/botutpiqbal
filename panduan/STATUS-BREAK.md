@@ -1,5 +1,7 @@
 # Kelanjutan device baru — 18 Oktober 2026
 
+Aturan kerja terbaru: baca PETA-KERJA.md. Burst belum aktif. Batas saat burst maksimal 3 penulis termasuk Codex bila mengedit; menggantikan batas historis 2 penulis. Fokus saat ini perencanaan alur kecil end-to-end, belum implementasi backend baru.
+
 Pengguna meminta lanjut. Bagian historis checkpoint 17 Oktober di bawah dipertahankan; status break lama tidak membatalkan izin lanjut pada sesi ini.
 
 ## Hasil sesi ini
