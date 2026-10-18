@@ -5,8 +5,8 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const workspace = path.resolve(__dirname, '..');
-const backendSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'rpb', 'RPB.gs'), 'utf8');
-const clientSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'rpb', 'RPBClient.html'), 'utf8');
+const backendSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'RPB.gs'), 'utf8');
+const clientSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'RPBClient.html'), 'utf8');
 
 function dateFromIso(value) {
   const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);

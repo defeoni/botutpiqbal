@@ -1,6 +1,4 @@
-# Kontrak burst: draf Material per item v1
-
-Status burst AKTIF, 18 Oktober 2026. Tiga penulis internal Codex; tanpa akses/push GitHub oleh agen. Integrator hanya dokumen/build selama penulis aktif. Batas tahap: simpan/buka draf; review, submit, revisi, bukti HO dan final live tetap nonaktif.
+# Draf Material v1
 
 ## API
 
@@ -16,8 +14,3 @@ Adapter saveMaterialDraft wajib auth, capability gate dan lock existing API. Bac
 
 Frontend produksi: tetap read-only jika capability false; bila true hanya new-request/add-master/add-temporary/use-item/edit-item/remove-item/save-request untuk draft v1, plus back/open/detail. Semua workflow lain live disabled. read RPC allowlist ditambah saveMaterialDraft pada jalur khusus dengan gate. Jangan menyamarkan API error memakai seed. storeEditor existing preview tetap sinkron. Tambah saveLiveDraft async; busy mencegah duplicate, failure mempertahankan isian; respons tidak menimpa editor/sesi lain (epoch + identitas). Konflik simpan mempertahankan local input dan menampilkan perbandingan; jangan menerapkan perubahan status/revision. Simpan dirty sebelum pindah/open sesuai existing. Buka ulang v1 DRAFT editable hanya jika capability true; legacy/nonDRAFT tetap read-only. Label memori hanya preview, produksi server. new client draft id UUID stabil. Backend tidak otomatis enable.
 
-## Pemilik
-A: aplikasi/material/UtpDomain.gs + pengujian/material-draf-domain.test.js.
-B: aplikasi/material/Utp.gs + pengujian/material-penyimpanan.test.js (boleh tambah tests/helper dalam file existing; jangan pindah file).
-C: aplikasi/material/UtpClient.html + pengujian/material-draf-client.test.js.
-Integrator: kontrak/checkpoint/build/preview + verifikasi lintas komponen setelah penulis selesai.

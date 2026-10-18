@@ -1,5 +1,0 @@
-Anda reviewer read-only Admin PT.UTP. Jalankan tugas ini SETELAH patch Qwen dan laporan Gemini tersedia. Gunakan sumber baseline ZIP, diff Qwen, hasil tes aktual dan laporan Gemini. Jangan mengubah file.
-
-Tinjau hanya correctness patch tanggal/WIB dan temuan material yang punya jalur pemicu jelas. Pastikan tanggal mustahil ditolak, hari tidak bergeser antar timezone, audit UTC tetap utuh, serta perbaikan dialog/submit/render baseline tidak rusak. Jangan memperluas ke audit seluruh repository.
-
-Keluaran maksimal 5 temuan, urut prioritas: file:baris | pemicu | dampak | saran perbaikan. Bedakan terbukti, dugaan, dan belum diuji. Jika tidak ada temuan, tulis tidak ada temuan pada cakupan yang ditinjau serta batas pemeriksaan. Jangan klaim aman produksi atau seluruh tes lulus berdasarkan laporan agen lain.

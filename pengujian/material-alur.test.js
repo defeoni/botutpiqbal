@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const script = fs.readFileSync(path.join(__dirname,'../aplikasi/material/UtpClient.html'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+const script = fs.readFileSync(path.join(__dirname,'../aplikasi/UtpClient.html'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
 function fixture() {
   const nodes = new Map();
   const get = id => {
@@ -123,7 +123,7 @@ test('blank/null brand stays UNKNOWN and pending even if source claims approval'
 });
 
 test('server and preview share explicit classification rules, including whitespace brands',()=>{
-  const domain=require('../aplikasi/material/UtpDomain.gs'),{api}=fixture();
+  const domain=require('../aplikasi/UtpDomain.gs'),{api}=fixture();
   const generic={id:'generic',material:'Material',generic:true,status:'APPROVED',authority:'PM',brand:'',types:[]};
   const branded={...generic,id:'branded',generic:false,brand:'X'};
   const cases=[
@@ -166,7 +166,7 @@ test('new items trim brand and never inherit approval decisions from search',()=
   assert.equal(generic.classification,'GENERIC');assert.equal(generic.decisions.PM.status,'PENDING');
 });
 test('request normalization retains explicit generic and removes stale approval identifiers',()=>{
-  const domain=require('../aplikasi/material/UtpDomain.gs');
+  const domain=require('../aplikasi/UtpDomain.gs');
   const base={id:'a',code:'a',name:'Pasir',brand:'',unit:'m3',quantity:1,classification:'GENERIC'};
   const approval={id:'g',material:'Pasir',generic:true,status:'APPROVED',authority:'PM',types:[]};
   const good=domain.requestItems([base],{approvals:[approval]})[0];

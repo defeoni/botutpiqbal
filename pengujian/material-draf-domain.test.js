@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const domain = require('../aplikasi/material/UtpDomain.gs');
+const domain = require('../aplikasi/UtpDomain.gs');
 
 function draft(overrides = {}) {
   return Object.assign({ itemContractVersion: 1, status: 'DRAFT', initialSnapshot: null,

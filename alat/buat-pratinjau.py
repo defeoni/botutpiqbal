@@ -3,19 +3,19 @@ import re
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-INDEX_PATH = PROJECT_ROOT / "aplikasi" / "bersama" / "Index.html"
-PREVIEW_PATH = PROJECT_ROOT / "pratinjau" / "aplikasi.html"
+INDEX_PATH = PROJECT_ROOT / "aplikasi" / "Index.html"
+PREVIEW_PATH = PROJECT_ROOT / ".local" / "aplikasi.html"
 PARTIALS = {
-    "UtpView": PROJECT_ROOT / "aplikasi" / "material" / "UtpView.html",
-    "UtpStyles": PROJECT_ROOT / "aplikasi" / "material" / "UtpStyles.html",
-    "UtpClient": PROJECT_ROOT / "aplikasi" / "material" / "UtpClient.html",
-    "HomeView": PROJECT_ROOT / "aplikasi" / "bersama" / "HomeView.html",
-    "Styles": PROJECT_ROOT / "aplikasi" / "bersama" / "Styles.html",
-    "RPBStyles": PROJECT_ROOT / "aplikasi" / "rpb" / "RPBStyles.html",
-    "MemoClient": PROJECT_ROOT / "aplikasi" / "memo" / "MemoClient.html",
-    "RPBView": PROJECT_ROOT / "aplikasi" / "rpb" / "RPBView.html",
-    "RPBClient": PROJECT_ROOT / "aplikasi" / "rpb" / "RPBClient.html",
-    "RPD": PROJECT_ROOT / "aplikasi" / "rpd" / "RPD.html",
+    "UtpView": PROJECT_ROOT / "aplikasi" / "UtpView.html",
+    "UtpStyles": PROJECT_ROOT / "aplikasi" / "UtpStyles.html",
+    "UtpClient": PROJECT_ROOT / "aplikasi" / "UtpClient.html",
+    "HomeView": PROJECT_ROOT / "aplikasi" / "HomeView.html",
+    "Styles": PROJECT_ROOT / "aplikasi" / "Styles.html",
+    "RPBStyles": PROJECT_ROOT / "aplikasi" / "RPBStyles.html",
+    "MemoClient": PROJECT_ROOT / "aplikasi" / "MemoClient.html",
+    "RPBView": PROJECT_ROOT / "aplikasi" / "RPBView.html",
+    "RPBClient": PROJECT_ROOT / "aplikasi" / "RPBClient.html",
+    "RPD": PROJECT_ROOT / "aplikasi" / "RPD.html",
 }
 
 

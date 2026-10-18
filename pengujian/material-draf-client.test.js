@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const script = fs.readFileSync(path.join(__dirname, '../aplikasi/material/UtpClient.html'), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+const script = fs.readFileSync(path.join(__dirname, '../aplikasi/UtpClient.html'), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
 const copy = value => JSON.parse(JSON.stringify(value));
 function fixture(enabled = true) {
   const nodes = new Map(), controls = [{ disabled: false }, { disabled: false }], calls = [];

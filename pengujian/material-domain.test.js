@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const domain = require('../aplikasi/material/UtpDomain.gs');
+const domain = require('../aplikasi/UtpDomain.gs');
 
 const now = '2026-10-16T08:00:00.000Z';
 const approved = { id: 'ap-1', material: 'Pipa PVC', brand: 'Rucika', types: ['AW'], authority: 'PM', status: 'APPROVED' };

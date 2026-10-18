@@ -67,7 +67,7 @@ function environment() {
     getArchiveRootFolder_: () => sharedArchive
   };
   vm.createContext(sandbox);
-  for (const name of ['UtpDomain.gs', 'Utp.gs']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../aplikasi/material', name), 'utf8'), sandbox, { filename: name });
+  for (const name of ['UtpDomain.gs', 'Utp.gs']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../aplikasi', name), 'utf8'), sandbox, { filename: name });
   const call = (action, payload = {}, token = 'session') => sandbox.apiUtp(action, payload, token);
   const plain = value => JSON.parse(JSON.stringify(value));
   return { state, sandbox, call, plain };

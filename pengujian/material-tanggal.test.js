@@ -1,4 +1,4 @@
-// Tes tanggal kalender & WIB untuk frontend Material (aplikasi/material/UtpClient.html).
+// Tes tanggal kalender & WIB untuk frontend Material (aplikasi/UtpClient.html).
 // Memuat kode JavaScript NYATA dari UtpClient.html ke dalam sandbox vm — bukan salinan implementasi.
 // Pola mengikuti pengujian/rpb-kontrak.test.js (node:test + node:assert/strict + node:vm).
 const assert = require('node:assert/strict');
@@ -8,7 +8,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const workspace = path.resolve(__dirname, '..');
-const clientSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'material', 'UtpClient.html'), 'utf8');
+const clientSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'UtpClient.html'), 'utf8');
 const scriptMatch = clientSource.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, 'Elemen <script> pada UtpClient.html harus ada');
 const clientScript = scriptMatch[1];
