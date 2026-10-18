@@ -40,3 +40,7 @@ Buka task Codex Cloud yang terhubung `defeoni/botutpiqbal`, atau clone repositor
 Master asli, Excel template di Downloads, kredensial, cache, dan file privat `.local/` tidak termasuk backup Git. Folder `.git/`, `.clasp-src/`, `.local/`, `.venv/`, dan `.codex/` dikelola alat dan tidak perlu dirapikan manual.
 
 Memo/RPB sudah ada; frontend material terintegrasi masih perlu pemeriksaan lanjutan dan kontrak backend per item. Tidak ada klaim runtime cloud atau deployment baru berhasil. Rincian dan hasil tes aktual ada di checkpoint.
+
+## Burst draf per item
+
+Kontrak draf Material dan batas aktivasi ada di `panduan/KONTRAK-DRAF-MATERIAL.md`; hasil terkini di `panduan/STATUS-BREAK.md`. Penyimpanan draf server tersedia di kode dengan capability default nonaktif. Review/revisi/final live belum tersedia. Uji integrasi lokal: `node alat/periksa-draf-material.cjs <path-playwright> <path-browser>`, sesudah build sumber dan preview. Alat memakai adapter/domain nyata dengan layanan Google tiruan, tanpa akses Google.

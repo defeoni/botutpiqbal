@@ -257,3 +257,103 @@ test('failed upload audit keeps the registered file instead of trashing a saved 
   assert.equal(file.trashed, false);
   assert.equal(env.call('list', { entity: 'documents' }).records[0].fileId, file.id);
 });
+
+const materialDraft = (overrides = {}) => ({
+  id: 'local-12345678-1234-4234-8234-123456789abc', version: 0, itemContractVersion: 1,
+  title: 'Draf bahan', number: 'MAT-01', date: '2026-10-18', note: 'Catatan draf',
+  status: 'DRAFT', initialSnapshot: null, revision: 1, revisions: [], files: [], arrived: false,
+  items: [{ id: 'item-a', code: '0001', name: 'Pasir', brand: '', model: '', unit: 'm3', quantity: 2,
+    group: 'Sipil', family: 'Agregat', classification: 'GENERIC', isTemporary: false,
+    requiredAuthority: 'HO', decisions: { PM: { status: 'PENDING' }, MK: { status: 'PENDING' }, HO: { status: 'PENDING' } },
+    exceptionReason: '', note: 'Untuk lantai', finalFileId: '', supplyConfirmed: false }], ...overrides
+});
+function enableMaterialDrafts(env) { env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED', 'true'); }
+
+test('material draft capability defaults off and server gate plus authentication prevent writes', () => {
+  const env = environment();
+  assert.equal(env.call('bootstrap').capabilities.materialDrafts, false);
+  assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft() }), /belum diaktifkan/);
+  enableMaterialDrafts(env);
+  assert.equal(env.call('bootstrap').capabilities.materialDrafts, true);
+  assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft() }, 'bad'), /Unauthorized/);
+  assert.equal(env.state.writes.length, 0);
+  assert.equal(env.state.locks, 0);
+});
+
+test('material draft roundtrip preserves per-item contract, stable id and server history', () => {
+  const env = environment(); enableMaterialDrafts(env);
+  const source = materialDraft({ history: [{ action: 'FORGED' }] });
+  const saved = env.call('saveMaterialDraft', { record: source }).record;
+  assert.equal(saved.id, source.id);
+  assert.equal(saved.version, 1);
+  assert.equal(saved.itemContractVersion, 1);
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.initialSnapshot, null);
+  for (const key of ['title', 'number', 'date', 'note', 'items', 'files', 'revisions', 'arrived'])
+    assert.deepEqual(env.plain(saved[key]), source[key], key);
+  assert.equal(saved.history[0].action, 'CREATE');
+  assert.equal(saved.history.some(row => row.action === 'FORGED'), false);
+  assert.deepEqual(env.plain(env.call('detail', { entity: 'requests', id: saved.id }).record), env.plain(saved));
+  const updated = env.call('saveMaterialDraft', { record: { ...saved, title: 'Draf berubah' } }).record;
+  assert.equal(updated.version, 2);
+  assert.equal(updated.createdAt, saved.createdAt);
+  assert.equal(updated.history.at(-1).action, 'EDIT');
+  assert.equal(env.state.locks, 0);
+});
+
+test('material draft retries and stale edits return conflict without duplicate or overwrite', () => {
+  const env = environment(); enableMaterialDrafts(env);
+  const source = materialDraft();
+  const saved = env.call('saveMaterialDraft', { record: source }).record;
+  const retry = env.call('saveMaterialDraft', { record: source });
+  assert.equal(retry.conflict, true);
+  assert.equal(retry.record.version, 1);
+  const updated = env.call('saveMaterialDraft', { record: { ...saved, title: 'Server terkini' } }).record;
+  const conflict = env.call('saveMaterialDraft', { record: { ...saved, title: 'Lokal basi' } });
+  assert.equal(conflict.conflict, true);
+  assert.equal(conflict.record.title, updated.title);
+  assert.equal(env.call('list', { entity: 'requests' }).records.length, 1);
+  assert.equal(env.state.locks, 0);
+});
+
+test('material draft validates versions and never recreates a missing saved record', () => {
+  const env = environment(); enableMaterialDrafts(env);
+  for (const version of [-1, 0.5, '0', null]) assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft({ version }) }), /Versi/);
+  assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft({ version: 1 }) }), /tidak ditemukan/);
+  assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft({ id: '../bad' }) }), /ID draf/);
+  assert.equal(env.state.writes.length, 0);
+});
+
+test('material draft endpoint rejects legacy, archived and submitted existing records', () => {
+  for (const fields of [{ itemContractVersion: undefined }, { archived: true }, { status: 'HO' }, { initialSnapshot: { title: 'Frozen' } }]) {
+    const env = environment(); enableMaterialDrafts(env);
+    const saved = env.call('saveMaterialDraft', { record: materialDraft() }).record;
+    env.sandbox.utpWrite_('requests', { ...saved, ...fields }, saved.version);
+    assert.throws(() => env.call('saveMaterialDraft', { record: { ...saved, version: 2 } }), /Hanya draf/);
+    assert.equal(env.state.locks, 0);
+  }
+});
+
+test('material draft audit failure returns saved readback and warning rather than false failure', () => {
+  const env = environment(); enableMaterialDrafts(env);
+  const saved = env.call('saveMaterialDraft', { record: materialDraft() }).record;
+  const audit = Array.from(env.state.books.values())[0].getSheetByName('audit');
+  audit.appendRow = () => { throw new Error('audit unavailable'); };
+  const result = env.call('saveMaterialDraft', { record: { ...saved, title: 'Primary saved' } });
+  assert.equal(result.recordSaved, true);
+  assert.equal(result.record.version, 2);
+  assert.equal(result.record.title, 'Primary saved');
+  assert.match(result.warnings[0], /audit gagal/);
+  assert.deepEqual(env.plain(result.record), env.plain(env.call('detail', { entity: 'requests', id: saved.id }).record));
+  assert.equal(env.state.locks, 0);
+});
+
+test('legacy mutations cannot strip or advance material per-item drafts', () => {
+  const env = environment(); enableMaterialDrafts(env);
+  const saved = env.call('saveMaterialDraft', { record: materialDraft() }).record;
+  assert.throws(() => env.call('save', { entity: 'requests', record: { ...saved, itemContractVersion: undefined } }), /penyimpanan khusus/);
+  assert.throws(() => env.call('requestTransition', { id: saved.id, version: saved.version, status: 'PM' }), /belum diaktifkan/);
+  assert.throws(() => env.call('publishRevision', { id: saved.id, version: saved.version }), /belum diaktifkan/);
+  assert.deepEqual(env.plain(env.call('detail', { entity: 'requests', id: saved.id }).record), env.plain(saved));
+  assert.equal(env.state.locks, 0);
+});

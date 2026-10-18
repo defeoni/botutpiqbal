@@ -59,10 +59,12 @@
     clearTimeout(toastTimer); box.textContent = message; box.classList.toggle('bad', !!bad); box.hidden = false;
     toastTimer = setTimeout(() => { box.hidden = true; }, 6000);
   }
+  function liveDrafts() { return !preview && !!(state.data && state.data.capabilities && state.data.capabilities.materialDrafts === true); }
+  function editableDraft(record) { return liveDrafts() && record && record.itemContractVersion === 1 && record.status === 'DRAFT' && !record.initialSnapshot; }
   function saved(message) { toast(message + ' · Simulasi tersimpan di memori sesi ini saja.'); }
   function banner() {
     const box = el('utpBanner'); if (!box) return;
-    box.hidden = false; box.textContent = preview ? 'PRATINJAU LOKAL · DATA ILUSTRASI. Simpan hanya di memori sesi; hilang saat halaman dimuat ulang atau keluar. Pemilihan file mencatat nama dan cakupan saja, tanpa unggah.' : contractNotice;
+    box.hidden = false; box.textContent = preview ? 'PRATINJAU LOKAL · DATA ILUSTRASI. Simpan hanya di memori sesi; hilang saat halaman dimuat ulang atau keluar. Pemilihan file mencatat nama dan cakupan saja, tanpa unggah.' : liveDrafts() ? 'Penyimpanan draf Material menggunakan server. Pengajuan, review, revisi, dan unggah belum aktif.' : contractNotice;
   }
   async function read(action, payload) {
     if (!['bootstrap', 'searchItems', 'list', 'detail'].includes(action)) throw new Error('Tindakan tulis langsung belum tersedia.');
@@ -169,7 +171,7 @@
     if (c.loading) { box.innerHTML = '<div class="utp-empty" role="status">Mencari material…</div>'; return; }
     if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
     if (!c.items.length) { box.innerHTML = empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.'); return; }
-    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview) + '</div></td></tr>').join('') + '</tbody></table></div>';
+    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
   }
   function previewSearch(filters) {
     const terms = norm(filters.query).split(' ').filter(Boolean);
@@ -200,15 +202,15 @@
   }
   function renderRequests() {
     const rows = (state.data.requests || []).filter(record => norm([record.title, record.number].join(' ')).includes(norm(state.requestQuery)));
-    el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview) + button('Muat ulang', 'refresh-requests')) +
+    el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview && !liveDrafts()) + button('Muat ulang', 'refresh-requests')) +
       '<div class="utp-toolbar">' + input('requestQuery', 'Cari judul atau nomor', state.requestQuery, 'search', 'id="utpRequestSearch"') + '</div>' +
       (rows.length ? '<div class="utp-grid">' + rows.map(record => {
         const count = (record.items || []).filter(item => ready(item, record).ok).length;
-        return '<article class="utp-card"><div class="utp-actions">' + badge(record.initialSnapshot ? record.status === 'FINAL' ? 'Daftar final' : 'Dalam review' : record.status === 'DRAFT' ? 'Draf' : record.status) + badge('REV ' + String(record.revision || 1).padStart(3, '0')) + '</div><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + ' · ' + esc(record.date || '—') + '</p><p class="utp-muted">' + (record.items || []).length + ' item · ' + count + ' dapat dilanjutkan · versi data ' + esc(record.version || 1) + '</p><div class="utp-actions">' + button(preview ? 'Buka permintaan' : 'Lihat detail', 'open-request', 'data-id="' + esc(record.id) + '"', 'primary') + '</div></article>';
+        return '<article class="utp-card"><div class="utp-actions">' + badge(record.initialSnapshot ? record.status === 'FINAL' ? 'Daftar final' : 'Dalam review' : record.status === 'DRAFT' ? 'Draf' : record.status) + badge('REV ' + String(record.revision || 1).padStart(3, '0')) + '</div><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + ' · ' + esc(record.date || '—') + '</p><p class="utp-muted">' + (record.items || []).length + ' item · ' + count + ' dapat dilanjutkan · versi data ' + esc(record.version || 1) + '</p><div class="utp-actions">' + button(preview || editableDraft(record) ? 'Buka permintaan' : 'Lihat detail', 'open-request', 'data-id="' + esc(record.id) + '"', 'primary') + '</div></article>';
       }).join('') + '</div>' : empty('Belum ada permintaan', 'Buat draf dan pilih item melalui pencarian terbatas.'));
   }
   function createEditor() {
-    const record = { id: uid(), version: 0, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
+    const record = { id: uid(), version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
     state.editor = { record, base: null, dirty: true, error: '', party: '', reason: '', pendingHistory: [], failNext: false, busy: false };
   }
   function renderEditor() {
@@ -221,8 +223,10 @@
       '<div id="utpRequestItems">' + (r.items.length ? r.items.map(item => itemCard(item, r)).join('') : empty('Draf belum memiliki item', 'Cari kode atau nama material. Barang yang belum ada dapat dicatat sebagai item sementara.')) + '</div>' +
       (r.files.length ? '<div class="utp-card"><h3>Bukti final HO · metadata simulasi</h3>' + r.files.map(file => '<p><strong>' + esc(file.name) + '</strong> · ' + file.coveredItemIds.length + ' item dicakup · tidak diunggah</p>').join('') + '</div>' : '') +
       '<div class="utp-sticky"><p id="utpEditorError" class="utp-error" role="alert"' + (e.error ? '' : ' hidden') + '>' + esc(e.error) + '</p><div class="utp-actions">' + button(e.busy ? 'Menyimpan…' : review ? 'Simpan hasil review' : 'Simpan draf', 'save-request', '', 'primary', e.busy) +
-      (!review ? button('Ajukan untuk review', 'submit-request', '', '', e.busy) : button('Lihat daftar final (' + count + ')', 'show-final') + button('Tetapkan daftar final', 'finalize-request', '', '', !count || e.busy) + button('Terbitkan Revisi', 'publish-revision', '', '', e.busy)) + '</div><p class="utp-muted">' + (e.dirty ? 'Ada isian belum disimpan. ' : 'Isian sama dengan simpan terakhir. ') + 'Pratinjau: simpan hanya di memori.</p><details><summary>Simulasi kendala penyimpanan</summary><div class="utp-actions">' + button('Gagal pada simpan berikutnya', 'simulate-failure') + button('Ubah versi dari sesi lain', 'simulate-conflict') + '</div></details></div>';
+      (!review ? button('Ajukan untuk review', 'submit-request', '', '', e.busy || !preview) : button('Lihat daftar final (' + count + ')', 'show-final') + button('Tetapkan daftar final', 'finalize-request', '', '', !count || e.busy) + button('Terbitkan Revisi', 'publish-revision', '', '', e.busy)) + '</div><p class="utp-muted">' + (e.dirty ? 'Ada isian belum disimpan. ' : 'Isian sama dengan simpan terakhir. ') + (preview ? 'Pratinjau: simpan hanya di memori.' : 'Simpan draf menggunakan server; pengajuan belum aktif.') + '</p>' + (preview ? '<details><summary>Simulasi kendala penyimpanan</summary><div class="utp-actions">' + button('Gagal pada simpan berikutnya', 'simulate-failure') + button('Ubah versi dari sesi lain', 'simulate-conflict') + '</div></details>' : '') + '</div>';
+    if (e.busy) lockEditorControls();
   }
+  function lockEditorControls() { const box = el('utpContent'); if (box && box.querySelectorAll) box.querySelectorAll('input,textarea,select,button').forEach(field => { field.disabled = true; }); }
   function itemCard(item, record) {
     const status = ready(item, record), approval = approvalFor(item), risk = String(item.exceptionReason || '').trim();
     return '<article class="utp-item-card' + (risk ? ' utp-risk' : '') + '" data-item-id="' + esc(item.id) + '"><div class="utp-page-head"><div><h3>' + esc(item.name) + '</h3><p class="utp-muted">' + esc(item.code || 'Tanpa kode resmi') + ' · ' + esc(item.quantity) + ' ' + esc(item.unit) + ' · ' + esc(item.brand || 'Merek belum diketahui') + ' ' + esc(item.model) + '</p></div><div class="utp-actions">' + button('Edit / input review', 'edit-item', 'data-id="' + esc(item.id) + '"') + button('Riwayat item', 'item-history', 'data-id="' + esc(item.id) + '"') + (!record.initialSnapshot ? button('Hapus dari draf', 'remove-item', 'data-id="' + esc(item.id) + '"', 'danger') : '') + '</div></div><div class="utp-actions">' + badge(classes[item.classification] || 'Klasifikasi belum tersedia') + (item.isTemporary ? badge('Item sementara') : '') + badge(owner(item) ? 'Tanpa otoritas approval' : 'Persetujuan diperlukan: ' + item.requiredAuthority) + badge(status.text, status.ok ? 'success' : '') + '</div>' +
@@ -244,6 +248,35 @@
   }
   function audit(action, party, reason, changes) { return { at: now(), actor: party || 'Admin', action, reason: reason || '', changes: clone(changes) }; }
   function editorError(message) { state.editor.error = message; const box = el('utpEditorError'); if (box) { box.textContent = message; box.hidden = false; box.scrollIntoView({ block: 'nearest' }); } }
+  async function saveLiveDraft() {
+    const e = state.editor, generation = epoch;
+    if (!e || e.busy) return false;
+    if (!editableDraft(e.record)) throw new Error(contractNotice);
+    validateRequest(e.record);
+    e.busy = true; e.error = ''; renderEditor(); lockEditorControls();
+    try {
+      if (typeof window.utpRpc !== 'function') throw new Error('Koneksi simpan belum tersedia.');
+      const result = await window.utpRpc('saveMaterialDraft', { record: clone(e.record) });
+      if (generation !== epoch || state.editor !== e) return false;
+      if (!result || !result.record || result.record.id !== e.record.id || !editableDraft(result.record)) throw new Error('Respons simpan server tidak valid.');
+      const index = state.data.requests.findIndex(row => row.id === result.record.id);
+      if (index < 0) state.data.requests.push(clone(result.record)); else state.data.requests[index] = clone(result.record);
+      if (result.conflict) {
+        e.busy = false;
+        if (state.page !== 'REQUESTS') { e.error = 'Konflik simpan. Kembali ke Permintaan & Review lalu tekan Simpan untuk membandingkan.'; return false; }
+        renderEditor();
+        if (!editableDraft(result.record)) throw new Error('Versi server bukan draf yang dapat diedit. Isian tetap dipertahankan.');
+        showConflict(result.record); return false;
+      }
+      if (!editableDraft(result.record) || result.record.id !== e.record.id) throw new Error('Kontrak respons simpan tidak valid. Isian tetap dipertahankan.');
+      e.record = clone(result.record); e.base = clone(result.record); e.dirty = false; e.pendingHistory = []; e.error = '';
+      toast('Draf tersimpan di server.' + ((result.warnings || []).length ? ' ' + result.warnings.join(' ') : ''));
+      return true;
+    } catch (error) {
+      if (generation === epoch && state.editor === e) e.error = (error.message || String(error)) + ' Isian tetap dipertahankan.';
+      return false;
+    } finally { if (generation === epoch && state.editor === e) { e.busy = false; if (state.page === 'REQUESTS') renderEditor(); } }
+  }
   function storeEditor(action, requireReason) {
     if (!preview) throw new Error(contractNotice);
     const e = state.editor, r = e.record;
@@ -413,8 +446,9 @@
   function flat(record) {
     const fields = {};
     ['title', 'number', 'date', 'note', 'status', 'revision', 'arrived', 'arrivedAt', 'arrivalNote'].forEach(key => { fields[key] = record[key] == null ? null : record[key]; });
-    (record.items || []).forEach(item => { Object.keys(item).forEach(key => { if (key !== 'id') fields['item:' + item.id + ':' + key] = clone(item[key]); }); });
+    (record.items || []).forEach(item => { fields['item:' + item.id + ':__present'] = true; Object.keys(item).forEach(key => { if (key !== 'id') fields['item:' + item.id + ':' + key] = clone(item[key]); }); });
     fields.files = clone(record.files || []);
+    if (!preview) Object.keys(fields).forEach(key => { if (!['title','number','date','note'].includes(key) && !(key.startsWith('item:') && !['decisions','finalFileId','supplyConfirmed','approvalId'].includes(key.split(':')[2]))) delete fields[key]; });
     return fields;
   }
   function applyFlat(record, key, value) {
@@ -424,15 +458,26 @@
   function showConflict(server) {
     if (!server) throw new Error('Versi pembanding tidak tersedia. Isian tetap dipertahankan.');
     const e = state.editor, localFields = flat(e.record), serverFields = flat(server), baseFields = flat(e.base || {});
-    const keys = Array.from(new Set(Object.keys(localFields).concat(Object.keys(serverFields)))).filter(key => JSON.stringify(localFields[key]) !== JSON.stringify(serverFields[key]));
+    const itemIds = Array.from(new Set((e.record.items || []).concat(server.items || []).map(item => item.id)));
+    itemIds.forEach(id => { const key = 'item:' + id + ':__present'; [localFields, serverFields, baseFields].forEach(fields => { fields[key] = fields[key] === true; }); });
+    const keys = Array.from(new Set(Object.keys(localFields).concat(Object.keys(serverFields)))).filter(key => {
+      if (key.startsWith('item:') && !key.endsWith(':__present')) { const presence = 'item:' + key.split(':')[1] + ':__present'; if (!localFields[presence] || !serverFields[presence]) return false; }
+      return JSON.stringify(localFields[key]) !== JSON.stringify(serverFields[key]);
+    });
     const local = clone(e.record), comparedVersion = server.version;
-    dialog('Konflik simpan · bandingkan per field', '<p class="utp-error">Isian belum disimpan. Versi isian ' + (e.base ? e.base.version : 0) + ', versi sesi lain ' + comparedVersion + '. Pilih nilai yang akan dipakai untuk setiap perbedaan.</p><div class="utp-tablewrap utp-compare"><table><thead><tr><th>Field</th><th>Isian saya</th><th>Sesi lain</th><th>Gunakan</th></tr></thead><tbody>' + keys.map((key, index) => '<tr><td>' + esc(key) + '</td><td>' + esc(describe(localFields[key])) + '</td><td>' + esc(describe(serverFields[key])) + '</td><td><select name="compare' + index + '" aria-label="Gunakan nilai untuk ' + esc(key) + '"><option value="local">Isian saya</option><option value="server"' + (JSON.stringify(localFields[key]) === JSON.stringify(baseFields[key]) ? ' selected' : '') + '>Sesi lain</option></select></td></tr>').join('') + '</tbody></table></div><p class="utp-muted">Penerapan pilihan belum menyimpan data. Periksa lagi lalu tekan Simpan; versi diperiksa kembali.</p>', form => {
+    dialog('Konflik simpan · bandingkan per field', '<p class="utp-error">Isian belum disimpan. Versi isian ' + (e.base ? e.base.version : 0) + ', versi sesi lain ' + comparedVersion + '. Pilih nilai yang akan dipakai untuk setiap perbedaan.</p><div class="utp-tablewrap utp-compare"><table><thead><tr><th>Field</th><th>Isian saya</th><th>Sesi lain</th><th>Gunakan</th></tr></thead><tbody>' + keys.map((key, index) => '<tr><td>' + esc(key.endsWith(':__present') ? 'Pertahankan item ' + key.split(':')[1] : key) + '</td><td>' + esc(describe(localFields[key])) + '</td><td>' + esc(describe(serverFields[key])) + '</td><td><select name="compare' + index + '" aria-label="Gunakan nilai untuk ' + esc(key) + '"><option value="local">Isian saya</option><option value="server"' + (JSON.stringify(localFields[key]) === JSON.stringify(baseFields[key]) ? ' selected' : '') + '>Sesi lain</option></select></td></tr>').join('') + '</tbody></table></div><p class="utp-muted">Penerapan pilihan belum menyimpan data. Periksa lagi lalu tekan Simpan; versi diperiksa kembali.</p>', form => {
       const current = state.data.requests.find(row => row.id === server.id);
       if (!current || current.version !== comparedVersion) throw new Error('Versi sesi lain berubah lagi. Tutup perbandingan dan tekan Simpan untuk membandingkan versi terbaru.');
-      // Start with local input so newly added local items are retained.
       const merged = clone(local);
-      keys.forEach((key, index) => { if (formValue(form, 'compare' + index) === 'server') applyFlat(merged, key, serverFields[key] === undefined ? null : serverFields[key]); });
-      (current.items || []).forEach(item => { if (!merged.items.some(row => row.id === item.id)) merged.items.push(clone(item)); });
+      keys.forEach((key, index) => {
+        if (!key.endsWith(':__present')) return;
+        const useServer = formValue(form, 'compare' + index) === 'server', id = key.split(':')[1];
+        const present = (useServer ? serverFields : localFields)[key];
+        merged.items = merged.items.filter(item => item.id !== id);
+        if (present) merged.items.push(clone((useServer ? current.items : local.items).find(item => item.id === id)));
+      });
+      keys.forEach((key, index) => { if (!key.endsWith(':__present') && formValue(form, 'compare' + index) === 'server') applyFlat(merged, key, serverFields[key] === undefined ? null : serverFields[key]); });
+      if (!preview) { merged.status = 'DRAFT'; merged.revision = 1; merged.arrived = false; merged.files = []; merged.initialSnapshot = null; }
       merged.version = current.version; merged.history = clone(current.history || []); merged.revisions = clone(current.revisions || []); merged.initialSnapshot = clone(current.initialSnapshot);
       e.base = clone(current); e.record = merged; e.pendingHistory = []; e.dirty = true; e.error = 'Pilihan konflik diterapkan ke isian. Periksa kemudian simpan kembali.';
       closeDialog(); renderEditor();
@@ -460,12 +505,14 @@
     catch (error) { toast(error.message + ' Data yang telah tampil tetap dipertahankan.', true); }
   }
   async function openRequest(id) {
-    const generation = epoch;
+    const generation = epoch, openingEditor = state.editor;
+    if (openingEditor && (openingEditor.busy || openingEditor.dirty)) { toast('Simpan isian sebelum membuka permintaan. Isian tetap dipertahankan.', true); return; }
     try {
       const record = preview ? clone(state.data.requests.find(row => row.id === id)) : (await read('detail', { entity: 'requests', id })).record;
-      if (generation !== epoch) return;
+      if (generation !== epoch || state.editor !== openingEditor || (state.editor && (state.editor.busy || state.editor.dirty))) return;
       if (!record) throw new Error('Permintaan tidak ditemukan.');
-      if (!preview) { dialog('Detail permintaan · hanya baca', '<p class="utp-muted">' + esc(contractNotice) + '</p>' + snapshotBody(record) + '<h3>Riwayat tersimpan</h3>' + historyBody(record.history || []), null); return; }
+      if (state.editor && state.editor.busy) return;
+      if (!preview && !editableDraft(record)) { dialog('Detail permintaan · hanya baca', '<p class="utp-muted">' + esc(contractNotice) + '</p>' + snapshotBody(record) + '<h3>Riwayat tersimpan</h3>' + historyBody(record.history || []), null); return; }
       if (state.editor && state.editor.dirty && state.editor.record.id !== id) {
         dialog('Isian permintaan lain belum disimpan', '<p>Simpan isian yang sedang dikerjakan sebelum membuka permintaan lain. Isian tetap tersedia pada halaman Permintaan & Review.</p>', null); return;
       }
@@ -479,7 +526,10 @@
   }
   async function action(name, target) {
     const id = target.dataset.id, code = target.dataset.code;
-    if (!preview && ['favorite', 'use-item', 'new-request', 'new-approval', 'edit-approval', 'confirm-arrival', 'save-request', 'submit-request', 'publish-revision', 'finalize-request', 'edit-item', 'add-master', 'add-temporary', 'add-final-file'].includes(name)) { toast(contractNotice, true); return; }
+    if (state.editor && state.editor.busy) return;
+    const draftActions = ['new-request','use-item','save-request','edit-item','remove-item','add-master','add-temporary','lookup-select','retry-lookup'];
+    if (!preview && draftActions.includes(name) && (!liveDrafts() || (state.editor && name !== 'new-request' && !editableDraft(state.editor.record)))) { toast(contractNotice, true); return; }
+    if (!preview && !draftActions.includes(name) && ['favorite', 'use-item', 'new-request', 'new-approval', 'edit-approval', 'confirm-arrival', 'save-request', 'submit-request', 'publish-revision', 'finalize-request', 'edit-item', 'add-master', 'add-temporary', 'add-final-file'].includes(name)) { toast(contractNotice, true); return; }
     if (name === 'retry-bootstrap') return bootstrap();
     if (name === 'search-catalog') return searchCatalog();
     if (name === 'close-dialog') return closeDialog();
@@ -515,7 +565,7 @@
       const e = state.editor; if (e.record.initialSnapshot) throw new Error('Item yang sudah direview dipertahankan dalam riwayat. Input keputusan ditolak/ditunda.');
       const item = e.record.items.find(row => row.id === id); e.record.items = e.record.items.filter(row => row.id !== id); e.pendingHistory.push(audit('REMOVE_DRAFT_ITEM', 'Admin', '', [{ itemId: id, field: 'item', before: clone(item), after: null }])); e.dirty = true; return renderEditor();
     }
-    if (name === 'save-request') { try { return storeEditor('SAVE'); } catch (error) { editorError(error.message); return; } }
+    if (name === 'save-request') { try { return preview ? storeEditor('SAVE') : await saveLiveDraft(); } catch (error) { editorError(error.message); return; } }
     if (name === 'submit-request') {
       const e = state.editor; validateRequest(e.record);
       return dialog('Ajukan permintaan untuk review', '<p>Salinan awal akan dibekukan. Item berikutnya tetap dapat ditambahkan melalui input hasil review dengan riwayat perubahannya.</p><p>Keputusan tiap pihak mulai dari belum diinput.</p>', () => {
@@ -564,7 +614,7 @@
         state.catalog[target.dataset.catalog] = target.value; state.catalog.requestId = ++sequence;
         clearTimeout(timer); timer = setTimeout(searchCatalog, 250);
       }
-      if (target.dataset.requestField && state.editor) { state.editor.record[target.dataset.requestField] = target.value; state.editor.dirty = true; }
+      if (target.dataset.requestField && state.editor && !state.editor.busy) { state.editor.record[target.dataset.requestField] = target.value; state.editor.dirty = true; }
       if (target.dataset.reviewMeta && state.editor) state.editor[target.dataset.reviewMeta] = target.value;
       if (target.id === 'utpApprovalSearch') { state.approvalQuery = target.value; filterCards('APPROVALS', target.id); }
       if (target.id === 'utpRequestSearch') { state.requestQuery = target.value; filterCards('REQUESTS', target.id); }

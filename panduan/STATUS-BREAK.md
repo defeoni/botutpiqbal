@@ -1,6 +1,6 @@
 # Kelanjutan device baru — 18 Oktober 2026
 
-Aturan kerja terbaru: baca PETA-KERJA.md. Burst belum aktif. Batas saat burst maksimal 3 penulis termasuk Codex bila mengedit; menggantikan batas historis 2 penulis. Fokus saat ini perencanaan alur kecil end-to-end, belum implementasi backend baru.
+Aturan kerja terbaru: baca PETA-KERJA.md. Burst AKTIF atas permintaan pengguna. Maksimal 3 penulis termasuk Codex bila mengedit; menggantikan batas historis 2 penulis. Kontrak tahap draf ada di KONTRAK-DRAF-MATERIAL.md. Tiga subagen internal mengerjakan domain, adapter, frontend; integrator tidak mengedit file mereka selama aktif.
 
 Pengguna meminta lanjut. Bagian historis checkpoint 17 Oktober di bawah dipertahankan; status break lama tidak membatalkan izin lanjut pada sesi ini.
 
@@ -45,9 +45,23 @@ Qwen dihentikan pada tugas ini setelah berulang kali tidak mengirim diff dan dia
 - Tes persamaan server/preview mencakup 13 kombinasi klasifikasi/merek, itemCodes, kode 004, keputusan baru dan id basi. Fixture tes lock menegaskan perubahan klasifikasi UNKNOWN -> BRANDED saat merek dikonfirmasi.
 - Seluruh 65 tes kode lokal lulus. Build 17 file dan preview berhasil. Tes browser 19/19 lulus; git diff --check lulus. Google runtime belum diuji; belum deploy.
 
+## Burst draf Material v1 — hasil integrasi
+
+Burst diminta pengguna; tiga penulis internal Codex dipakai dengan batas domain, penyimpanan dan frontend. Integrator hanya kontrak/build saat penulis aktif, lalu mengambil alih review/perbaikan setelah mereka selesai. Tidak ada pesan yang dikirim ke AI eksternal.
+
+- Kontrak minimum di KONTRAK-DRAF-MATERIAL.md. Endpoint saveMaterialDraft mempertahankan field per item untuk draf saja; normalisasi tidak meminta approval aktif untuk menyimpan draf UNKNOWN.
+- Capability bootstrap materialDrafts mengikuti Script Property UTP_MATERIAL_DRAFTS_ENABLED, default false. Property tidak diaktifkan. Server auth/lock/version tetap berlaku. ID lokal stabil membuat retry tidak menggandakan dokumen; versi stale mengembalikan konflik.
+- Frontend memakai endpoint khusus jika capability aktif; legacy/nonDRAFT tetap hanya baca. Submit/review/revisi/unggah/final live belum aktif. Error mempertahankan isian; audit yang gagal setelah primary tersimpan ditampilkan sebagai warning, bukan dianggap batal.
+- Endpoint lama save/requestTransition/publishRevision menolak record kontrak v1 agar tidak menghapus field atau melewati alur belum didukung.
+- Review integrator menemukan dan memperbaiki dua celah: konflik penghapusan/penambahan item kini memakai pilihan keberadaan item yang eksplisit; respons simpan setelah navigasi tidak lagi mengganti halaman aktif.
+- Seluruh 89 tes kode lokal lulus. Build 17 file + preview berhasil. Pemeriksaan frontend browser 19/19 dan integrasi browser -> adapter/domain nyata -> layanan Google tiruan 4/4 lulus (simpan, reload, dua sesi, merge/simpan ulang). Ini BUKAN verifikasi Google runtime.
+- Device belum memiliki kredensial clasp pada lokasi standar; tidak ada push Apps Script atau deployment. Backup Git terpisah dari deployment.
+
+Titik lanjut: tahap review/revisi per item di backend, lalu bukti HO/final. Uji runtime Google pada lingkungan uji sebelum capability draf produksi diaktifkan. Jangan menganggap kontrak draf sudah mencakup seluruh workflow.
+
 ## Berikutnya
 
-- Tanggal kalender/WIB dan kecocokan klasifikasi hasil search sudah diverifikasi lokal. Berikutnya merancang kontrak backend per item lengkap sebelum mengaktifkan mutasi produksi.
+- Kontrak draf per item sudah terimplementasi dan diuji lokal; berikutnya review/revisi per item. Aktivasi Google belum dilakukan.
 - Lengkapi pemeriksaan alur revisi, bukti HO multi-item, finalisasi parsial, dan kegagalan/conflict saat submit/finalisasi. 19 pemeriksaan di atas belum membuktikan seluruh frontend selesai.
 - Kontrak backend per item/live tetap tugas terpisah; jangan aktifkan mutasi produksi dengan kontrak lama.
 

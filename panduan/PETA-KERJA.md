@@ -1,6 +1,6 @@
 # Peta kerja BOT UTP IQBAL
 
-Keputusan pengguna 18 Oktober 2026: burst BELUM aktif. Maksimal 3 penulis saat burst diminta; Codex termasuk penulis jika ikut mengedit. Ini menggantikan batas lama 2 penulis. Agen analisis/review tidak dihitung penulis selama tidak mengedit.
+Keputusan pengguna 18 Oktober 2026: burst AKTIF atas permintaan "gas mode burst sekarang". Maksimal 3 penulis saat burst diminta; Codex termasuk penulis jika ikut mengedit. Ini menggantikan batas lama 2 penulis. Agen analisis/review tidak dihitung penulis selama tidak mengedit.
 
 ## Prinsip
 
@@ -22,9 +22,9 @@ Pada tahap 2–4: mulai lokal/mock, kemudian verifikasi integrasi Google pada li
 
 ## Pembagian agen
 
-Normal, sekarang: Codex memegang kontrak/integrasi; paling banyak satu tugas eksternal aktif yang hasilnya diperlukan. Analisis independen boleh diberikan ke Google AI Studio lewat pengguna. Tidak ada burst atau pengiriman ke agen eksternal otomatis.
+Mode normal (saat burst tidak aktif): Codex memegang kontrak/integrasi; paling banyak satu tugas eksternal aktif yang hasilnya diperlukan. Analisis independen boleh diberikan ke Google AI Studio lewat pengguna. Tidak ada burst atau pengiriman ke agen eksternal otomatis.
 
-Jika burst diaktifkan, sesudah kontrak minimum stabil:
+Saat burst aktif, sesudah kontrak minimum stabil:
 
 | Penulis | Batas kerja | Ketergantungan |
 |---|---|---|

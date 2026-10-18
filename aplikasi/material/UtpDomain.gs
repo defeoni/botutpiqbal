@@ -111,6 +111,50 @@ function utpRequestItems_(items, context) {
     return item;
   });
 }
+function utpValidateMaterialDraft_(source, existing, context) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data draf tidak valid.');
+  if (existing && (existing.itemContractVersion !== 1 || existing.status !== 'DRAFT' || existing.initialSnapshot != null)) throw new Error('Hanya draf kontrak item v1 yang dapat diperbarui.');
+  if (source.itemContractVersion !== 1 || source.status !== 'DRAFT' || source.initialSnapshot != null || source.revision !== 1 || source.arrived !== false) throw new Error('Alur draf Material tidak valid.');
+  if (!Array.isArray(source.revisions) || source.revisions.length || !Array.isArray(source.files) || source.files.length) throw new Error('Draf belum boleh memiliki revisi atau bukti final.');
+  var record = { itemContractVersion: 1, status: 'DRAFT', initialSnapshot: null, revision: 1, revisions: [], files: [], arrived: false };
+  record.title = utpText_(source.title, 'Judul permintaan', 300, true);
+  record.number = utpText_(source.number, 'Nomor permintaan', 160, false);
+  record.date = utpDate_(source.date, 'Tanggal permintaan', true);
+  record.note = utpText_(source.note, 'Catatan', 5000, false);
+  var seen = Object.create(null);
+  record.items = utpArray_(source.items, 'Item permintaan', 150).map(function (input, index) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Data item tidak valid.');
+    var item = {};
+    ['id', 'code', 'name', 'brand', 'model', 'unit', 'group', 'family'].forEach(function (key) {
+      item[key] = utpText_(input[key], 'Item ' + (index + 1) + ': ' + key, key === 'name' ? 500 : 160, ['id', 'name', 'unit'].indexOf(key) >= 0);
+    });
+    if (seen[item.id]) throw new Error('ID item permintaan duplikat.');
+    seen[item.id] = true;
+    item.quantity = utpNumber_(input.quantity, 'Jumlah item', 0, false);
+    item.classification = utpEnum_(input.classification, ['BRANDED', 'GENERIC', 'UNKNOWN', 'OWNER', 'OTHER'], 'Klasifikasi item');
+    if (item.classification === 'BRANDED' && !item.brand || item.classification === 'GENERIC' && item.brand) throw new Error('Merek tidak sesuai klasifikasi item.');
+    if (typeof input.isTemporary !== 'boolean') throw new Error('Penanda item sementara tidak valid.');
+    item.isTemporary = input.isTemporary;
+    item.requiredAuthority = utpText_(input.requiredAuthority, 'Jalur persetujuan', 40, false).toUpperCase();
+    if (item.classification === 'OWNER' || item.classification === 'OTHER') {
+      if (item.requiredAuthority) throw new Error('By Owner/Other tidak memerlukan jalur persetujuan.');
+    } else if (['PM', 'MK', 'HO'].indexOf(item.requiredAuthority) < 0) throw new Error('Jalur persetujuan wajib PM/MK/HO.');
+    if (input.finalFileId !== '' || input.supplyConfirmed !== false || input.status != null && input.status !== 'PENDING') throw new Error('Draf belum boleh memiliki hasil final atau kedatangan.');
+    if (!input.decisions || typeof input.decisions !== 'object' || Array.isArray(input.decisions) || Object.keys(input.decisions).some(function (key) { return ['PM', 'MK', 'HO'].indexOf(key) < 0; })) throw new Error('Keputusan draf tidak valid.');
+    item.decisions = {};
+    ['PM', 'MK', 'HO'].forEach(function (authority) {
+      var decision = input.decisions[authority];
+      if (!decision || decision.status !== 'PENDING' || Object.keys(decision).some(function (key) { return key !== 'status' && decision[key] !== '' && decision[key] != null; })) throw new Error('Keputusan draf harus PENDING tanpa metadata review.');
+      item.decisions[authority] = { status: 'PENDING' };
+    });
+    item.exceptionReason = utpText_(input.exceptionReason, 'Alasan pengecualian', 2000, false);
+    item.note = utpText_(input.note, 'Catatan item', 2000, false);
+    item.finalFileId = ''; item.supplyConfirmed = false;
+    return item;
+  });
+  if (!record.items.length) throw new Error('Tambahkan minimal satu item.');
+  return record;
+}
 function utpValidateRecord_(entity, source, existing, context) {
   utpEntity_(entity);
   if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data rekaman tidak valid.');
@@ -376,4 +420,4 @@ function utpFinance_(funds, receipts) {
   return { funds: Math.round(total * 100) / 100, spent: Math.round(spent * 100) / 100, balance: Math.round((total - spent) * 100) / 100 };
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { project: UTP_PROJECT, validate: utpValidateRecord_, date: utpDate_, number: utpNumber_, approvalMatches: utpApprovalMatches_, requestItems: utpRequestItems_, itemChanges: utpItemChanges_, recordRequestSave: utpRecordRequestSave_, transition: utpTransitionRequest_, publishRevision: utpPublishRevision_, searchItems: utpSearchItems_, parseCsv: utpParseCsv_, previewImport: utpPreviewImport_, forecast: utpForecast_, finance: utpFinance_ };
+if (typeof module !== 'undefined' && module.exports) module.exports = { project: UTP_PROJECT, validateMaterialDraft: utpValidateMaterialDraft_, validate: utpValidateRecord_, date: utpDate_, number: utpNumber_, approvalMatches: utpApprovalMatches_, requestItems: utpRequestItems_, itemChanges: utpItemChanges_, recordRequestSave: utpRecordRequestSave_, transition: utpTransitionRequest_, publishRevision: utpPublishRevision_, searchItems: utpSearchItems_, parseCsv: utpParseCsv_, previewImport: utpPreviewImport_, forecast: utpForecast_, finance: utpFinance_ };

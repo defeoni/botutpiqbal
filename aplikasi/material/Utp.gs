@@ -82,8 +82,9 @@ function utpFilesFolder_() {
   props.setProperty('UTP_FILES_FOLDER_PRIVATE', 'true');
   return folder;
 }
+function utpMaterialDraftsEnabled_() { return PropertiesService.getScriptProperties().getProperty('UTP_MATERIAL_DRAFTS_ENABLED') === 'true'; }
 function utpBootstrap_() {
-  var out={project:UTP_PROJECT, settings:utpGet_('config','settings')||{},dataInitialized:!!utpDb_(false)};
+  var out={project:UTP_PROJECT, settings:utpGet_('config','settings')||{},dataInitialized:!!utpDb_(false),capabilities:{materialDrafts:utpMaterialDraftsEnabled_()}};
   UTP_ENTITIES.forEach(function(e){out[e]=utpRead_(e);});
   var sheet=utpSheet_('master',false); out.masterCount=sheet?Math.max(0,sheet.getLastRow()-1):0;
   out.forecasts=utpForecast_(out.purchases);out.finance=utpFinance_(out.funds,out.receipts);return out;
@@ -100,8 +101,29 @@ function apiUtp(action, payload, token) {
 }
 function utpMutate_(action,p,ctx) {
   var r,old,entity;
+  if(action==='saveMaterialDraft') {
+    if(!utpMaterialDraftsEnabled_())throw new Error('Penyimpanan draf Material belum diaktifkan.');
+    var source=p.record;
+    if(!source || typeof source!=='object' || Array.isArray(source))throw new Error('Draf Material tidak valid.');
+    if(typeof source.id!=='string' || source.id.length>160 || !/^local-[a-z0-9][a-z0-9-]*$/i.test(source.id))throw new Error('ID draf lokal harus valid dan stabil.');
+    if(!Number.isInteger(source.version) || source.version<0)throw new Error('Versi draf tidak valid.');
+    old=utpGet_('requests',source.id);
+    if(old && (old.archived || old.itemContractVersion!==1 || old.status!=='DRAFT' || old.initialSnapshot))throw new Error('Hanya draf Material per item aktif yang dapat diubah.');
+    if(old && old.version!==source.version)return {conflict:true,record:old};
+    if(!old && source.version!==0)throw new Error('Draf tidak ditemukan. Data tidak dibuat ulang.');
+    r=utpValidateMaterialDraft_(source,old,ctx);r.id=source.id;
+    r=utpRecordRequestSave_(r,old,ctx.now,p.actor||'Admin');
+    try {return {record:utpWrite_('requests',r,source.version),warnings:[]};}
+    catch(error) {
+      if(!error.recordSaved)throw error;
+      var saved=utpGet_('requests',source.id);
+      if(!saved)throw error;
+      return {record:saved,warnings:[error.message],recordSaved:true};
+    }
+  }
   if(action==='save') {
     entity=utpEntity_(p.entity);old=p.record.id?utpRequireRecord_(entity,p.record):null;
+    if(entity==='requests' && (old && old.itemContractVersion===1 || p.record.itemContractVersion===1))throw new Error('Draf Material per item harus memakai penyimpanan khusus.');
     if(utpProtected_(entity,old))requireDeletePin_(p.pin);
     r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();
     if(entity==='receipts' && r.status==='CONFIRMED') {
@@ -123,6 +145,7 @@ function utpMutate_(action,p,ctx) {
   }
   if(action==='requestTransition'||action==='publishRevision') {
     r=utpRequireRecord_('requests',p);if(utpProtected_('requests',r))requireDeletePin_(p.pin);
+    if(r.itemContractVersion===1)throw new Error('Workflow Material per item belum diaktifkan.');
     ctx.actor=p.actor||'Admin';ctx.note=p.note;
     if(action==='publishRevision')r=utpPublishRevision_(r,ctx);
     else {ctx.validFinalEvidence=!!utpFinalEvidence_(r.finalFileId);r=utpTransitionRequest_(r,p.status,ctx);}
