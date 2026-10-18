@@ -27,14 +27,20 @@
   <details id="mainMenu" class="app-menu" open>
     <summary>Menu navigasi</summary>
     <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
-      <button type="button" class="tab main-nav-button active" data-main="HOME">Beranda</button>
-      <button type="button" class="tab main-nav-button" data-main="CATALOG">Katalog Material</button>
-      <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
-      <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
-      <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
-      <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
-      <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
-      <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
+      <section class="sidebar-menu-group" aria-labelledby="menuProject">
+        <h2 id="menuProject">Administrasi Proyek</h2>
+        <button type="button" class="tab main-nav-button active" data-main="HOME">Beranda</button>
+        <button type="button" class="tab main-nav-button" data-main="CATALOG">Katalog Material</button>
+        <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
+        <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
+        <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
+      </section>
+      <section class="sidebar-menu-group" aria-labelledby="menuHo">
+        <h2 id="menuHo">Administrasi HO</h2>
+        <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
+        <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
+        <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
+      </section>
     </nav>
   </details>
   <div class="sidebar-group">
