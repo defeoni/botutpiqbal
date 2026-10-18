@@ -33,7 +33,7 @@ test('approval matches material, exact normalized brand and model, and active st
 test('generic approval has no brand and does not silently approve branded material', () => {
   const generic = domain.validate('approvals', { material: 'Pasir', brand: 'Old Brand', generic: true, status: 'APPROVED' });
   assert.equal(generic.brand, '');
-  assert.equal(domain.approvalMatches(item({ name: 'Pasir', brand: '', model: '' }), generic), true);
+  assert.equal(domain.approvalMatches(item({ name: 'Pasir', brand: '', model: '', classification: 'GENERIC' }), generic), true);
   assert.equal(domain.approvalMatches(item({ name: 'Pasir', brand: 'Brand', model: '' }), generic), false);
   assert.throws(() => domain.validate('approvals', { material: 'Pipa', brand: '', status: 'approved' }), /Merek/);
 });

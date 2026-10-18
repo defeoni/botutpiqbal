@@ -13,7 +13,7 @@ function fixture() {
   };
   const context={window:{UTP_FRONTEND_PREVIEW:true},document:{readyState:'loading',addEventListener(){},getElementById:get},Intl,Date,crypto:undefined,setTimeout(){},clearTimeout(){}};
   vm.createContext(context);
-  vm.runInContext(script.replace('  window.UTPFrontend =', '  window.__flow = {seed, newItem, ready, action, storeEditor, publishRevision, showConflict, get state(){return state;}, submit(form){return modal.onSubmit(form);} };\n  window.UTPFrontend ='),context);
+  vm.runInContext(script.replace('  window.UTPFrontend =', '  window.__flow = {seed, newItem, matches, previewSearch, ready, action, storeEditor, publishRevision, showConflict, get state(){return state;}, submit(form){return modal.onSubmit(form);} };\n  window.UTPFrontend ='),context);
   const api=context.window.__flow;
   api.state.data=api.seed(); api.state.page='REQUESTS';
   const r=JSON.parse(JSON.stringify(api.state.data.requests[0]));
@@ -117,7 +117,61 @@ test('revision conflict preserves entered party/reason for retry',()=>{
 test('blank/null brand stays UNKNOWN and pending even if source claims approval',()=>{
   const {api}=fixture();
   for(const brand of ['',null]) {
-    const item=api.newItem({code:'blank',name:'Material',unit:'unit',brand,approved:true,classification:'GENERIC'});
+    const item=api.newItem({code:'blank',name:'Material',unit:'unit',brand,approved:true,classification:'UNKNOWN'});
     assert.equal(item.classification,'UNKNOWN');assert.equal(item.decisions.PM.status,'PENDING');
   }
+});
+
+test('server and preview share explicit classification rules, including whitespace brands',()=>{
+  const domain=require('../aplikasi/material/UtpDomain.gs'),{api}=fixture();
+  const generic={id:'generic',material:'Material',generic:true,status:'APPROVED',authority:'PM',brand:'',types:[]};
+  const branded={...generic,id:'branded',generic:false,brand:'X'};
+  const cases=[
+    [{brand:''},false,false], [{brand:null},false,false], [{brand:' '},false,false],
+    [{brand:'X'},false,true], [{brand:'X',classification:'UNKNOWN'},false,false],
+    [{brand:'',classification:'GENERIC'},true,false], [{brand:' ',classification:'GENERIC'},true,false],
+    [{brand:'X',classification:'GENERIC'},false,false], [{brand:'',brandStatus:'GENERIC'},true,false],
+    [{brand:'',classification:'UNKNOWN',brandStatus:'GENERIC'},false,false],
+    [{brand:'X',classification:'OWNER'},false,false], [{brand:'X',classification:'OTHER'},false,false],
+    [{brand:'X',classification:'INVALID'},false,false]
+  ];
+  api.state.data.approvals=[generic,branded];
+  api.state.data.catalog=cases.map(([fields],i)=>({code:String(i),name:'Material',unit:'unit',...fields}));
+  for(let i=0;i<cases.length;i++) {
+    const item=api.state.data.catalog[i],expected=cases[i].slice(1);
+    for(const [n,approval] of [generic,branded].entries()) {
+      assert.equal(domain.approvalMatches(item,approval),expected[n],JSON.stringify(item));
+      assert.equal(api.matches(item,approval),expected[n],JSON.stringify(item));
+      assert.equal(domain.approvalMatches(item,{...approval,itemCodes:[item.code]}),expected[n]);
+    }
+  }
+  const server=domain.searchItems(api.state.data.catalog,{limit:50},api.state.data.approvals);
+  const preview=api.previewSearch({limit:50});
+  const flags=result=>Array.from(result.items,row=>[row.code,row.approved,row.approvalId]);
+  assert.deepEqual(flags(preview),flags(server));
+});
+test('code 004 does not imply generic confirmation and explicit generic works with any code',()=>{
+  const {api}=fixture();
+  api.state.data.approvals=[{id:'g',material:'Pasir',generic:true,status:'APPROVED',authority:'PM',types:[]}];
+  api.state.data.catalog=[{code:'004',name:'Pasir',brand:''},{code:'different',name:'Pasir',brand:'',classification:'GENERIC'}];
+  const result=api.previewSearch({});
+  assert.equal(result.items.find(row=>row.code==='004').approved,false);
+  assert.equal(result.items.find(row=>row.code==='different').approved,true);
+});
+test('new items trim brand and never inherit approval decisions from search',()=>{
+  const {api}=fixture();
+  const blank=api.newItem({brand:' ',approved:true,approvalId:'stale'});
+  assert.equal(blank.brand,'');assert.equal(blank.classification,'UNKNOWN');assert.equal(blank.approvalId,undefined);
+  const generic=api.newItem({brand:'',classification:'GENERIC',decisions:{PM:{status:'APPROVED'}}});
+  assert.equal(generic.classification,'GENERIC');assert.equal(generic.decisions.PM.status,'PENDING');
+});
+test('request normalization retains explicit generic and removes stale approval identifiers',()=>{
+  const domain=require('../aplikasi/material/UtpDomain.gs');
+  const base={id:'a',code:'a',name:'Pasir',brand:'',unit:'m3',quantity:1,classification:'GENERIC'};
+  const approval={id:'g',material:'Pasir',generic:true,status:'APPROVED',authority:'PM',types:[]};
+  const good=domain.requestItems([base],{approvals:[approval]})[0];
+  assert.equal(good.classification,'GENERIC');assert.equal(good.approvalId,'g');
+  const unmatched=domain.requestItems([{...base,classification:'UNKNOWN',approvalId:'DEAD',exceptionReason:'Perlu pemeriksaan'}],{approvals:[approval]})[0];
+  assert.equal(unmatched.approvalId,'');assert.equal(unmatched.approvalAuthority,'');
+  assert.match(unmatched.approvalWarning,/Belum sesuai/);
 });

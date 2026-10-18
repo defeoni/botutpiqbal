@@ -2048,6 +2048,7 @@ document.addEventListener('change', (event) => {
       ['007', 'Keramik lantai', 'ROMAN', '60 × 60 cm', 'dus', 'Arsitektur'], ['008', 'Pompa transfer', 'GRUNDFOS', 'CM 3', 'unit', 'Mekanikal'],
       ['009', 'Cat dinding', 'DULUX', 'Interior', 'pail', 'Arsitektur'], ['010', 'Sealant sambungan', '', '', 'tube', 'Arsitektur']
     ].map((row, i) => ({ code: row[0], name: row[1], brand: row[2], model: row[3], unit: row[4], group: row[5], family: row[5], favorite: [0, 2, 4].includes(i), brandStatus: row[2] ? 'CONFIRMED' : 'UNKNOWN' }));
+    catalog[3].classification = 'GENERIC'; // Explicit demo confirmation, independent of item code.
     const approvals = [
       { id: 'app-pipe', material: 'Pipa air PVC', brand: 'RUCIKA', types: ['AW 1 inch'], itemCodes: ['001'], generic: false, authority: 'MK', status: 'APPROVED', version: 1, note: 'Ilustrasi approval sesuai merek dan tipe.' },
       { id: 'app-sand', material: 'Pasir pasang', brand: '', types: [], itemCodes: ['004'], generic: true, authority: 'PM', status: 'APPROVED', version: 1, note: 'Ilustrasi persetujuan generik terkonfirmasi.' },
@@ -2064,9 +2065,9 @@ document.addEventListener('change', (event) => {
     return { project: { name: 'Terrasentra Bandung', pm: 'Juhana', code: 'TRSM-51D26-D-M' }, catalog, approvals, requests: [req], documents: [], masterCount: catalog.length };
   }
   function newItem(source) {
-    const s = source || {};
-    return { id: uid(), code: String(s.code || ''), name: s.name || '', brand: s.brand || '', model: s.model || '', unit: s.unit || '', quantity: 1,
-      group: s.group || '', family: s.family || '', classification: s.brand ? 'BRANDED' : 'UNKNOWN', isTemporary: !s.code,
+    const s = source || {}, brand = String(s.brand == null ? '' : s.brand).trim();
+    return { id: uid(), code: String(s.code || ''), name: s.name || '', brand, model: s.model || '', unit: s.unit || '', quantity: 1,
+      group: s.group || '', family: s.family || '', classification: itemClassification(Object.assign({}, s, { brand })), isTemporary: !s.code,
       requiredAuthority: 'PM', decisions: { PM: { status: 'PENDING' }, MK: { status: 'PENDING' }, HO: { status: 'PENDING' } }, exceptionReason: '', note: '', finalFileId: '', supplyConfirmed: false };
   }
   function snapshot(record) {
@@ -2074,12 +2075,22 @@ document.addEventListener('change', (event) => {
   }
   function freeze(value) { if (value && typeof value === 'object') { Object.freeze(value); Object.keys(value).forEach(key => freeze(value[key])); } return value; }
   function owner(item) { return ['OWNER', 'OTHER'].includes(item.classification); }
+  function itemClassification(item) {
+    if (item.status === 'OWNER') return 'OWNER';
+    const explicit = String(item.classification || '').trim().toUpperCase();
+    if (explicit) return Object.prototype.hasOwnProperty.call(classes, explicit) ? explicit : 'UNKNOWN';
+    const brandStatus = String(item.brandStatus || '').trim().toUpperCase();
+    if (brandStatus === 'GENERIC' || brandStatus === 'UNKNOWN') return brandStatus;
+    return norm(item.brand) ? 'BRANDED' : 'UNKNOWN';
+  }
   function matches(item, approval) {
     if (owner(item) || !approval || approval.archived || approval.status !== 'APPROVED') return false;
+    const classification = itemClassification(item);
+    if (!['BRANDED', 'GENERIC'].includes(classification)) return false;
+    if (classification === 'GENERIC' ? !approval.generic || !!norm(item.brand) : approval.generic || !norm(item.brand)) return false;
     const codes = approval.itemCodes || [];
     if (codes.length ? !codes.includes(String(item.code || '')) : !norm(approval.material).split(' ').filter(Boolean).every(word => norm([item.name, item.group, item.family].join(' ')).includes(word))) return false;
-    if (item.classification === 'UNKNOWN') return false;
-    if (item.classification === 'GENERIC' ? !approval.generic : approval.generic || !String(approval.brand || '').split(/[,;\n]/).some(brand => norm(brand) === norm(item.brand))) return false;
+    if (classification === 'GENERIC' ? !approval.generic : approval.generic || !String(approval.brand || '').split(/[,;\n]/).some(brand => norm(brand) === norm(item.brand))) return false;
     return !(approval.types || []).length || approval.types.some(type => norm(type) === norm(item.model));
   }
   function approvalFor(item) { return (state.data.approvals || []).find(approval => matches(item, approval)); }
@@ -2127,13 +2138,12 @@ document.addEventListener('change', (event) => {
     if (c.loading) { box.innerHTML = '<div class="utp-empty" role="status">Mencari material…</div>'; return; }
     if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
     if (!c.items.length) { box.innerHTML = empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.'); return; }
-    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview) + '</div></td></tr>').join('') + '</tbody></table></div>';
+    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview) + '</div></td></tr>').join('') + '</tbody></table></div>';
   }
   function previewSearch(filters) {
     const terms = norm(filters.query).split(' ').filter(Boolean);
     const items = state.data.catalog.filter(item => (!filters.favoriteOnly || item.favorite) && (!filters.brand || norm(item.brand) === norm(filters.brand)) && (!filters.group || norm(item.group) === norm(filters.group)) && terms.every(term => norm([item.code, item.name, item.brand, item.model, item.group, item.family].join(' ')).includes(term))).map(item => {
-      const candidate = Object.assign({}, item, { classification: item.code === '004' ? 'GENERIC' : item.brand ? 'BRANDED' : 'UNKNOWN' });
-      const approval = approvalFor(candidate);
+      const approval = approvalFor(item);
       return Object.assign({}, item, { approved: !!approval, approvalId: approval ? approval.id : '', approvalAuthority: approval ? approval.authority : '' });
     }).filter(item => !filters.approvedOnly || item.approved);
     items.sort((a, b) => Number(b.approved) - Number(a.approved) || Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name, 'id') || a.code.localeCompare(b.code));
@@ -2434,7 +2444,7 @@ document.addEventListener('change', (event) => {
   }
   function catalogDetail(code) {
     const item = state.catalog.items.find(row => row.code === code);
-    dialog('Detail identitas material', '<h3>' + esc(item.name) + '</h3><p>Kode: <strong>' + esc(item.code) + '</strong></p><p>Merek: ' + esc(item.brand || 'Belum diketahui') + '</p><p>Tipe: ' + esc(item.model || '—') + '</p><p>Kelompok: ' + esc(item.group || '—') + ' · satuan: ' + esc(item.unit || '—') + '</p><p class="utp-muted">Identitas master bukan saldo stok. Nama/merek kosong tidak membuktikan material generik.</p>' + badge(item.approved ? 'Approval aktif ' + item.approvalAuthority : 'Belum sesuai approval aktif'), null);
+    dialog('Detail identitas material', '<h3>' + esc(item.name) + '</h3><p>Kode: <strong>' + esc(item.code) + '</strong></p><p>Merek: ' + esc(item.brand || 'Belum diketahui') + '</p><p>Tipe: ' + esc(item.model || '—') + '</p><p>Kelompok: ' + esc(item.group || '—') + ' · satuan: ' + esc(item.unit || '—') + '</p><p class="utp-muted">Identitas master bukan saldo stok. Nama/merek kosong tidak membuktikan material generik. Kecocokan approval bukan keputusan review atau kelayakan final.</p>' + badge(item.approved ? 'Cocok approval ' + item.approvalAuthority : 'Belum sesuai approval aktif'), null);
   }
   async function action(name, target) {
     const id = target.dataset.id, code = target.dataset.code;

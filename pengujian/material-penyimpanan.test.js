@@ -107,7 +107,7 @@ test('mutation validation reads approval context after acquiring the lock', () =
     approvals.appendRow(['ID', 'Version', 'Data JSON', 'Updated']);
     approvals.appendRow(['approval-1', 1, JSON.stringify({ id: 'approval-1', material: 'Pasir', brand: 'Rucika', status: 'APPROVED', authority: 'PM', types: [], itemCodes: [] }), 'now']);
   };
-  const updated = env.call('save', { entity: 'requests', record: { ...created, items: [{ ...created.items[0], brand: 'Rucika', status: 'PENDING' }] } }).record;
+  const updated = env.call('save', { entity: 'requests', record: { ...created, items: [{ ...created.items[0], brand: 'Rucika', classification: 'BRANDED', status: 'PENDING' }] } }).record;
   assert.equal(updated.items[0].approvalId, 'approval-1');
 });
 

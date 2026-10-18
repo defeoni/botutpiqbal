@@ -32,9 +32,20 @@ Delapan skenario Google AI Studio dijadikan pengujian kode frontend nyata melalu
 
 Tugas eksternal berikutnya: Qwen Coder meninjau kontrak searchItems dan klasifikasi merek kosong, read-only dahulu. Berikan file aktual dari Windows; jangan mengandalkan checkout /workspace lama atau mengizinkan akses GitHub.
 
+## Kecocokan approval — penyelesaian oleh Codex
+
+Qwen dihentikan pada tugas ini setelah berulang kali tidak mengirim diff dan diagnosis berubah. Codex mengambil alih sumber Windows; tidak memakai klaim 62/63 sebagai bukti. Tidak ada bug trim lintas-realm: tes vm dengan brand whitespace berjalan normal.
+
+- Server/preview kini memakai klasifikasi eksplisit yang sama: UNKNOWN/OWNER/OTHER tidak cocok approval, GENERIC membutuhkan konfirmasi dan merek kosong, BRANDED memerlukan merek dan approval bermerek cocok. itemCodes tidak mengonfirmasi generik.
+- Heuristik kode 004 dihapus. Pasir demo diberi klasifikasi GENERIC eksplisit; item baru tetap keputusan PENDING. Brand whitespace ditrim.
+- Normalisasi request mempertahankan classification agar pencocokan tidak kehilangan informasi; approvalId yang tidak cocok dikosongkan. Kontrak backend per item lengkap tetap belum selesai.
+- Label katalog/detail menjadi Cocok approval, dengan penjelasan bukan keputusan review atau kelayakan final.
+- Tes persamaan server/preview mencakup 13 kombinasi klasifikasi/merek, itemCodes, kode 004, keputusan baru dan id basi. Fixture tes lock menegaskan perubahan klasifikasi UNKNOWN -> BRANDED saat merek dikonfirmasi.
+- Seluruh 65 tes kode lokal lulus. Build 17 file dan preview berhasil. Tes browser 19/19 lulus; git diff --check lulus. Google runtime belum diuji; belum deploy.
+
 ## Berikutnya
 
-- Tanggal kalender/WIB sudah diverifikasi lokal; berikutnya klasifikasi hasil search server bermerek kosong.
+- Tanggal kalender/WIB dan kecocokan klasifikasi hasil search sudah diverifikasi lokal. Berikutnya merancang kontrak backend per item lengkap sebelum mengaktifkan mutasi produksi.
 - Lengkapi pemeriksaan alur revisi, bukti HO multi-item, finalisasi parsial, dan kegagalan/conflict saat submit/finalisasi. 19 pemeriksaan di atas belum membuktikan seluruh frontend selesai.
 - Kontrak backend per item/live tetap tugas terpisah; jangan aktifkan mutasi produksi dengan kontrak lama.
 

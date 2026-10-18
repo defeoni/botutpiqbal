@@ -52,8 +52,19 @@ function utpFinanceCategory_(value) {
   if (/material/i.test(category)) throw new Error('Biaya material tidak masuk keuangan operasional. Gunakan pencatatan pembelian material.');
   return category;
 }
+function utpItemClassification_(item) {
+  if (item.status === 'OWNER') return 'OWNER';
+  var explicit = String(item.classification || '').trim().toUpperCase();
+  if (explicit) return ['BRANDED', 'GENERIC', 'UNKNOWN', 'OWNER', 'OTHER'].indexOf(explicit) >= 0 ? explicit : 'UNKNOWN';
+  var brandStatus = String(item.brandStatus || '').trim().toUpperCase();
+  if (brandStatus === 'GENERIC' || brandStatus === 'UNKNOWN') return brandStatus;
+  return utpNorm_(item.brand) ? 'BRANDED' : 'UNKNOWN';
+}
 function utpApprovalMatches_(item, approval) {
   if (!approval || approval.archived || approval.status !== 'APPROVED') return false;
+  var classification = utpItemClassification_(item);
+  if (classification !== 'BRANDED' && classification !== 'GENERIC') return false;
+  if (classification === 'GENERIC' ? !approval.generic || !!utpNorm_(item.brand) : approval.generic || !utpNorm_(item.brand)) return false;
   var codes = approval.itemCodes || [];
   if (codes.length && codes.indexOf(String(item.code || '')) < 0) return false;
   if (!codes.length) {
@@ -62,7 +73,7 @@ function utpApprovalMatches_(item, approval) {
     if (material && !material.split(' ').every(function (word) { return haystack.indexOf(word) >= 0; })) return false;
   }
   if (approval.generic && utpNorm_(item.brand)) return false;
-  if (!approval.generic && !String(approval.brand).split(/[,;\n]/).some(function(b){return utpNorm_(b)===utpNorm_(item.brand);})) return false;
+  if (!approval.generic && !String(approval.brand || '').split(/[,;\n]/).some(function(b){return utpNorm_(b)===utpNorm_(item.brand);})) return false;
   var types = approval.types || [];
   if (types.length && !types.some(function (type) { return utpNorm_(type) === utpNorm_(item.model); })) return false;
   return true;
@@ -88,8 +99,9 @@ function utpRequestItems_(items, context) {
     item.status = utpEnum_(source.status, UTP_ITEM_STATUSES, 'Status item', 'PENDING');
     item.note = utpText_(source.note, 'Catatan item', 2000, false);
     item.exceptionReason = utpText_(source.exceptionReason, 'Alasan pengecualian', 2000, false);
+    item.classification = utpItemClassification_(Object.assign({}, source, item));
     var approval = utpFindApproval_(item, context.approvals);
-    item.approvalId = approval ? approval.id : item.approvalId;
+    item.approvalId = approval ? approval.id : '';
     item.approvalAuthority = approval ? approval.authority : '';
     item.approvalWarning = '';
     if (!approval && item.status !== 'OWNER') {
