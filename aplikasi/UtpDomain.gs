@@ -173,7 +173,7 @@ function utpMaterialCommand_(operation, source, existing, context) {
     if (parties.indexOf(party)<0 || !reason) throw new Error('Pihak PM/MK/HO dan alasan instruksi wajib diisi.');
     var clean=utpClone_(source); clean.status='DRAFT';clean.itemContractVersion=1;clean.revision=1;clean.revisions=[];clean.files=[];clean.initialSnapshot=null;clean.arrived=false;
     clean.items=(clean.items||[]).map(function(item){item.decisions={PM:{status:'PENDING'},MK:{status:'PENDING'},HO:{status:'PENDING'}};item.finalFileId='';item.supplyConfirmed=false;delete item.status;return item;});
-    var normalized=utpValidateMaterialDraft_(clean,null,ctx), oldItems={};
+    var normalized=utpValidateMaterialDraft_(clean,null,ctx), oldItems=Object.create(null);
     existing.items.forEach(function(item){oldItems[item.id]=item;});
     if(existing.items.some(function(item){return !normalized.items.some(function(candidate){return candidate.id===item.id;});}))throw new Error('Item review tidak boleh dihapus; catat ditolak atau ditunda.');
     ['title','number','date','note'].forEach(function(key){if(next[key]!==normalized[key])changes.push({field:key,before:next[key],after:normalized[key]});next[key]=normalized[key];});

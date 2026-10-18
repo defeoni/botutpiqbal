@@ -70,27 +70,27 @@ test('failed initial submission restores draft and retains input before retry',a
   e.record.initialSnapshot=null;e.record.status='DRAFT';saveBaseline(api);e.failNext=true;
   const before=JSON.stringify(e.record);
   await api.action('submit-request',{dataset:{}});
-  assert.throws(()=>api.submit(form({})),/gagal simpan/);
+  await assert.rejects(()=>api.submit(form({})),/gagal simpan/);
   assert.equal(JSON.stringify(e.record),before);
   assert.equal(api.state.data.requests[0].status,'DRAFT');
-  api.submit(form({}));assert.equal(e.record.status,'REVIEW');assert.ok(e.record.initialSnapshot);
+  await api.submit(form({}));assert.equal(e.record.status,'REVIEW');assert.ok(e.record.initialSnapshot);
 });
 test('failed finalization keeps review status and file coverage',async()=>{
   const {api}=fixture(),e=api.state.editor;
   e.record.items=[approvedItem(api,'A')];e.record.files=[{id:'proof',coveredItemIds:['A']}];e.record.items[0].finalFileId='proof';saveBaseline(api);
   e.failNext=true;
   await api.action('finalize-request',{dataset:{}});
-  assert.throws(()=>api.submit(form({party:'HO',reason:'Final'})),/gagal simpan/);
+  await assert.rejects(()=>api.submit(form({party:'HO',reason:'Final'})),/gagal simpan/);
   assert.equal(e.record.status,'REVIEW');assert.equal(api.state.data.requests[0].status,'REVIEW');
   assert.equal(e.record.files[0].coveredItemIds[0],'A');
-  api.submit(form({party:'HO',reason:'Final'}));assert.equal(e.record.status,'FINAL');
+  await api.submit(form({party:'HO',reason:'Final'}));assert.equal(e.record.status,'FINAL');
 });
-test('revision failure preserves revision and retry publishes one independent snapshot',()=>{
+test('revision failure preserves revision and retry publishes one independent snapshot',async()=>{
   const {api}=fixture(),e=api.state.editor,initial=JSON.stringify(e.record.initialSnapshot);
   e.failNext=true;api.publishRevision();
-  assert.throws(()=>api.submit(form({party:'PM',reason:'Instruksi revisi'})),/gagal terbit/);
+  await assert.rejects(()=>api.submit(form({party:'PM',reason:'Instruksi revisi'})),/gagal terbit/);
   assert.equal(e.record.revision,1);assert.equal(e.record.revisions.length,0);
-  api.submit(form({party:'PM',reason:'Instruksi revisi'}));
+  await api.submit(form({party:'PM',reason:'Instruksi revisi'}));
   assert.equal(e.record.revision,2);assert.equal(e.record.revisions.length,1);
   assert.equal(JSON.stringify(e.record.initialSnapshot),initial);
   const snap=JSON.stringify(e.record.revisions[0].snapshot);e.record.items[0].name='Perubahan berikutnya';

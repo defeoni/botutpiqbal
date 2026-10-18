@@ -26,7 +26,7 @@ test('live capability defaults off and blocks draft mutations', async () => {
   const { api, calls } = fixture(false);
   await api.action('save-request', { dataset: {} });
   assert.equal(calls.length, 0);
-  await assert.rejects(api.saveLiveDraft(), /belum aktif/);
+  await assert.rejects(api.saveLiveDraft(), /dinonaktifkan/);
   api.state.data.capabilities = {};
   await api.action('new-request', { dataset: {} });
   assert.equal(api.state.editor.record.title, 'Draf asli');

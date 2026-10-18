@@ -12,6 +12,8 @@ assert.ok(prelude.length>1000,'Storage service fixture must exist');
 const environment=new Function('require','__dirname',prelude+'\nreturn environment;')(require,path.join(root,'pengujian'));
 (async()=>{
  const env=environment();
+ assert.equal(env.call('bootstrap').capabilities.materialDrafts,true);
+ env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED','false');
  assert.equal(env.call('bootstrap').capabilities.materialDrafts,false);
  env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED','true');
  const browser=await chromium.launch({headless:true,...(process.argv[3]?{executablePath:process.argv[3]}:{})});
@@ -52,8 +54,8 @@ const environment=new Function('require','__dirname',prelude+'\nreturn environme
   await a.waitForFunction(()=>UTPFrontend.getState().editor?.base?.version===1);
   assert.equal(await a.locator('#utpRequestFields [name=title]').inputValue(),record.title);
   assert.equal(await a.evaluate(()=>UTPFrontend.getState().editor.record.items[0].requiredAuthority),'HO');
-  assert.equal(await a.locator('[data-action=submit-request]').isDisabled(),true);
-  console.log('PASS reload and reopen preserve data; live submit remains disabled');
+  assert.equal(await a.locator('[data-action=submit-request]').isDisabled(),false);
+  console.log('PASS reload and reopen preserve data; live submit is available');
   const b=await newPage();await b.locator('[data-action=open-request][data-id="'+record.id+'"]').click();
   await b.waitForFunction(()=>UTPFrontend.getState().editor?.base?.version===1);
   await a.locator('#utpRequestFields [name=title]').fill('Versi sesi A');await a.locator('[data-action=save-request]').click();

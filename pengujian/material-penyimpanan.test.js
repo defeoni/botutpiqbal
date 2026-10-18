@@ -45,7 +45,7 @@ function environment() {
       createFolder() { const child = folder(uid(), this.access); state.folders.set(child.id, child); return child; },
       createFile(blob) {
         const fileId = uid();
-        const file = { id: fileId, folderId: id, access: this.access, trashed: false, getId: () => fileId, getUrl: () => `https://drive.google.com/file/d/${fileId}/view`, getBlob: () => blob, getMimeType: () => blob.mime, getName: () => blob.name, getSize: () => blob.bytes.length, getSharingAccess() { return this.access; }, setSharing(access) { this.access = access; return this; }, setTrashed(value) { this.trashed = value; return this; } };
+        const file = { id: fileId, folderId: id, access: this.access, trashed: false, getId: () => fileId, getUrl: () => `https://drive.google.com/file/d/${fileId}/view`, getBlob: () => blob, getMimeType: () => blob.mime, getName: () => blob.name, getSize: () => blob.bytes.length, getSharingAccess() { return this.access; }, setSharing(access) { this.access = access; return this; }, isTrashed() { return this.trashed; }, setTrashed(value) { this.trashed = value; return this; } };
         state.files.set(fileId, file); return file;
       }
     };
@@ -113,7 +113,8 @@ test('mutation validation reads approval context after acquiring the lock', () =
 
 test('approved decisions require PIN to edit and all archive operations preserve history', () => {
   const env = environment();
-  const created = env.call('save', { entity: 'approvals', record: { material: 'Pasir', generic: true, status: 'APPROVED', authority: 'PM' } }).record;
+  assert.throws(() => env.call('save', { entity: 'approvals', record: { material: 'Pasir', generic: true, status: 'APPROVED', authority: 'PM' } }), /PIN/);
+  const created = env.call('save', { entity: 'approvals', record: { material: 'Pasir', generic: true, status: 'APPROVED', authority: 'PM' }, pin: '123456' }).record;
   assert.throws(() => env.call('save', { entity: 'approvals', record: { ...created, note: 'Changed' } }), /PIN/);
   const archived = env.call('archive', { entity: 'approvals', id: created.id, version: created.version, pin: '123456' }).record;
   assert.equal(archived.archived, true);
@@ -269,9 +270,43 @@ const materialDraft = (overrides = {}) => ({
 });
 function enableMaterialDrafts(env) { env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED', 'true'); }
 
-test('material draft capability defaults off and server gate plus authentication prevent writes', () => {
+test('live material adapter enforces versions, PIN and actual HO file ownership through final and arrival', () => {
+  const env=environment();
+  env.call('save',{entity:'approvals',record:{material:'Pasir',generic:true,status:'APPROVED',authority:'HO',itemCodes:['0001']},pin:'123456'});
+  let record=env.call('saveMaterialDraft',{record:materialDraft()}).record;
+  const command=(operation,extra={})=>env.call('materialCommand',{id:record.id,version:record.version,operation,...extra});
+  record=command('SUBMIT').record;
+  const writes=env.state.writes.length;
+  assert.equal(env.call('materialCommand',{id:record.id,version:record.version-1,operation:'SUBMIT'}).conflict,true);
+  assert.equal(env.state.writes.length,writes);
+  for(const party of ['PM','MK','HO']){
+    const source=env.plain(record);source.items[0].decisions[party]={status:'APPROVED'};
+    record=command('SAVE',{record:source,party,reason:'Instruksi '+party}).record;
+  }
+  assert.throws(()=>command('FINALIZE',{party:'HO',reason:'Final',pin:'123456'}),/Belum ada/);
+  const wrong=env.call('upload',{name:'wrong.pdf',mime:'application/pdf',base64:Buffer.from('wrong').toString('base64'),kind:'MATERIAL_FINAL_HO',recordId:'another-request'});
+  assert.throws(()=>command('FINAL_FILE',{fileId:wrong.id,coveredItemIds:['item-a'],reason:'Bukti HO'}),/permintaan ini/);
+  const file=env.call('upload',{name:'HO.pdf',mime:'application/pdf',base64:Buffer.from('final proof').toString('base64'),kind:'MATERIAL_FINAL_HO',recordId:record.id});
+  record=command('FINAL_FILE',{fileId:file.id,coveredItemIds:['item-a'],reason:'Scan HO'}).record;
+  assert.equal(record.files[0].id,file.id);assert.equal(record.items[0].finalFileId,file.id);
+  assert.throws(()=>command('FINALIZE',{party:'HO',reason:'Final'}),/PIN/);
+  env.state.files.get(file.id).setTrashed(true);
+  assert.throws(()=>command('FINALIZE',{party:'HO',reason:'Final',pin:'123456'}),/tidak tersedia/);
+  env.state.files.get(file.id).setTrashed(false);
+  record=command('FINALIZE',{party:'HO',reason:'Final',pin:'123456'}).record;
+  assert.deepEqual(env.plain(record.finalItemIds),['item-a']);assert.equal(record.status,'FINAL');
+  assert.throws(()=>command('ARRIVAL',{confirmed:true,reason:'Gudang'}),/PIN/);
+  record=command('ARRIVAL',{confirmed:true,reason:'Gudang',pin:'123456'}).record;
+  assert.equal(record.arrived,true);assert.equal(record.items[0].quantity,2);assert.equal(env.state.locks,0);
+});
+
+test('material capability defaults on; explicit off gate and authentication prevent writes', () => {
   const env = environment();
+  assert.equal(env.call('bootstrap').capabilities.materialDrafts, true);
+  assert.equal(env.call('bootstrap').capabilities.materialWorkflow, true);
+  env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED', 'false');
   assert.equal(env.call('bootstrap').capabilities.materialDrafts, false);
+  assert.equal(env.call('bootstrap').capabilities.materialWorkflow, false);
   assert.throws(() => env.call('saveMaterialDraft', { record: materialDraft() }), /belum diaktifkan/);
   enableMaterialDrafts(env);
   assert.equal(env.call('bootstrap').capabilities.materialDrafts, true);

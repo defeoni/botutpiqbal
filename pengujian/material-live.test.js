@@ -7,6 +7,14 @@ const item = overrides => ({id:'i1',code:'001',name:'Pipa',brand:'Rucika',model:
 const draft = overrides => ({id:'local-one',version:1,itemContractVersion:1,title:'Pipa lantai 1',number:'',date:'2026-10-19',status:'DRAFT',revision:1,revisions:[],files:[],history:[],note:'',initialSnapshot:null,arrived:false,items:[item()],...overrides});
 const submit = record => domain.materialCommand('SUBMIT',null,record,ctx());
 const review = (record,party,status='APPROVED') => {const source=copy(record);source.items[0].decisions[party]={status,at:'forged',actor:'forged'};return domain.materialCommand('SAVE',source,record,ctx({party}));};
+test('review safely handles opaque item IDs named like object properties',()=>{
+  for(const id of ['__proto__','constructor','toString']){
+    const record=submit(draft({items:[item({id})]}));
+    const result=review(record,'PM');
+    assert.equal(result.items[0].id,id);
+    assert.equal(result.items[0].decisions.PM.status,'APPROVED');
+  }
+});
 
 test('submission freezes server state, ignores client snapshot and does not mutate source',()=>{
   const record=draft(), result=domain.materialCommand('SUBMIT',{initialSnapshot:{title:'forged'}},record,ctx());

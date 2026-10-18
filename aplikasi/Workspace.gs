@@ -38,7 +38,11 @@ function apiWorkspace(action,payload,token) {
   var lock=LockService.getScriptLock();lock.waitLock(30000);
   try {
     if(action==='upload'){if(['finance','archives','rpd'].indexOf(module)<0)throw new Error('Modul ini tidak menerima lampiran.');return utpUpload_({name:p.name,mime:p.mime,base64:p.base64,kind:'workspace-'+module,recordId:''});}
-    var input=action==='save'?p.record||{}:p,old=input.id?utpGet_(entity,input.id):null,version=Number(input.version||0);
+    var input=action==='save'?p.record||{}:p;
+    if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Catatan tidak valid.');
+    if(input.id!=null&&(typeof input.id!=='string'||! /^[a-zA-Z0-9-]{8,100}$/.test(input.id)))throw new Error('Identitas catatan tidak valid.');
+    if(input.version!=null&&typeof input.version!=='number'&&!(typeof input.version==='string'&&/^\d+$/.test(input.version)))throw new Error('Versi tidak valid.');
+    var old=input.id?utpGet_(entity,input.id):null,version=Number(input.version||0);
     if(!Number.isInteger(version)||version<0)throw new Error('Versi tidak valid.');
     if(old&&old.archived)throw new Error('Catatan sudah dihapus.');
     if(old?old.version!==version:version!==0)return {conflict:true,record:old};

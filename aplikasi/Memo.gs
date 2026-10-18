@@ -36,9 +36,10 @@ function doGet(event) {
   let output = template.evaluate();
   // Public display-only demo: no session token and no access to stored project data.
   if (event && event.parameter && event.parameter.preview === '1') {
-    const html = output.getContent()
-      .replace('<head>', '<head><script>window.UTP_FRONTEND_PREVIEW = true;</script>')
-      .replace('</body>', '<script>showApplication("Demo tampilan"); document.getElementById("appStatus").textContent="DEMO TAMPILAN — data ilustrasi di memori, bukan data server.";</script></body>');
+    let html = output.getContent()
+      .replace('<head>', '<head><script>window.UTP_FRONTEND_PREVIEW = true;</script>');
+    const bodyEnd = html.lastIndexOf('</body>');
+    html = html.slice(0, bodyEnd) + '<script>showApplication("Demo tampilan"); document.getElementById("appStatus").textContent="DEMO TAMPILAN — data ilustrasi di memori, bukan data server.";</script>' + html.slice(bodyEnd);
     output = HtmlService.createHtmlOutput(html);
   }
   return output.setTitle(APP.name)
