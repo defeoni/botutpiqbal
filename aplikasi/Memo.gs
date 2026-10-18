@@ -1260,29 +1260,7 @@ function createSpreadsheet_(data, number, folder, imageFiles, createdFileIds) {
   sheet.getRange('E9').setValue(data.projectName);
   sheet.getRange('E11').setValue(data.ditujukan);
   sheet.getRange('E12').setValue(data.perihal);
-  sheet.getDataRange().setFontSize(12);
-  trimMemoToColumnK_(sheet);
-  replaceTemplateLogoWithColor_(sheet);
   return file;
-}
-
-function trimMemoToColumnK_(sheet) {
-  const columns = sheet.getMaxColumns();
-  if (columns > 11) sheet.deleteColumns(12, columns - 11);
-}
-
-function replaceTemplateLogoWithColor_(sheet) {
-  try {
-    const response = UrlFetchApp.fetch('https://www.unicorn.co.id/utility/images/Logo-Unicorn180x82px.jpg', { muteHttpExceptions: true });
-    if (response.getResponseCode() !== 200) return;
-    const candidates = sheet.getImages().filter((image) => {
-      const anchor = image.getAnchorCell();
-      return anchor.getRow() <= 6 && anchor.getColumn() <= 5;
-    });
-    if (candidates.length) candidates[0].replace(response.getBlob().setName('Logo UTP berwarna.jpg'));
-  } catch (error) {
-    console.error(`Logo template tidak dapat diganti: ${error.message}`);
-  }
 }
 
 function addKtpAttachmentSheet_(spreadsheet, imageFiles) {
@@ -1561,7 +1539,7 @@ function getTelegramSetupInfo_() {
 }
 
 function getWebAppUrl_(type) {
-  const base = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || ScriptApp.getService().getUrl();
+  const base = telegramDeploymentUrl_();
   return type ? `${base}?type=${encodeURIComponent(type)}` : base;
 }
 
@@ -1569,7 +1547,7 @@ function setTelegramWebhook_() {
   const props = PropertiesService.getScriptProperties();
   const token = props.getProperty('TELEGRAM_BOT_TOKEN');
   const secret = props.getProperty('BOT_WEBHOOK_KEY');
-  const url = ScriptApp.getService().getUrl();
+  const url = telegramDeploymentUrl_();
   if (!token || !secret || !url) throw new Error('Isi TELEGRAM_BOT_TOKEN dan BOT_WEBHOOK_KEY, lalu deploy sebagai Web App.');
   props.setProperty('WEB_APP_URL', url);
   const response = UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
@@ -1590,13 +1568,13 @@ function getTelegramStatus_() {
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN belum diatur di Script Properties.');
   const bot = telegramApiGet_(token, 'getMe');
   const webhook = telegramApiGet_(token, 'getWebhookInfo');
-  const expectedUrl = ScriptApp.getService().getUrl();
+  const expectedUrl = telegramDeploymentUrl_();
   const activeUrl = String(webhook.url || '');
   const activeBaseUrl = activeUrl.split('?')[0];
   const lastErrorDate = Number(webhook.last_error_date || 0);
   return {
     botUsername: bot.username || '',
-    webhookActive: Boolean(activeUrl && activeBaseUrl === expectedUrl),
+    webhookActive: Boolean(activeUrl && activeBaseUrl === expectedUrl && activeUrl === expectedUrl + '?key=' + encodeURIComponent(props.getProperty('BOT_WEBHOOK_KEY') || '')),
     pendingUpdates: Number(webhook.pending_update_count || 0),
     lastError: webhook.last_error_message
       ? `${webhook.last_error_message}${lastErrorDate ? ` (${Utilities.formatDate(new Date(lastErrorDate * 1000), APP.timezone, 'yyyy-MM-dd HH:mm:ss')})` : ''}`

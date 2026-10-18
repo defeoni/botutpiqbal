@@ -1,4 +1,5 @@
 /* Single-user project storage. Only locator IDs and secrets belong in Properties. */
+var UTP_MASTER_REFERENCE_ID = '1QwxMjbawlF1tZ_hVu0XVnRKIS1NtADFGy8RC8syRjYU';
 function utpDb_(create) {
   var props = PropertiesService.getScriptProperties(), id = props.getProperty('UTP_DATABASE_ID');
   if (id) return SpreadsheetApp.openById(id);
@@ -60,8 +61,19 @@ function utpProtected_(entity, record) {
   return !!record && ((entity === 'requests' && ['FINAL','ARRIVED'].indexOf(record.status)>=0) ||
     (entity === 'approvals' && record.status === 'APPROVED') || (entity === 'receipts' && record.status === 'CONFIRMED') || entity === 'funds');
 }
+function utpMasterSheet_() {
+  var local = utpSheet_('master', false);
+  if (local && local.getLastRow() > 1) return local;
+  var id = PropertiesService.getScriptProperties().getProperty('UTP_MASTER_SOURCE_ID') || UTP_MASTER_REFERENCE_ID;
+  if (!id) return local;
+  var source = SpreadsheetApp.openById(id).getSheetByName('master');
+  if (!source) throw new Error('Tab master pada sumber material tidak ditemukan.');
+  var headers = source.getRange(1,1,1,UTP_MASTER_FIELDS.length).getDisplayValues()[0];
+  if (headers.some(function(value,index){return value!==UTP_MASTER_FIELDS[index];})) throw new Error('Kolom master material tidak sesuai.');
+  return source;
+}
 function utpMaster_() {
-  var sheet = utpSheet_('master', false); if (!sheet || sheet.getLastRow()<2) return [];
+  var sheet = utpMasterSheet_(); if (!sheet || sheet.getLastRow()<2) return [];
   var favorites = (utpGet_('config','settings') || {}).favorites || [];
   return sheet.getRange(2,1,sheet.getLastRow()-1,UTP_MASTER_FIELDS.length).getDisplayValues().map(function(row){
     var r={}; UTP_MASTER_FIELDS.forEach(function(k,i){r[k]=row[i];}); r.favorite=favorites.indexOf(r.code)>=0; return r;
@@ -86,7 +98,7 @@ function utpMaterialDraftsEnabled_() { return PropertiesService.getScriptPropert
 function utpBootstrap_() {
   var out={project:UTP_PROJECT, settings:utpGet_('config','settings')||{},dataInitialized:!!utpDb_(false),capabilities:{materialDrafts:utpMaterialDraftsEnabled_(),materialWorkflow:utpMaterialDraftsEnabled_()}};
   UTP_ENTITIES.forEach(function(e){out[e]=utpRead_(e);});
-  var sheet=utpSheet_('master',false); out.masterCount=sheet?Math.max(0,sheet.getLastRow()-1):0;
+  var sheet=utpMasterSheet_(); out.masterCount=sheet?Math.max(0,sheet.getLastRow()-1):0;
   out.forecasts=utpForecast_(out.purchases);out.finance=utpFinance_(out.funds,out.receipts);return out;
 }
 function apiUtp(action, payload, token) {

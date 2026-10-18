@@ -13,7 +13,7 @@
     <button type="button" class="btn primary main-nav-button" data-main="REQUESTS" aria-describedby="homeCreateHelp">Buat Permintaan</button>
   </div>
   <p id="homeCreateHelp" class="muted">Buka material untuk memuat ringkasan. Simulasi dapat diaktifkan terpisah melalui Pengaturan.</p>
-  <div class="home-summary-grid" aria-label="Contoh ringkasan, bukan data tersimpan">
+  <div class="home-summary-grid" aria-label="Ringkasan permintaan material">
     <article class="home-summary-card">
       <span id="projectReviewCount" class="home-summary-number">—</span>
       <h3>Menunggu Input Review</h3>
@@ -31,6 +31,8 @@
     </article>
   </div>
 
+  <section class="home-card chart-card"><div class="home-section-heading"><div><h2>Alur permintaan material</h2><p class="muted">Jumlah dokumen per status. Konfirmasi datang bukan pemeriksaan stok.</p></div></div><div id="projectStatusChart" class="chart-content" aria-live="polite">Memuat data grafik…</div></section>
+
   <section class="home-card" aria-labelledby="homeRequestsTitle">
     <div class="home-section-heading">
       <div><h2 id="homeRequestsTitle">Permintaan terbaru</h2></div>
@@ -43,7 +45,6 @@
       </table>
     </div>
     <p id="projectEmpty" class="muted">Belum ada permintaan yang dimuat.</p>
-    <p class="muted">Contoh klasifikasi per item: kabel ties — <strong>By Owner</strong>. By Owner adalah klasifikasi item, bukan pihak pemberi persetujuan.</p>
   </section>
 
   <div class="home-support-grid">

@@ -16,7 +16,10 @@ function apiDashboard(token) {
   });
   part('material', function () {
     var rows = utpRead_('requests');
+    var distribution = { Draf:0, Review:0, 'Menunggu barang':0, Datang:0, Dibatalkan:0 };
+    rows.forEach(function(r){ var key = r.arrived || r.status==='ARRIVED' ? 'Datang' : r.status==='DRAFT' ? 'Draf' : r.status==='FINAL' ? 'Menunggu barang' : r.status==='CANCELLED' ? 'Dibatalkan' : 'Review'; distribution[key]++; });
     return { review: rows.filter(function (r) { return r.initialSnapshot && ['FINAL', 'ARRIVED', 'CANCELLED'].indexOf(r.status) < 0; }).length,
+      distribution: distribution,
       waiting: rows.filter(function (r) { return r.status === 'FINAL' && !r.arrived; }).length,
       arrived: rows.filter(function (r) { return r.arrived || r.status === 'ARRIVED'; }).length,
       recent: rows.sort(function (a,b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0,5).map(function (r) { return { number:r.number, title:r.title, status:r.status, arrived:r.arrived }; }) };

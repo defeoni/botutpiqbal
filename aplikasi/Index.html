@@ -162,7 +162,7 @@
     <div class="card"><h2>Reset Counter Penomoran</h2><p class="muted">Reset hanya berlaku untuk periode bulan berjalan. Gunakan dengan hati-hati agar tidak menimbulkan nomor dokumen duplikat.</p>
       <div class="actions"><button class="btn" type="button" data-reset="PN">Reset Penambahan</button><button class="btn" type="button" data-reset="PG">Reset Penggantian</button><button class="btn" type="button" data-reset="SP">Reset Surplus</button><button class="btn red" type="button" data-reset="ALL">Reset Semua</button></div>
       <button class="btn primary" type="button" id="btnStatus">Cek Counter Saat Ini</button>
-      <button class="btn" type="button" id="btnSetWebhook">Hubungkan Bot Telegram</button>
+      <p class="muted">Telegram tersambung dan dipelihara otomatis setelah konfigurasi bot tersedia. Tidak perlu menekan tombol hubungkan.</p>
       <button class="btn" type="button" id="btnTelegramStatus">Diagnostik Telegram</button>
       <p id="counterStatus"></p>
       <p id="telegramStatus" class="muted" role="status"></p>
@@ -244,5 +244,7 @@
 <?!= include('RPBClient'); ?>
 <?!= include('UtpClient'); ?>
 <?!= include('WorkspaceClient'); ?>
+<?!= include('ListPaginationClient'); ?>
+<?!= include('DocumentExportsClient'); ?>
 </body>
 </html>

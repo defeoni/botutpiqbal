@@ -4,6 +4,21 @@
   const get = id => document.getElementById(id);
   const put = (id, value) => { if (get(id)) get(id).textContent = value; };
   const rpc = (name, args) => new Promise((resolve, reject) => invokeServer(name, args, resolve, reject));
+  const colors=['#0f766e','#2563eb','#d97706','#7c3aed','#64748b'];
+  function chart(id,values,type){
+    const root=get(id);if(!root)return;root.replaceChildren();
+    if(!values){root.textContent='Data grafik belum tersedia.';return;}
+    const entries=Object.entries(values).map(([label,value])=>[label,Number(value)||0]),total=entries.reduce((sum,r)=>sum+r[1],0);
+    if(!total){root.textContent='Belum ada dokumen untuk ditampilkan.';return;}
+    if(type==='donut'){
+      const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 160 160');svg.setAttribute('role','img');svg.setAttribute('aria-label',entries.map(r=>r[0]+': '+r[1]).join(', '));
+      let start=0;entries.forEach(([label,value],i)=>{if(!value)return;const circle=document.createElementNS(ns,'circle');const arc=value/total*100;Object.entries({cx:80,cy:80,r:58,fill:'none',stroke:colors[i%colors.length],'stroke-width':21,pathLength:100,'stroke-dasharray':arc+' '+(100-arc),'stroke-dashoffset':-start,transform:'rotate(-90 80 80)'}).forEach(([k,v])=>circle.setAttribute(k,v));svg.appendChild(circle);start+=arc;});
+      const text=document.createElementNS(ns,'text');text.setAttribute('x',80);text.setAttribute('y',87);text.setAttribute('text-anchor','middle');text.setAttribute('class','chart-total');text.textContent=total;svg.appendChild(text);root.appendChild(svg);
+    }
+    const legend=document.createElement('div');legend.className=type==='bars'?'chart-bars':'chart-legend';
+    const max=Math.max(...entries.map(r=>r[1]),1);
+    entries.forEach(([label,value],i)=>{const row=document.createElement('div');row.className='chart-row';const dot=document.createElement('span');dot.className='chart-dot';dot.style.background=colors[i%colors.length];const caption=document.createElement('span');caption.textContent=label;const number=document.createElement('strong');number.textContent=value;row.append(dot,caption,number);if(type==='bars'){const track=document.createElement('div');track.className='chart-track';const fill=document.createElement('span');fill.style.width=(value/max*100)+'%';fill.style.background=colors[i%colors.length];track.appendChild(fill);row.appendChild(track);}legend.appendChild(row);});root.appendChild(legend);
+  }
   window.workspaceRpc = (action, payload) => {
     if (!accessToken) return Promise.reject(new Error('Masuk dahulu untuk mengakses data proyek.'));
     return rpc('apiWorkspace', [action, payload || {}, accessToken]);
@@ -17,7 +32,8 @@
     const rawCounts = d && d.workspace && d.workspace.counts || {};
     const counts = Object.fromEntries(Object.entries({Tugas:'tasks','Nota/Keuangan':'finance','Arsip Proyek':'archives',SDM:'people',Absensi:'attendance',RPD:'rpd'}).map(([name,key])=>[name,rawCounts[key]]));
     put('hoRpdCount', counts.RPD == null ? '—' : counts.RPD);
-    put('hoRecent', d && d.activities.length ? d.activities.map(r => r.date+' · '+r.text).join('\n') : 'Belum ada aktivitas yang dimuat.');
+    chart('hoDocumentChart',d&&d.memo&&d.rpb&&counts.RPD!=null?{Memo:d.memo.count,RPB:d.rpb.count,RPD:counts.RPD}:null,'bars');
+    put('hoRecent', d && d.activities.length ? d.activities.map(r => {const date=new Date(r.date);return (Number.isNaN(date.getTime())?r.date:date.toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short'}))+' · '+r.text;}).join('\n') : 'Belum ada aktivitas yang dimuat.');
     const state = window.UTPFrontend && window.UTPFrontend.getState();
     const simulation = state && state.preview && state.data;
     const rows = simulation ? state.data.requests : d && d.material ? d.material.recent : [];
@@ -26,6 +42,9 @@
       waiting: rows.filter(r => r.status === 'FINAL' && !r.arrived).length,
       arrived: rows.filter(r => r.arrived || r.status === 'ARRIVED').length
     } : d && d.material;
+    let distribution=material&&material.distribution;
+    if(simulation){distribution={Draf:0,Review:0,'Menunggu barang':0,Datang:0,Dibatalkan:0};rows.forEach(r=>distribution[r.arrived||r.status==='ARRIVED'?'Datang':r.status==='DRAFT'?'Draf':r.status==='FINAL'?'Menunggu barang':r.status==='CANCELLED'?'Dibatalkan':'Review']++);}
+    chart('projectStatusChart',distribution,'donut');
     put('projectSource', simulation ? 'Simulasi memori terpisah dari server' : d ? 'Data server · '+new Date(d.loadedAt).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'}) : 'Data belum dimuat.');
     put('projectReviewCount', material ? material.review : '—');
     put('projectFinalCount', material ? material.waiting : '—');

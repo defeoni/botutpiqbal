@@ -68,11 +68,21 @@ function environment() {
   };
   vm.createContext(sandbox);
   for (const name of ['UtpDomain.gs', 'Utp.gs']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../aplikasi', name), 'utf8'), sandbox, { filename: name });
+  sandbox.UTP_MASTER_REFERENCE_ID = ''; // Isolate tests from the production Drive source.
   const call = (action, payload = {}, token = 'session') => sandbox.apiUtp(action, payload, token);
   const plain = value => JSON.parse(JSON.stringify(value));
   return { state, sandbox, call, plain };
 }
 const draft = (overrides = {}) => ({ title: 'Bahan lantai 1', date: '2026-10-16', authority: 'PM', requiredAuthority: 'PM', status: 'DRAFT', items: [{ id: 'item-1', name: 'Pasir', unit: 'm3', quantity: 10, status: 'OWNER' }], ...overrides });
+test('official reference master is searchable without replacing transaction database and preserves leading zeros', () => {
+  const env=environment(), book=env.sandbox.SpreadsheetApp.create('Reference'), sheet=book.insertSheet('master');
+  sheet.appendRow(Array.from(env.sandbox.UTP_MASTER_FIELDS));
+  sheet.appendRow(['00010002','Coating panel','ASAHI','','explicit','','SET','Panel','Elektrikal']);
+  env.sandbox.UTP_MASTER_REFERENCE_ID=book.getId();
+  const data=env.call('bootstrap');assert.equal(data.masterCount,1);assert.equal(data.dataInitialized,false);
+  const found=env.call('searchItems',{query:'00010002'});assert.equal(found.items[0].code,'00010002');
+  assert.equal(env.state.props.has('UTP_DATABASE_ID'),false);
+});
 
 test('authentication gates every endpoint and empty bootstrap causes no cloud mutations', () => {
   const env = environment();

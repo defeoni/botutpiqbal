@@ -9,6 +9,8 @@ PARTIALS = {
     "HoHomeView": PROJECT_ROOT / "aplikasi" / "HoHomeView.html",
     "ProjectTools": PROJECT_ROOT / "aplikasi" / "ProjectTools.html",
     "WorkspaceClient": PROJECT_ROOT / "aplikasi" / "WorkspaceClient.html",
+    "ListPaginationClient": PROJECT_ROOT / "aplikasi" / "ListPaginationClient.html",
+    "DocumentExportsClient": PROJECT_ROOT / "aplikasi" / "DocumentExportsClient.html",
     "UtpView": PROJECT_ROOT / "aplikasi" / "UtpView.html",
     "UtpStyles": PROJECT_ROOT / "aplikasi" / "UtpStyles.html",
     "UtpClient": PROJECT_ROOT / "aplikasi" / "UtpClient.html",

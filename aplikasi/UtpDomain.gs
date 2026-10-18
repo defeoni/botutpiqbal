@@ -383,6 +383,8 @@ function utpPublishRevision_(record, context) {
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
   var limit = Math.max(1, Math.min(50, Number(options.limit) || 30));
+  var offset = options.offset == null ? 0 : Number(options.offset);
+  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Posisi halaman pencarian tidak valid.');
   var matches = (items || []).filter(function (item) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
     if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
@@ -395,7 +397,8 @@ function utpSearchItems_(items, filters, approvals) {
     return copy;
   }).filter(function (item) { return !options.approvedOnly || item.approved; });
   matches.sort(function (a, b) { return Number(b.approved) - Number(a.approved) || Number(!!b.favorite) - Number(!!a.favorite) || String(a.name).localeCompare(String(b.name), 'id') || String(a.code).localeCompare(String(b.code)); });
-  return { items: matches.slice(0, limit), total: matches.length };
+  offset = matches.length ? Math.min(offset, Math.floor((matches.length - 1) / limit) * limit) : 0;
+  return { items: matches.slice(offset, offset + limit), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length };
 }
 function utpParseCsv_(source) {
   var csv = String(source || '').replace(/^\uFEFF/, ''), rows = [], row = [], value = '', quoted = false, afterQuote = false;

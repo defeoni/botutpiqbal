@@ -1,0 +1,31 @@
+<script>
+(function(){
+  const states=new WeakMap(),selectors='#projectToolList,#rpdHistory,#rpbHistoryList,#utpApprovalList > .utp-grid,#utpContent > .utp-grid';
+  let queued=false;
+  function update(root){
+    const items=Array.from(root.children).filter(n=>n.matches('article,.card,.utp-card'));
+    const query=['projectToolSearch','rpdSearch','utpApprovalSearch','utpRequestSearch'].map(id=>document.getElementById(id)?.value||'').join('|');
+    let s=states.get(root);
+    if(s&&s.query===query&&s.items.length===items.length&&s.items.every((n,i)=>n===items[i]))return;
+    if(!s){s={page:0,nav:document.createElement('nav')};s.nav.className='list-pagination';s.nav.setAttribute('aria-label','Halaman daftar');states.set(root,s);}
+    if(s.query!==query)s.page=0;
+    s.items=items;s.query=query;s.page=Math.min(s.page,Math.max(0,Math.ceil(items.length/12)-1));
+    if(!s.nav.isConnected)root.after(s.nav);
+    function render(){
+      const pages=Math.max(1,Math.ceil(items.length/12));
+      items.forEach((item,i)=>item.hidden=i<s.page*12||i>=(s.page+1)*12);
+      s.nav.replaceChildren();s.nav.hidden=items.length<=12;if(s.nav.hidden)return;
+      function button(label,page,disabled){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=label;b.disabled=disabled;b.onclick=()=>{s.page=page;render();root.scrollIntoView({block:'start',behavior:'instant'});};s.nav.appendChild(b);}
+      button('Pertama',0,s.page===0);button('Sebelumnya',s.page-1,s.page===0);
+      const text=document.createElement('span');text.textContent=(s.page*12+1)+'–'+Math.min(items.length,(s.page+1)*12)+' dari '+items.length;s.nav.appendChild(text);
+      const jump=document.createElement('input');jump.type='number';jump.min=1;jump.max=pages;jump.value=s.page+1;jump.setAttribute('aria-label','Nomor halaman daftar');jump.onchange=()=>{s.page=Math.max(0,Math.min(pages-1,Math.floor(Number(jump.value)||1)-1));render();};s.nav.appendChild(jump);
+      const total=document.createElement('span');total.textContent='dari '+pages;s.nav.appendChild(total);
+      button('Berikutnya',s.page+1,s.page===pages-1);button('Terakhir',pages-1,s.page===pages-1);
+    }
+    render();
+  }
+  const refresh=()=>{queued=false;document.querySelectorAll(selectors).forEach(update);};
+  new MutationObserver(()=>{if(!queued){queued=true;queueMicrotask(refresh);}}).observe(document.getElementById('applicationShell'),{childList:true,subtree:true});
+  refresh();
+})();
+</script>

@@ -185,10 +185,17 @@ function startApplication(event) {
     accessToken = result.token;
     showApplication(result.owner);
     const serverVersion = result.version || 'versi server tidak diketahui';
-    $('appStatus').textContent = `Aplikasi siap digunakan sebagai ${result.owner} · UI ${window.APP_BUILD_VERSION || 'lokal'} · Server ${serverVersion}.`;
+    $('appStatus').textContent = `Aplikasi siap digunakan sebagai ${result.owner}.`;
     loadCounters();
     loadHistory();
     loadManpower();
+    const telegramSession = accessToken;
+    $('telegramStatus').textContent = 'Memeriksa sambungan Telegram otomatis…';
+    invokeServer('apiEnsureTelegramConnection', [telegramSession], (status) => {
+      if (accessToken === telegramSession) $('telegramStatus').textContent = status.message;
+    }, (error) => {
+      if (accessToken === telegramSession) $('telegramStatus').textContent = 'Sambungan otomatis belum tersedia. Periksa Diagnostik Telegram.';
+    });
   }, (error) => {
     submit.disabled = false;
     accessToken = '';
@@ -1016,19 +1023,6 @@ $('btnRefreshHistory').addEventListener('click', loadHistory);
 
 $('btnStatus').addEventListener('click', () => {
   loadCounters();
-});
-
-$('btnSetWebhook').addEventListener('click', () => {
-  if (!confirm('Hubungkan bot Telegram pribadi ke aplikasi ini sekarang?')) return;
-  $('btnSetWebhook').disabled = true;
-  invokeServer('apiSetWebhook', [accessToken], (message) => {
-    $('btnSetWebhook').disabled = false;
-    $('counterStatus').textContent = message;
-    loadTelegramStatus_();
-  }, (error) => {
-    $('btnSetWebhook').disabled = false;
-    $('counterStatus').textContent = `Gagal menghubungkan bot: ${error.message}`;
-  });
 });
 
 function loadTelegramStatus_() {
