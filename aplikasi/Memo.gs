@@ -1,6 +1,6 @@
 const APP = {
   name: 'Administrasi Memo UTP',
-  version: '2026.10.16.7',
+  version: '2026.10.18.1',
   timezone: 'Asia/Jakarta',
   types: {
     PN: { label: 'Penambahan Manpower', code: 'MM.PN' },
@@ -33,8 +33,15 @@ function doGet(event) {
     ? event.parameter.type
     : 'PN';
   template.appVersion = APP.version;
-  return template.evaluate()
-    .setTitle(APP.name)
+  let output = template.evaluate();
+  // Public display-only demo: no session token and no access to stored project data.
+  if (event && event.parameter && event.parameter.preview === '1') {
+    const html = output.getContent()
+      .replace('<head>', '<head><script>window.UTP_FRONTEND_PREVIEW = true;</script>')
+      .replace('</body>', '<script>showApplication("Demo tampilan"); document.getElementById("appStatus").textContent="DEMO TAMPILAN — data ilustrasi di memori, bukan data server.";</script></body>');
+    output = HtmlService.createHtmlOutput(html);
+  }
+  return output.setTitle(APP.name)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
