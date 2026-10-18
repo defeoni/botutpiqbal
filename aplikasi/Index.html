@@ -23,7 +23,7 @@
 
 <div id="applicationShell" class="application-shell" hidden>
 <aside class="app-sidebar">
-  <div class="sidebar-brand"><strong>PT. UTP</strong><span>Administrasi Proyek</span></div>
+  <div class="sidebar-brand"><strong>PT. UTP</strong><span>Administrasi HO &amp; Proyek</span></div>
   <details id="mainMenu" class="app-menu" open>
     <summary>Menu navigasi</summary>
     <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
@@ -34,23 +34,25 @@
         <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
         <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
         <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
+        <span class="sidebar-unavailable">Tugas <small>Belum tersedia</small></span>
+        <span class="sidebar-unavailable">Nota/Keuangan <small>Belum tersedia</small></span>
+        <span class="sidebar-unavailable">Arsip Proyek <small>Belum tersedia</small></span>
+        <span class="sidebar-unavailable">SDM <small>Belum tersedia</small></span>
+        <span class="sidebar-unavailable">Absensi <small>Belum tersedia</small></span>
       </section>
       <section class="sidebar-menu-group" aria-labelledby="menuHo">
         <h2 id="menuHo">Administrasi HO</h2>
+        <button type="button" class="tab main-nav-button" data-main="HO">Beranda HO</button>
         <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
         <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
         <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
       </section>
+      <section class="sidebar-menu-group" aria-labelledby="menuSettings">
+        <h2 id="menuSettings">Pengaturan</h2>
+        <button type="button" class="tab main-nav-button" data-main="SETTINGS">Sistem &amp; reset</button>
+      </section>
     </nav>
   </details>
-  <div class="sidebar-group">
-    <h2>Menu lainnya</h2>
-    <span class="sidebar-unavailable">Tugas <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Nota/Keuangan <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Arsip <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">SDM <small>Belum tersedia</small></span>
-    <span class="sidebar-unavailable">Absensi <small>Belum tersedia</small></span>
-  </div>
 </aside>
 
 <main class="app-main">
@@ -64,6 +66,7 @@
   </header>
 
   <?!= include('HomeView'); ?>
+  <?!= include('HoHomeView'); ?>
   <?!= include('UtpView'); ?>
 
   <section class="panel memo-area">
@@ -73,7 +76,6 @@
       <button type="button" class="tab" data-type="PG">Memo Penggantian OS</button>
       <button type="button" class="tab" data-type="SP">Memo Surplus</button>
       <button type="button" class="tab" data-type="DIRECTORY">Data Manpower</button>
-      <button type="button" class="tab" data-type="SETTINGS">Pengaturan</button>
     </nav>
     <div class="grid" id="projectFields">
       <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value="TerraSentra Soreang, Bandung"></div>
@@ -145,7 +147,7 @@
     </div>
   </section>
 
-  <section id="section-SETTINGS" class="section memo-section memo-area" hidden>
+  <section id="settingsPage" class="settings-page" data-main-page="SETTINGS" hidden>
     <div class="notice">Beberapa tindakan memerlukan kode konfirmasi. Bagikan URL aplikasi hanya kepada orang yang berhak mengaksesnya.</div>
     <div class="card"><h2>Hapus Semua Riwayat Memo</h2><p class="error">Tindakan ini menghapus seluruh riwayat memo dan memindahkan file memo terkait ke Sampah Google Drive.</p>
       <button class="btn red" type="button" id="btnClearHistory">Hapus Semua Riwayat Memo</button>
@@ -196,7 +198,7 @@
     <div id="whatsAppResult" hidden><label for="waDraft">Draf WhatsApp siap salin</label><pre id="waDraft"></pre><button type="button" class="btn green" id="copyWA">Salin Draf WhatsApp</button></div>
   </section>
 
-  <section id="historyPanel" class="card memo-area">
+  <section id="historyPanel" class="home-page card" data-main-page="HO" hidden>
     <div class="actions" style="justify-content:space-between;align-items:center">
       <h2>Riwayat Memo</h2>
       <button class="btn" type="button" id="btnRefreshHistory">Muat Ulang Riwayat</button>

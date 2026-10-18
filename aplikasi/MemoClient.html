@@ -207,15 +207,17 @@ function showApplication(owner) {
 }
 
 function setHomeCurrentDate_() {
-  const date = $('homeCurrentDate');
-  if (!date) return;
-  date.textContent = new Intl.DateTimeFormat('id-ID', {
+  const text = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   }).format(new Date());
+  ['homeCurrentDate', 'hoCurrentDate'].forEach((id) => {
+    const date = $(id);
+    if (date) date.textContent = text;
+  });
 }
 
 function loadCounters() {
@@ -251,19 +253,19 @@ function formatUiDate_(value) {
 
 function switchMainPage(page) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'MEMO', 'RPD', 'RPB', ...materialPages].includes(page)) page = 'HOME';
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', ...materialPages].includes(page)) page = 'HOME';
   currentMainPage = page;
-  const titles = {HOME:'Beranda Admin PT. UTP',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana'};
+  const titles = {HOME:'Beranda Administrasi Proyek',HO:'Beranda Administrasi HO',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan Sistem'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page];
   document.querySelectorAll('.main-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.main === page);
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.home-page, .blank-page, .rpb-page').forEach((element) => {
-    element.hidden = page !== element.id.replace('blank-', '');
+  document.querySelectorAll('.home-page, .blank-page, .rpb-page, .settings-page').forEach((element) => {
+    element.hidden = page !== (element.dataset.mainPage || element.id.replace('blank-', ''));
   });
-  if (page === 'HOME') setHomeCurrentDate_();
+  if (page === 'HOME' || page === 'HO') setHomeCurrentDate_();
   if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
@@ -278,7 +280,7 @@ window.utpRpc = (action, payload) => new Promise((resolve, reject) => {
 });
 
 function switchType(type) {
-  if (!['PN', 'PG', 'SP', 'DIRECTORY', 'SETTINGS'].includes(type)) type = 'PN';
+  if (!['PN', 'PG', 'SP', 'DIRECTORY'].includes(type)) type = 'PN';
   currentType = type;
   document.querySelectorAll('.memo-section').forEach((section) => {
     section.hidden = section.id !== 'section-' + type;

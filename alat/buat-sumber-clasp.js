@@ -14,6 +14,7 @@ const sourceFiles = [
   ["aplikasi/RPB.gs", "RPB.gs"],
   ["aplikasi/Index.html", "Index.html"],
   ["aplikasi/HomeView.html", "HomeView.html"],
+  ["aplikasi/HoHomeView.html", "HoHomeView.html"],
   ["aplikasi/Styles.html", "Styles.html"],
   ["aplikasi/RPBStyles.html", "RPBStyles.html"],
   ["aplikasi/MemoClient.html", "MemoClient.html"],
