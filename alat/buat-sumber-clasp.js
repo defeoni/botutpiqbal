@@ -17,6 +17,7 @@ const sourceFiles = [
   ["aplikasi/Index.html", "Index.html"],
   ["aplikasi/HomeView.html", "HomeView.html"],
   ["aplikasi/HoHomeView.html", "HoHomeView.html"],
+  ["aplikasi/DocumentCenter.html", "DocumentCenter.html"],
   ["aplikasi/ProjectTools.html", "ProjectTools.html"],
   ["aplikasi/WorkspaceClient.html", "WorkspaceClient.html"],
   ["aplikasi/ListPaginationClient.html", "ListPaginationClient.html"],

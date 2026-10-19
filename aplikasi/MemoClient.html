@@ -262,12 +262,12 @@ function formatUiDate_(value) {
 
 function switchMainPage(page) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
   currentMainPage = page;
   if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','SETTINGS'].includes(page)?'ho':'project');
   if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
-  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower'};
+  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
   document.title=(titles[page]||'Operasional Proyek')+' · UTP Workspace';
@@ -276,7 +276,7 @@ function switchMainPage(page) {
     button.classList.toggle('active', button.dataset.main === page);if(button.dataset.main===page){button.setAttribute('aria-current','page');const folder=button.closest('.nav-folder');if(folder)folder.open=true;}else button.removeAttribute('aria-current');
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.home-page, .blank-page, .rpb-page, .settings-page').forEach((element) => {
+  document.querySelectorAll('.home-page, .blank-page, .rpb-page, .settings-page, .document-center').forEach((element) => {
     element.hidden = page !== (element.dataset.mainPage || element.id.replace('blank-', ''));
   });
   if (page === 'HOME' || page === 'HO') setHomeCurrentDate_();
@@ -287,6 +287,7 @@ function switchMainPage(page) {
   if (page === 'MANPOWER' && accessToken) loadManpower();
   if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
+  if (page === 'DOCUMENTS' && window.DocumentCenter) window.DocumentCenter.open();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
   if (materialPages.includes(page) && window.UTPFrontend) window.UTPFrontend.open(page);
   if (window.matchMedia('(max-width: 900px)').matches) $('mainMenu').open = false;

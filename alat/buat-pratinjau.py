@@ -7,6 +7,7 @@ INDEX_PATH = PROJECT_ROOT / "aplikasi" / "Index.html"
 PREVIEW_PATH = PROJECT_ROOT / ".local" / "aplikasi.html"
 PARTIALS = {
     "HoHomeView": PROJECT_ROOT / "aplikasi" / "HoHomeView.html",
+    "DocumentCenter": PROJECT_ROOT / "aplikasi" / "DocumentCenter.html",
     "ProjectTools": PROJECT_ROOT / "aplikasi" / "ProjectTools.html",
     "WorkspaceClient": PROJECT_ROOT / "aplikasi" / "WorkspaceClient.html",
     "ListPaginationClient": PROJECT_ROOT / "aplikasi" / "ListPaginationClient.html",
