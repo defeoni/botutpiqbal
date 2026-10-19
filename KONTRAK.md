@@ -1,5 +1,7 @@
 # Material dan workspace
 
+Riwayat RPB hanya dikeluarkan dari daftar aktif melalui sesi pemilik, frasa konfirmasi tertulis, dan PIN; penghapusan bersifat lunak, mempertahankan snapshot/tracking serta file Drive, dan tidak menggunakan ulang nomor atau revisi. Tracking dan revisi record terhapus ditolak.
+
 Semua endpoint wajib sesi pemilik. Mutasi terkunci, ID draf stabil, versi optimistis; konflik mempertahankan isian. Audit gagal setelah penyimpanan dilaporkan sebagai warning, bukan simpan batal.
 
 Material aktif kecuali Script Property UTP_MATERIAL_DRAFTS_ENABLED=false. Bootstrap capabilities.materialDrafts/materialWorkflow menunjukkan kemampuan aktual. saveMaterialDraft khusus DRAFT contract v1. materialCommand menerima id,version,operation SAVE/SUBMIT/FINAL_FILE/FINALIZE/REVISION/FULFILLMENT/ARRIVAL serta record/party/reason/fileId/coveredItemIds/confirmed/pin sesuai operasi.

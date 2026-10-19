@@ -31,7 +31,8 @@ const RPB_STATUSES = [
 
 const RPB_HISTORY_HEADERS = [
   'ID', 'Nomor Form', 'Revisi', 'Status', 'Tanggal Pengajuan', 'Bulan LPD Diterima',
-  'JSON Data', 'URL Spreadsheet', 'URL Excel', 'URL PDF', 'URL Folder', 'ID Versi Induk', 'Diperbarui', 'JSON Tracking'
+  'JSON Data', 'URL Spreadsheet', 'URL Excel', 'URL PDF', 'URL Folder', 'ID Versi Induk', 'Diperbarui', 'JSON Tracking',
+  'Dihapus Pada'
 ];
 
 function apiGetRpbData(token) {
@@ -92,6 +93,7 @@ function apiCreateRpb(payload, token, revisionOf) {
     if (revisionOf) {
       parent = getRpbRecordById_(history, String(revisionOf));
       if (!parent) throw new Error('RPB lama untuk revisi tidak ditemukan. Muat ulang riwayat.');
+      if (parent.deletedAt) throw new Error('RPB yang sudah dihapus tidak dapat direvisi.');
       const prior = JSON.parse(parent.dataJson || '{}');
       sequence = Number(prior.sequence) || getRpbSequenceFromNumber_(parent.number);
       revision = getRpbHighestRevision_(history, sequence) + 1;
@@ -157,6 +159,7 @@ function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token) {
     if (!sheet) throw new Error('Riwayat RPB belum tersedia.');
     const row = findRpbRecordRow_(sheet, id);
     if (!row) throw new Error('Riwayat RPB tidak ditemukan.');
+    if (sheet.getRange(row, 15).getValue()) throw new Error('RPB yang sudah dihapus tidak dapat diubah tracking-nya.');
     let tracking = [];
     try { tracking = JSON.parse(sheet.getRange(row, 14).getValue() || '[]'); } catch (error) {}
     tracking.push({ status, note: String(note || '').trim().slice(0, 500), evidenceUrl: evidence.slice(0, 500), at: new Date().toISOString() });
@@ -204,6 +207,9 @@ function getRpbHistorySheet_(create) {
     if (sheet.getRange(1, 14).getValue() !== 'JSON Tracking') {
       sheet.getRange(1, 14).setValue('JSON Tracking').setFontWeight('bold').setBackground('#1e3a8a').setFontColor('#ffffff');
     }
+    if (sheet.getRange(1, 15).getValue() !== 'Dihapus Pada') {
+      sheet.getRange(1, 15).setValue('Dihapus Pada').setFontWeight('bold').setBackground('#1e3a8a').setFontColor('#ffffff');
+    }
     return sheet;
   }
   if (!create) return null;
@@ -221,21 +227,23 @@ function getRpbHistorySheet_(create) {
 function getRpbHistory_() {
   const sheet = getRpbHistorySheet_(false);
   if (!sheet || sheet.getLastRow() < 2) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, RPB_HISTORY_HEADERS.length).getValues().reverse().map((row) => {
-    let data = {};
-    try { data = JSON.parse(row[6] || '{}'); } catch (error) {}
-    let tracking = [];
-    try { tracking = JSON.parse(row[13] || '[]'); } catch (error) {}
-    if (!tracking.length && Array.isArray(data.tracking)) tracking = data.tracking;
-    return { id: String(row[0]), number: String(row[1]), revision: Number(row[2]) || 0, status: String(row[3]), requestDate: row[4] instanceof Date ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd') : String(row[4]), lpdReceivedMonth: String(row[5] || ''), data, tracking, spreadsheetUrl: String(row[7] || ''), excelUrl: String(row[8] || ''), pdfUrl: String(row[9] || ''), folderUrl: String(row[10] || ''), parentId: String(row[11] || '') };
-  });
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, RPB_HISTORY_HEADERS.length).getValues().reverse()
+    .filter((row) => !row[14])
+    .map((row) => {
+      let data = {};
+      try { data = JSON.parse(row[6] || '{}'); } catch (error) {}
+      let tracking = [];
+      try { tracking = JSON.parse(row[13] || '[]'); } catch (error) {}
+      if (!tracking.length && Array.isArray(data.tracking)) tracking = data.tracking;
+      return { id: String(row[0]), number: String(row[1]), revision: Number(row[2]) || 0, status: String(row[3]), requestDate: row[4] instanceof Date ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd') : String(row[4]), lpdReceivedMonth: String(row[5] || ''), data, tracking, spreadsheetUrl: String(row[7] || ''), excelUrl: String(row[8] || ''), pdfUrl: String(row[9] || ''), folderUrl: String(row[10] || ''), parentId: String(row[11] || '') };
+    });
 }
 
 function getRpbRecordById_(sheet, id) {
   const row = findRpbRecordRow_(sheet, id);
   if (!row) return null;
   const v = sheet.getRange(row, 1, 1, RPB_HISTORY_HEADERS.length).getValues()[0];
-  return { id: String(v[0]), number: String(v[1]), revision: Number(v[2]) || 0, dataJson: String(v[6] || '') };
+  return { id: String(v[0]), number: String(v[1]), revision: Number(v[2]) || 0, dataJson: String(v[6] || ''), deletedAt: v[14] || '' };
 }
 
 function findRpbRecordRow_(sheet, id) {
@@ -249,8 +257,54 @@ function appendRpbRecord_(sheet, record) {
   sheet.getRange(row, 1, 1, RPB_HISTORY_HEADERS.length).setValues([[
     record.id, record.number, record.revision, record.status, record.requestDate,
     record.lpdReceivedMonth, JSON.stringify(record.data), record.outputs.spreadsheetUrl,
-    record.outputs.excelUrl, record.outputs.pdfUrl, record.outputs.folderUrl, record.parentId, new Date(), '[]'
+    record.outputs.excelUrl, record.outputs.pdfUrl, record.outputs.folderUrl, record.parentId, new Date(), '[]', ''
   ]]);
+}
+
+function apiDeleteRpbHistory(id, confirmation, pin, token) {
+  requireAuthorized_(token);
+  if (String(confirmation || '') !== 'HAPUS RPB') throw new Error('Konfirmasi penghapusan RPB tidak cocok.');
+  requireDeletePin_(pin);
+  const recordId = requiredText_(id, 'ID RPB', 100);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getRpbHistorySheet_(false);
+    const row = findRpbRecordRow_(sheet, recordId);
+    if (!row) throw new Error('Riwayat RPB tidak ditemukan.');
+    if (sheet.getRange(row, 15).getValue()) throw new Error('RPB ini sudah dihapus dari daftar aktif.');
+    sheet.getRange(row, 15).setValue(new Date());
+    return { message: 'RPB dihapus dari daftar aktif. Snapshot, tracking, dan file Drive tetap tersimpan.', history: getRpbHistory_(), nextSequence: getRpbNextSequence_() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function apiDeleteAllRpbHistory(confirmation, pin, token) {
+  requireAuthorized_(token);
+  if (String(confirmation || '') !== 'HAPUS SEMUA RPB') throw new Error('Konfirmasi penghapusan seluruh riwayat RPB tidak cocok.');
+  requireDeletePin_(pin);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getRpbHistorySheet_(false);
+    if (!sheet || sheet.getLastRow() < 2) throw new Error('Tidak ada riwayat RPB aktif untuk dihapus.');
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, RPB_HISTORY_HEADERS.length).getValues();
+    const deletedAt = new Date();
+    let deletedCount = 0;
+    const deletionValues = rows.map((row) => {
+      if (row[0] && !row[14]) {
+        deletedCount += 1;
+        return [deletedAt];
+      }
+      return [row[14] || ''];
+    });
+    if (!deletedCount) throw new Error('Tidak ada riwayat RPB aktif untuk dihapus.');
+    sheet.getRange(2, 15, deletionValues.length, 1).setValues(deletionValues);
+    return { message: `${deletedCount} RPB dihapus dari daftar aktif. Snapshot, tracking, dan file Drive tetap tersimpan.`, deletedCount, history: getRpbHistory_(), nextSequence: getRpbNextSequence_() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function validateRpbPayload_(payload, requireLpd) {

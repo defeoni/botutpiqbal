@@ -5,6 +5,9 @@ let rpbDraftTimer_ = null;
 let rpbDraftVersion_ = 0;
 let rpbFormEditVersion_ = 0;
 let rpbSubmitting_ = false;
+let rpbMasterPage_ = 1;
+let rpbDeletionInProgress_ = false;
+const RPB_MASTER_PAGE_SIZE_ = 25;
 
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
@@ -17,6 +20,8 @@ document.addEventListener('click', (event) => {
     else if (button.id === 'rpbSubmit') submitRpb_();
     else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
     else if (button.id === 'rpbAddMaster') addRpbMasterItem_();
+    else if (button.matches('[data-rpb-master-page]')) changeRpbMasterPage_(button.dataset.rpbMasterPage);
+    else if (button.id === 'rpbDeleteAllHistory') deleteRpbHistory_('', true);
     else if (button.id === 'rpbCopyWa') {
       navigator.clipboard.writeText($('rpbWaDraft').textContent)
         .then(() => { $('rpbDraftStatus').textContent = 'Draf WhatsApp disalin.'; })
@@ -29,6 +34,7 @@ document.addEventListener('click', (event) => {
     else if (button.matches('[data-rpb-track]')) saveRpbTracking_(button.dataset.rpbTrack);
     else if (button.matches('[data-rpb-revise]')) beginRpbRevision_(button.dataset.rpbRevise);
     else if (button.matches('[data-rpb-copy]')) copyRpbToDraft_(button.dataset.rpbCopy);
+    else if (button.matches('[data-rpb-history-delete]')) deleteRpbHistory_(button.dataset.rpbHistoryDelete, false);
   } catch (error) { showApplicationError_('Tombol RPB gagal dijalankan', error); }
 });
 
@@ -56,7 +62,6 @@ function loadRpbData_() {
       });
       if (Array.from(select.options).some((option) => option.value === previousValue)) select.value = previousValue;
     });
-    $('rpbMasterCategoryFilter').onchange = renderRpbMaster_;
     renderRpbMaster_();
     renderRpbHistory_();
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
@@ -239,22 +244,46 @@ function setRpbFormDisabled_(disabled) {
     .forEach((control) => { control.disabled = disabled; });
 }
 
+function getFilteredRpbMasterItems_() {
+  const selectedCategory = $('rpbMasterCategoryFilter').value;
+  const selectedActive = $('rpbMasterActiveFilter').value;
+  const terms = $('rpbMasterSearch').value.trim().toLocaleLowerCase('id').split(/\s+/).filter(Boolean);
+  return rpbState_.items.filter((item) => {
+    if (selectedCategory && item.category !== selectedCategory) return false;
+    if (selectedActive === 'active' && !item.active) return false;
+    if (selectedActive === 'inactive' && item.active) return false;
+    const searchable = [item.id, item.code, item.name, item.unit, item.note].join(' ').toLocaleLowerCase('id');
+    return terms.every((term) => searchable.includes(term));
+  });
+}
+
 function renderRpbMaster_() {
   const container = $('rpbMasterList');
-  const selectedCategory = $('rpbMasterCategoryFilter').value;
   const table = document.createElement('table');
-  table.innerHTML = '<thead><tr><th>Kategori</th><th>Nama barang</th><th>Satuan</th><th>Harga acuan</th><th>Status</th><th>Aksi</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>Kode/ID</th><th>Kategori</th><th>Nama barang</th><th>Satuan</th><th>Keterangan</th><th>Harga acuan</th><th>Status</th><th>Aksi</th></tr></thead>';
   const body = table.createTBody();
-  const items = rpbState_.items.filter((item) => !selectedCategory || item.category === selectedCategory);
+  const items = getFilteredRpbMasterItems_();
+  const pageCount = Math.max(1, Math.ceil(items.length / RPB_MASTER_PAGE_SIZE_));
+  rpbMasterPage_ = Math.min(Math.max(1, rpbMasterPage_), pageCount);
+  const start = (rpbMasterPage_ - 1) * RPB_MASTER_PAGE_SIZE_;
+  const pageItems = items.slice(start, start + RPB_MASTER_PAGE_SIZE_);
+  $('rpbMasterSummary').textContent = items.length
+    ? `Menampilkan ${start + 1}–${start + pageItems.length} dari ${items.length} hasil · total master ${rpbState_.items.length} barang.`
+    : `Menampilkan 0 dari 0 hasil · total master ${rpbState_.items.length} barang.`;
+  $('rpbMasterFirst').disabled = rpbMasterPage_ <= 1;
+  $('rpbMasterPrevious').disabled = rpbMasterPage_ <= 1;
+  $('rpbMasterNext').disabled = rpbMasterPage_ >= pageCount;
+  $('rpbMasterLast').disabled = rpbMasterPage_ >= pageCount;
+  $('rpbMasterPageStatus').textContent = `Halaman ${rpbMasterPage_} dari ${pageCount}`;
   if (!items.length) {
     const row = body.insertRow();
     const cell = row.insertCell();
-    cell.colSpan = 6;
-    cell.textContent = 'Tidak ada barang pada kategori ini.';
+    cell.colSpan = 8;
+    cell.textContent = 'Tidak ada barang yang cocok dengan filter.';
   }
-  items.forEach((item) => {
+  pageItems.forEach((item) => {
     const row = body.insertRow();
-    [item.category, item.name, item.unit].forEach((value) => row.insertCell().textContent = value);
+    [item.id, item.category, item.name, item.unit, item.note || '—'].forEach((value) => row.insertCell().textContent = value);
     const priceCell = row.insertCell(); const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.value = item.price == null || item.price === '' ? 0 : item.price; price.dataset.priceInput = item.id; priceCell.appendChild(price);
     row.insertCell().textContent = item.active ? 'Aktif' : 'Nonaktif';
     const actions = row.insertCell();
@@ -263,6 +292,15 @@ function renderRpbMaster_() {
     else { const on = document.createElement('button'); on.className = 'btn green'; on.type = 'button'; on.textContent = 'Aktifkan kembali'; on.dataset.rpbReactivate = item.id; actions.appendChild(on); }
   });
   container.replaceChildren(table);
+}
+
+function changeRpbMasterPage_(direction) {
+  const pageCount = Math.max(1, Math.ceil(getFilteredRpbMasterItems_().length / RPB_MASTER_PAGE_SIZE_));
+  if (direction === 'first') rpbMasterPage_ = 1;
+  else if (direction === 'previous') rpbMasterPage_ = Math.max(1, rpbMasterPage_ - 1);
+  else if (direction === 'next') rpbMasterPage_ = Math.min(pageCount, rpbMasterPage_ + 1);
+  else if (direction === 'last') rpbMasterPage_ = pageCount;
+  renderRpbMaster_();
 }
 
 function addRpbMasterItem_() {
@@ -303,7 +341,9 @@ function renderRpbHistory_() {
     const actions = document.createElement('div'); actions.className = 'actions';
     [['excelUrl','Excel'],['pdfUrl','PDF'],['spreadsheetUrl','Google Sheets'],['folderUrl','Folder Arsip']].forEach(([key,label]) => { if (!record[key]) return; const a=document.createElement('a');a.className='btn';a.href=record[key];a.target='_blank';a.rel='noopener';a.textContent=label;actions.appendChild(a); });
     const revise = document.createElement('button'); revise.type='button'; revise.className='btn primary'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
-    const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy); card.appendChild(actions);
+    const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy);
+    const remove = document.createElement('button'); remove.type='button'; remove.className='btn red'; remove.textContent='Hapus dari daftar aktif'; remove.dataset.rpbHistoryDelete=record.id; remove.disabled=rpbDeletionInProgress_; actions.appendChild(remove);
+    card.appendChild(actions);
     const track = document.createElement('div'); track.className='rpb-tracking-row';
     const status = document.createElement('select'); status.dataset.status=record.id; rpbState_.statuses.forEach((value)=>status.add(new Option(value,value))); status.value=record.status; track.appendChild(status);
     const note=document.createElement('input');note.placeholder='Catatan tracking';note.dataset.note=record.id;track.appendChild(note);
@@ -311,6 +351,60 @@ function renderRpbHistory_() {
     const save=document.createElement('button');save.type='button';save.className='btn';save.textContent='Simpan status';save.dataset.rpbTrack=record.id;track.appendChild(save);card.appendChild(track);
     (record.tracking||[]).forEach((entry)=>{const line=document.createElement('p');line.className='muted';line.textContent=`${new Date(entry.at).toLocaleString('id-ID')} — ${entry.status}${entry.note ? ': '+entry.note : ''}`;if(entry.evidenceUrl){line.append(' ');const a=document.createElement('a');a.href=entry.evidenceUrl;a.target='_blank';a.rel='noopener';a.textContent='Bukti';line.appendChild(a);}card.appendChild(line);});
     root.appendChild(card);
+  });
+}
+
+function setRpbHistoryDeleteButtonsDisabled_(disabled) {
+  document.querySelectorAll('#rpbDeleteAllHistory, [data-rpb-history-delete]').forEach((button) => { button.disabled = disabled; });
+}
+
+function deleteRpbHistory_(id, deleteAll) {
+  if (rpbDeletionInProgress_) return;
+  rpbDeletionInProgress_ = true;
+  setRpbHistoryDeleteButtonsDisabled_(true);
+  const confirmation = deleteAll ? 'HAPUS SEMUA RPB' : 'HAPUS RPB';
+  const scope = deleteAll ? 'Semua RPB aktif, termasuk seluruh revisinya, akan dikeluarkan dari daftar aktif.' : 'RPB ini akan dikeluarkan dari daftar aktif.';
+  let typed;
+  try {
+    typed = window.prompt(`${scope}\nSnapshot dan tracking tetap tersimpan. File di Google Drive tidak dihapus.\n\nKetik "${confirmation}" untuk melanjutkan:`);
+  } catch (error) {
+    rpbDeletionInProgress_ = false;
+    setRpbHistoryDeleteButtonsDisabled_(false);
+    throw error;
+  }
+  const finish = () => {
+    rpbDeletionInProgress_ = false;
+    setRpbHistoryDeleteButtonsDisabled_(false);
+  };
+  if (typed !== confirmation) {
+    $('rpbHistoryStatus').textContent = typed === null ? 'Penghapusan dibatalkan.' : 'Konfirmasi tidak cocok. RPB tidak dihapus.';
+    finish();
+    return;
+  }
+  $('rpbHistoryStatus').textContent = 'Menunggu verifikasi PIN...';
+  askDeletePin_('penghapusan riwayat RPB').then((pin) => {
+    if (!pin) {
+      $('rpbHistoryStatus').textContent = 'Penghapusan dibatalkan.';
+      finish();
+      return;
+    }
+    $('rpbHistoryStatus').textContent = 'Menghapus dari daftar aktif...';
+    const functionName = deleteAll ? 'apiDeleteAllRpbHistory' : 'apiDeleteRpbHistory';
+    const args = deleteAll ? [confirmation, pin, accessToken] : [id, confirmation, pin, accessToken];
+    invokeServer(functionName, args, (result) => {
+      rpbState_.history = result.history;
+      rpbState_.nextSequence = result.nextSequence;
+      renderRpbHistory_();
+      $('rpbHistoryStatus').textContent = result.message;
+      if (window.refreshHoSummary) window.refreshHoSummary();
+      finish();
+    }, (error) => {
+      $('rpbHistoryStatus').textContent = `RPB tidak dihapus: ${error.message}`;
+      finish();
+    });
+  }, (error) => {
+    $('rpbHistoryStatus').textContent = `RPB tidak dihapus: ${error.message}`;
+    finish();
   });
 }
 
@@ -348,11 +442,22 @@ function copyRpbToDraft_(id) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('input', (event) => {
+  if (event.target.id === 'rpbMasterSearch') {
+    rpbMasterPage_ = 1;
+    renderRpbMaster_();
+    return;
+  }
+  if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); }
+});
 document.addEventListener('change', (event) => {
   if (event.target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
-  if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
+  if (event.target.id === 'rpbMasterCategoryFilter' || event.target.id === 'rpbMasterActiveFilter') {
+    rpbMasterPage_ = 1;
+    renderRpbMaster_();
+    return;
+  }
   if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
 });
 

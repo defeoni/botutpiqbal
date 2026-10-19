@@ -15,8 +15,20 @@
     </div>
     <div id="rpbResult" class="card" hidden><h2>RPB Berhasil Diarsipkan</h2><p id="rpbResultNumber"></p><div class="actions"><a id="rpbExcelLink" class="btn green" target="_blank" rel="noopener">Unduh Excel</a><a id="rpbPdfLink" class="btn primary" target="_blank" rel="noopener">Unduh PDF</a><a id="rpbSheetLink" class="btn" target="_blank" rel="noopener">Buka Spreadsheet</a><a id="rpbFolderLink" class="btn" target="_blank" rel="noopener">Buka Folder Arsip</a></div><label for="rpbWaDraft">Draf WhatsApp (barang yang diajukan saja)</label><pre id="rpbWaDraft"></pre><button type="button" class="btn green" id="rpbCopyWa">Salin Draf WhatsApp</button></div>
     <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Master Barang RPB</h2><button class="btn" type="button" id="rpbReload">Muat Ulang</button></div><p class="muted">Harga baru dapat ditambahkan tanpa PIN. Mengubah atau menghapus harga yang sudah ada dan menonaktifkan barang memerlukan PIN melalui aplikasi. Barang lama tetap tercatat di RPB sebelumnya.</p>
-      <div class="field"><label for="rpbMasterCategoryFilter">Filter kategori master</label><select id="rpbMasterCategoryFilter"><option value="">Semua kategori</option></select></div>
+      <div class="grid">
+        <div class="field"><label for="rpbMasterCategoryFilter">Filter kategori master</label><select id="rpbMasterCategoryFilter"><option value="">Semua kategori</option></select></div>
+        <div class="field"><label for="rpbMasterSearch">Cari kode/ID, nama, satuan, atau keterangan</label><input id="rpbMasterSearch" type="search" placeholder="Beberapa kata dipisahkan spasi"></div>
+        <div class="field"><label for="rpbMasterActiveFilter">Status barang</label><select id="rpbMasterActiveFilter"><option value="">Semua status</option><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></div>
+      </div>
+      <p id="rpbMasterSummary" class="muted" role="status"></p>
       <div class="grid"><div class="field"><label for="rpbNewCategory">Kategori</label><select id="rpbNewCategory"></select></div><div class="field"><label for="rpbNewName">Nama barang</label><input id="rpbNewName"></div><div class="field"><label for="rpbNewUnit">Satuan</label><input id="rpbNewUnit" placeholder="contoh: pcs, box, bulan"></div><div class="field"><label for="rpbNewPrice">Harga acuan awal (boleh kosong)</label><input id="rpbNewPrice" type="number" min="0"></div><div class="field"><label for="rpbNewNote">Keterangan</label><input id="rpbNewNote"></div></div><button type="button" class="btn primary" id="rpbAddMaster">Tambah ke Master</button><p id="rpbMasterStatus" class="muted" role="status"></p><div id="rpbMasterList" class="tablewrap"></div>
+      <div class="actions" aria-label="Navigasi halaman master">
+        <button class="btn" type="button" id="rpbMasterFirst" data-rpb-master-page="first">Pertama</button>
+        <button class="btn" type="button" id="rpbMasterPrevious" data-rpb-master-page="previous">Sebelumnya</button>
+        <span id="rpbMasterPageStatus" class="muted" aria-live="polite"></span>
+        <button class="btn" type="button" id="rpbMasterNext" data-rpb-master-page="next">Berikutnya</button>
+        <button class="btn" type="button" id="rpbMasterLast" data-rpb-master-page="last">Terakhir</button>
+      </div>
     </div>
-    <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Riwayat dan Tracking RPB</h2><button class="btn" type="button" id="rpbRefreshHistory">Muat Ulang Riwayat</button></div><div id="rpbHistoryList" class="rpb-history-list"></div></div>
+    <div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Riwayat dan Tracking RPB</h2><button class="btn" type="button" id="rpbRefreshHistory">Muat Ulang Riwayat</button><button class="btn red" type="button" id="rpbDeleteAllHistory">Hapus Semua RPB Aktif</button></div><p id="rpbHistoryStatus" class="muted" role="status" aria-live="polite"></p><div id="rpbHistoryList" class="rpb-history-list"></div></div>
   </section>

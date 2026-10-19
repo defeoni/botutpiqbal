@@ -368,7 +368,7 @@ function deleteMemoHistoryRecords_(numbers) {
   }
 }
 
-function trashAndDeleteMemoHistoryRows_(history, targets) {
+function trashAndDeleteMemoHistoryRows_(history, targets, protectedIds) {
   const fileIds = new Set();
   targets.forEach(({ values: row }) => {
     try {
@@ -381,6 +381,7 @@ function trashAndDeleteMemoHistoryRows_(history, targets) {
       if (id) fileIds.add(id);
     });
   });
+  (protectedIds || []).forEach((id) => fileIds.delete(String(id)));
   const failures = [];
   const trashed = [];
   fileIds.forEach((id) => {
@@ -524,22 +525,15 @@ function apiHardReset(pin, token) {
   try {
     const props = PropertiesService.getScriptProperties();
     const history = getMemoHistorySheet_(false);
-    const protectedIds = ['TEMPLATE_PN_ID', 'TEMPLATE_PG_ID', 'TEMPLATE_SP_ID']
-      .map((key) => props.getProperty(key))
-      .filter(Boolean);
-    const historyId = props.getProperty('MEMO_HISTORY_SHEET_ID');
-    if (historyId) protectedIds.push(historyId);
-    const rootId = props.getProperty('DRIVE_ROOT_FOLDER_ID');
-    let trashedFiles = 0;
-    if (rootId) {
-      const trashResult = trashArchiveFiles_(DriveApp.getFolderById(rootId), protectedIds);
-      trashedFiles = trashResult.count;
-      if (trashResult.failures.length) {
-        throw new Error(`Sebagian file gagal dipindahkan ke Sampah (${trashResult.failures.length}): ${trashResult.failures.slice(0, 10).join(', ')}`);
-      }
-    }
+    let historyResult = 'Tidak ada riwayat Memo aktif.';
     if (history && history.getLastRow() > 1) {
-      history.deleteRows(2, history.getLastRow() - 1);
+      const values = history.getRange(2, 1, history.getLastRow() - 1, 10).getValues();
+      const targets = values.map((row, index) => ({ row: index + 2, values: row }));
+      const protectedIds = ['TEMPLATE_PN_ID', 'TEMPLATE_PG_ID', 'TEMPLATE_SP_ID',
+        'MEMO_HISTORY_SHEET_ID', 'MANPOWER_SHEET_ID']
+        .map((key) => props.getProperty(key))
+        .filter(Boolean);
+      historyResult = trashAndDeleteMemoHistoryRows_(history, targets, protectedIds).message;
     }
     Object.keys(props.getProperties()).forEach((key) => {
       if (key.indexOf('COUNTER_') === 0 || key.indexOf('CTR_') === 0 ||
@@ -547,7 +541,7 @@ function apiHardReset(pin, token) {
         props.deleteProperty(key);
       }
     });
-    return { message: `Hard reset selesai. Semua counter direset, riwayat dikosongkan, dan ${trashedFiles} file arsip dipindahkan ke Sampah Google Drive. File template dan Data Manpower tetap disimpan.` };
+    return { message: `Reset Memo selesai. ${historyResult} Counter Memo direset. RPB, RPD, Nota/Keuangan, Material, template, Manpower, dan modul lain tetap disimpan.` };
   } finally {
     lock.releaseLock();
   }

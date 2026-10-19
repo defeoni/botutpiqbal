@@ -389,14 +389,20 @@ function utpPublishRevision_(record, context) {
 }
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
-  var limit = Math.max(1, Math.min(50, Number(options.limit) || 30));
+  var brandClass = String(options.brandClass || 'ALL').toUpperCase();
+  if (['ALL', 'BRANDED', 'GENERIC', 'UNKNOWN'].indexOf(brandClass) < 0) throw new Error('Filter jenis merek tidak valid.');
+  var typeQuery = utpNorm_(options.typeQuery);
+  if (typeQuery.length > 160) throw new Error('Filter tipe/spesifikasi terlalu panjang.');
+  var limit = Math.max(1, Math.min(50, Number(options.limit) || 50));
   var offset = options.offset == null ? 0 : Number(options.offset);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Posisi halaman pencarian tidak valid.');
   var matches = (items || []).filter(function (item) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
+    if (brandClass !== 'ALL' && utpItemClassification_(item) !== brandClass) return false;
     if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
+    if (typeQuery && utpNorm_(item.model).indexOf(typeQuery) < 0) return false;
     if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
-    var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).join(' '));
+    var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).concat(item.note || '').join(' '));
     return terms.every(function (term) { return text.indexOf(term) >= 0; });
   }).map(function (item) {
     var copy = utpClone_(item), approval = utpFindApproval_(copy, approvals);
