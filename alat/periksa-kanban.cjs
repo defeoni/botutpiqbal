@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
  const browser=await chromium.launch({headless:true,executablePath:process.argv[3]});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://**/*',r=>r.abort());
-  await page.goto(pathToFileURL(path.join(__dirname,'../.local/aplikasi.html')).href);
+  await page.goto(process.env.UTP_PREVIEW_URL||pathToFileURL(path.join(__dirname,'../.local/aplikasi.html')).href);
   await page.locator('.sidebar-nav [data-main="REQUESTS"]').click();
   const card=()=>page.locator('[data-board-id="request-demo"]');
   await card().waitFor();assert.equal(await page.locator('.utp-board-column').count(),6);

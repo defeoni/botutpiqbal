@@ -21,7 +21,7 @@ const environment=new Function('require','__dirname',prelude+'\nreturn environme
  const html=fs.readFileSync(path.join(root,'.local/aplikasi.html'),'utf8');
  assert.ok(html.includes('window.UTP_FRONTEND_PREVIEW = true;'));
  fs.writeFileSync(output,html.replace('window.UTP_FRONTEND_PREVIEW = true;','window.UTP_FRONTEND_PREVIEW = false;'));
- const url=pathToFileURL(output).href;
+ const url=process.env.UTP_DRAFT_URL||pathToFileURL(output).href;
  const errors=[];
  async function connect(page){
   await page.goto(url);

@@ -734,7 +734,7 @@
     if (name === 'add-master') return masterLookup();
     if (name === 'add-temporary') return editItem();
     if (name === 'retry-lookup') return lookup(modal.query || '', modal.offset || 0);
-    if (name === 'lookup-select') return editItem('', modal.items.find(item => item.code === code));
+    if (name === 'lookup-select') { const item = modal && (modal.items || []).find(row => row.code === code); if (item) return editItem('', item); return; }
     if (name === 'choose-original') return chooseOriginal();
     if (name === 'edit-item') return editItem(id);
     if (name === 'remove-item') {

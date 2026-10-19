@@ -389,9 +389,9 @@ function utpPublishRevision_(record, context) {
 }
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
-  var brandClass = String(options.brandClass || 'ALL').toUpperCase();
+  var brandClass = String(options.brandClass || options.classification || 'ALL').toUpperCase();
   if (['ALL', 'BRANDED', 'GENERIC', 'UNKNOWN'].indexOf(brandClass) < 0) throw new Error('Filter jenis merek tidak valid.');
-  var typeQuery = utpNorm_(options.typeQuery);
+  var typeQuery = utpNorm_(options.typeQuery || options.model);
   if (typeQuery.length > 160) throw new Error('Filter tipe/spesifikasi terlalu panjang.');
   var limit = Math.max(1, Math.min(50, Number(options.limit) || 50));
   var offset = options.offset == null ? 0 : Number(options.offset);

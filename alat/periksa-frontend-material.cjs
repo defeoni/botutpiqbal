@@ -12,7 +12,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
   const errors = [];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://**/*', route=>route.abort());
-  const url = pathToFileURL(path.resolve(__dirname,'../.local/aplikasi.html')).href;
+  const url = process.env.UTP_PREVIEW_URL || pathToFileURL(path.resolve(__dirname,'../.local/aplikasi.html')).href;
   const assets = path.resolve(__dirname,'../.local/frontend');
   fs.mkdirSync(assets,{recursive:true});
   let count=0;

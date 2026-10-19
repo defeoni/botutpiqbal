@@ -159,7 +159,7 @@ function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token) {
     if (!sheet) throw new Error('Riwayat RPB belum tersedia.');
     const row = findRpbRecordRow_(sheet, id);
     if (!row) throw new Error('Riwayat RPB tidak ditemukan.');
-    if (sheet.getRange(row, 15).getValue()) throw new Error('RPB yang sudah dihapus tidak dapat diubah tracking-nya.');
+    if (getRpbRecordById_(sheet, id).deletedAt) throw new Error('RPB yang sudah dihapus tidak dapat diubah tracking-nya.');
     let tracking = [];
     try { tracking = JSON.parse(sheet.getRange(row, 14).getValue() || '[]'); } catch (error) {}
     tracking.push({ status, note: String(note || '').trim().slice(0, 500), evidenceUrl: evidence.slice(0, 500), at: new Date().toISOString() });
@@ -236,14 +236,14 @@ function getRpbHistory_() {
       try { tracking = JSON.parse(row[13] || '[]'); } catch (error) {}
       if (!tracking.length && Array.isArray(data.tracking)) tracking = data.tracking;
       return { id: String(row[0]), number: String(row[1]), revision: Number(row[2]) || 0, status: String(row[3]), requestDate: row[4] instanceof Date ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd') : String(row[4]), lpdReceivedMonth: String(row[5] || ''), data, tracking, spreadsheetUrl: String(row[7] || ''), excelUrl: String(row[8] || ''), pdfUrl: String(row[9] || ''), folderUrl: String(row[10] || ''), parentId: String(row[11] || '') };
-    });
+    }).filter((record) => !record.data.deletedAt);
 }
 
 function getRpbRecordById_(sheet, id) {
   const row = findRpbRecordRow_(sheet, id);
   if (!row) return null;
   const v = sheet.getRange(row, 1, 1, RPB_HISTORY_HEADERS.length).getValues()[0];
-  return { id: String(v[0]), number: String(v[1]), revision: Number(v[2]) || 0, dataJson: String(v[6] || ''), deletedAt: v[14] || '' };
+  return { id: String(v[0]), number: String(v[1]), revision: Number(v[2]) || 0, dataJson: String(v[6] || ''), deletedAt: v[14] || JSON.parse(v[6] || '{}').deletedAt || '' };
 }
 
 function findRpbRecordRow_(sheet, id) {
@@ -263,18 +263,24 @@ function appendRpbRecord_(sheet, record) {
 
 function apiDeleteRpbHistory(id, confirmation, pin, token) {
   requireAuthorized_(token);
-  if (String(confirmation || '') !== 'HAPUS RPB') throw new Error('Konfirmasi penghapusan RPB tidak cocok.');
   requireDeletePin_(pin);
-  const recordId = requiredText_(id, 'ID RPB', 100);
+  const all = id === '*';
+  if (confirmation !== (all ? 'HAPUS SEMUA RPB' : 'HAPUS RPB')) throw new Error('Konfirmasi penghapusan RPB tidak sesuai.');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const sheet = getRpbHistorySheet_(false);
-    const row = findRpbRecordRow_(sheet, recordId);
-    if (!row) throw new Error('Riwayat RPB tidak ditemukan.');
-    if (sheet.getRange(row, 15).getValue()) throw new Error('RPB ini sudah dihapus dari daftar aktif.');
-    sheet.getRange(row, 15).setValue(new Date());
-    return { message: 'RPB dihapus dari daftar aktif. Snapshot, tracking, dan file Drive tetap tersimpan.', history: getRpbHistory_(), nextSequence: getRpbNextSequence_() };
+    const records = getRpbHistory_().filter((record) => all || record.id === String(id));
+    if (!records.length) throw new Error('Riwayat RPB tidak ditemukan. Muat ulang riwayat.');
+    const deletedAt = new Date().toISOString();
+    records.forEach((record) => {
+      const row = findRpbRecordRow_(sheet, record.id);
+      if (!row) throw new Error('Riwayat RPB berubah. Muat ulang riwayat.');
+      record.data.deletedAt = deletedAt;
+      sheet.getRange(row, 7).setValue(JSON.stringify(record.data));
+      sheet.getRange(row, 13).setValue(new Date());
+    });
+    return { history: getRpbHistory_(), nextSequence: getRpbNextSequence_(), message: `${records.length} RPB dihapus dari riwayat aktif. File arsip Drive tetap tersimpan; nomor tidak digunakan ulang.` };
   } finally {
     lock.releaseLock();
   }
