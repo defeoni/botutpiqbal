@@ -389,12 +389,16 @@ function utpPublishRevision_(record, context) {
 }
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
+  var classification = String(options.classification || '').trim().toUpperCase();
+  if (classification && ['BRANDED', 'GENERIC', 'UNKNOWN'].indexOf(classification) < 0) throw new Error('Filter jenis merek tidak valid.');
   var limit = Math.max(1, Math.min(50, Number(options.limit) || 30));
   var offset = options.offset == null ? 0 : Number(options.offset);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Posisi halaman pencarian tidak valid.');
   var matches = (items || []).filter(function (item) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
     if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
+    if (classification && utpItemClassification_(item) !== classification) return false;
+    if (options.model && utpNorm_(item.model).indexOf(utpNorm_(options.model)) < 0) return false;
     if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
     var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).join(' '));
     return terms.every(function (term) { return text.indexOf(term) >= 0; });

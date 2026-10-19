@@ -5,6 +5,9 @@ let rpbDraftTimer_ = null;
 let rpbDraftVersion_ = 0;
 let rpbFormEditVersion_ = 0;
 let rpbSubmitting_ = false;
+let rpbMasterPage_ = 0;
+const rpbMasterPageSize_ = 25;
+let rpbHistoryDeleting_ = false;
 
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
@@ -17,6 +20,8 @@ document.addEventListener('click', (event) => {
     else if (button.id === 'rpbSubmit') submitRpb_();
     else if (button.id === 'rpbReload' || button.id === 'rpbRefreshHistory') loadRpbData_();
     else if (button.id === 'rpbAddMaster') addRpbMasterItem_();
+    else if (button.id === 'rpbClearHistory') deleteRpbHistory_('*');
+    else if (button.matches('[data-rpb-history-delete]')) deleteRpbHistory_(button.dataset.rpbHistoryDelete);
     else if (button.id === 'rpbCopyWa') {
       navigator.clipboard.writeText($('rpbWaDraft').textContent)
         .then(() => { $('rpbDraftStatus').textContent = 'Draf WhatsApp disalin.'; })
@@ -56,7 +61,6 @@ function loadRpbData_() {
       });
       if (Array.from(select.options).some((option) => option.value === previousValue)) select.value = previousValue;
     });
-    $('rpbMasterCategoryFilter').onchange = renderRpbMaster_;
     renderRpbMaster_();
     renderRpbHistory_();
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
@@ -245,14 +249,25 @@ function renderRpbMaster_() {
   const table = document.createElement('table');
   table.innerHTML = '<thead><tr><th>Kategori</th><th>Nama barang</th><th>Satuan</th><th>Harga acuan</th><th>Status</th><th>Aksi</th></tr></thead>';
   const body = table.createTBody();
-  const items = rpbState_.items.filter((item) => !selectedCategory || item.category === selectedCategory);
+  const terms = $('rpbMasterSearch').value.trim().toLocaleLowerCase('id').split(/\s+/).filter(Boolean);
+  const activeFilter = $('rpbMasterActiveFilter').value;
+  const items = rpbState_.items.filter((item) => {
+    const text = [item.id, item.category, item.name, item.unit, item.note].join(' ').toLocaleLowerCase('id');
+    return (!selectedCategory || item.category === selectedCategory)
+      && (!activeFilter || item.active === (activeFilter === 'active'))
+      && terms.every((term) => text.includes(term));
+  });
+  const pageCount = Math.max(1, Math.ceil(items.length / rpbMasterPageSize_));
+  rpbMasterPage_ = Math.max(0, Math.min(rpbMasterPage_, pageCount - 1));
+  const start = rpbMasterPage_ * rpbMasterPageSize_;
+  $('rpbMasterCount').textContent = `${items.length ? start + 1 : 0}–${Math.min(start + rpbMasterPageSize_, items.length)} dari ${items.length} hasil · total master ${rpbState_.items.length} barang. Semua hasil tersedia melalui halaman berikutnya.`;
   if (!items.length) {
     const row = body.insertRow();
     const cell = row.insertCell();
     cell.colSpan = 6;
     cell.textContent = 'Tidak ada barang pada kategori ini.';
   }
-  items.forEach((item) => {
+  items.slice(start, start + rpbMasterPageSize_).forEach((item) => {
     const row = body.insertRow();
     [item.category, item.name, item.unit].forEach((value) => row.insertCell().textContent = value);
     const priceCell = row.insertCell(); const price = document.createElement('input'); price.type = 'number'; price.min = '0'; price.step = '1'; price.value = item.price == null || item.price === '' ? 0 : item.price; price.dataset.priceInput = item.id; priceCell.appendChild(price);
@@ -263,6 +278,19 @@ function renderRpbMaster_() {
     else { const on = document.createElement('button'); on.className = 'btn green'; on.type = 'button'; on.textContent = 'Aktifkan kembali'; on.dataset.rpbReactivate = item.id; actions.appendChild(on); }
   });
   container.replaceChildren(table);
+  if (pageCount > 1) {
+    const nav = document.createElement('nav'); nav.className = 'list-pagination'; nav.setAttribute('aria-label', 'Halaman master barang RPB');
+    const addPageButton = (label, page, disabled) => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn'; button.textContent = label; button.disabled = disabled;
+      button.onclick = () => { rpbMasterPage_ = page; renderRpbMaster_(); }; nav.appendChild(button);
+    };
+    addPageButton('Pertama', 0, rpbMasterPage_ === 0);
+    addPageButton('Sebelumnya', rpbMasterPage_ - 1, rpbMasterPage_ === 0);
+    const label = document.createElement('span'); label.textContent = `Halaman ${rpbMasterPage_ + 1} dari ${pageCount}`; nav.appendChild(label);
+    addPageButton('Berikutnya', rpbMasterPage_ + 1, rpbMasterPage_ === pageCount - 1);
+    addPageButton('Terakhir', pageCount - 1, rpbMasterPage_ === pageCount - 1);
+    container.appendChild(nav);
+  }
 }
 
 function addRpbMasterItem_() {
@@ -295,6 +323,7 @@ function setRpbItemActive_(id, active) {
 
 function renderRpbHistory_() {
   const root = $('rpbHistoryList'); root.innerHTML = '';
+  $('rpbClearHistory').disabled = rpbHistoryDeleting_ || !rpbState_.history.length;
   if (!rpbState_.history.length) { root.textContent = 'Belum ada riwayat RPB.'; return; }
   rpbState_.history.forEach((record) => {
     const card = document.createElement('article'); card.className = 'card rpb-history-card';
@@ -304,6 +333,7 @@ function renderRpbHistory_() {
     [['excelUrl','Excel'],['pdfUrl','PDF'],['spreadsheetUrl','Google Sheets'],['folderUrl','Folder Arsip']].forEach(([key,label]) => { if (!record[key]) return; const a=document.createElement('a');a.className='btn';a.href=record[key];a.target='_blank';a.rel='noopener';a.textContent=label;actions.appendChild(a); });
     const revise = document.createElement('button'); revise.type='button'; revise.className='btn primary'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
     const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy); card.appendChild(actions);
+    const remove = document.createElement('button'); remove.type='button'; remove.className='btn red'; remove.textContent='Hapus RPB'; remove.dataset.rpbHistoryDelete=record.id; remove.disabled=rpbHistoryDeleting_; actions.appendChild(remove);
     const track = document.createElement('div'); track.className='rpb-tracking-row';
     const status = document.createElement('select'); status.dataset.status=record.id; rpbState_.statuses.forEach((value)=>status.add(new Option(value,value))); status.value=record.status; track.appendChild(status);
     const note=document.createElement('input');note.placeholder='Catatan tracking';note.dataset.note=record.id;track.appendChild(note);
@@ -312,6 +342,32 @@ function renderRpbHistory_() {
     (record.tracking||[]).forEach((entry)=>{const line=document.createElement('p');line.className='muted';line.textContent=`${new Date(entry.at).toLocaleString('id-ID')} — ${entry.status}${entry.note ? ': '+entry.note : ''}`;if(entry.evidenceUrl){line.append(' ');const a=document.createElement('a');a.href=entry.evidenceUrl;a.target='_blank';a.rel='noopener';a.textContent='Bukti';line.appendChild(a);}card.appendChild(line);});
     root.appendChild(card);
   });
+}
+
+async function deleteRpbHistory_(id) {
+  if (rpbHistoryDeleting_) return;
+  const all = id === '*';
+  const record = rpbState_.history.find((entry) => entry.id === id);
+  if ((!all && !record) || !rpbState_.history.length) return;
+  const confirmation = all ? 'HAPUS SEMUA RPB' : 'HAPUS RPB';
+  const scope = all ? `${rpbState_.history.length} RPB beserta tracking-nya` : `${record.number} beserta tracking-nya`;
+  if (prompt(`Hapus ${scope} dari daftar aktif? File arsip Drive tetap tersimpan dan nomor tidak digunakan ulang. Ketik ${confirmation} untuk melanjutkan.`) !== confirmation) return;
+  rpbHistoryDeleting_ = true;
+  renderRpbHistory_();
+  const finish = () => { rpbHistoryDeleting_ = false; renderRpbHistory_(); };
+  try {
+    const pin = await askDeletePin_('penghapusan riwayat RPB');
+    if (!pin) { finish(); return; }
+    $('rpbHistoryStatus').textContent = 'Menghapus RPB dari daftar aktif...';
+    invokeServer('apiDeleteRpbHistory', [id, confirmation, pin, accessToken], (result) => {
+      rpbState_.history = result.history;
+      if (all || rpbRevisionOf_ === id) { rpbRevisionOf_ = ''; $('rpbSubmit').textContent = 'Buat RPB / Kirim Pengajuan'; }
+      $('rpbResult').hidden = true;
+      $('rpbHistoryStatus').textContent = result.message;
+      finish();
+      if (window.refreshHoSummary) window.refreshHoSummary();
+    }, (error) => { $('rpbHistoryStatus').textContent = `RPB belum dihapus: ${error.message}`; finish(); });
+  } catch (error) { $('rpbHistoryStatus').textContent = `RPB belum dihapus: ${error.message}`; finish(); }
 }
 
 function saveRpbTracking_(id) {
@@ -348,11 +404,14 @@ function copyRpbToDraft_(id) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-document.addEventListener('input', (event) => { if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); } });
+document.addEventListener('input', (event) => {
+  if (event.target.id === 'rpbMasterSearch') { rpbMasterPage_ = 0; renderRpbMaster_(); return; }
+  if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); }
+});
 document.addEventListener('change', (event) => {
   if (event.target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
   if (event.target.id === 'rpbCategoryFilter') applyRpbCategoryFilter_();
-  if (event.target.id === 'rpbMasterCategoryFilter') renderRpbMaster_();
+  if (['rpbMasterCategoryFilter', 'rpbMasterActiveFilter'].includes(event.target.id)) { rpbMasterPage_ = 0; renderRpbMaster_(); return; }
   if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
 });
 

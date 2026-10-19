@@ -165,6 +165,38 @@ test('tracking updates require an authorized caller and the delete PIN', () => {
   );
 });
 
+test('RPB history delete needs PIN and confirmation, then preserves its archived snapshot', () => {
+  const context = createBackendContext();
+  const record = { id: 'record-id', data: { items: [validItem()] } };
+  const writes = [];
+  const sheet = {
+    getRange(row, column) {
+      return { setValue(value) {
+        writes.push({ row, column, value });
+        if (column === 7) record.data = JSON.parse(value);
+      } };
+    }
+  };
+  context.getRpbHistorySheet_ = () => sheet;
+  context.getRpbHistory_ = () => record.data.deletedAt ? [] : [record];
+  context.findRpbRecordRow_ = () => 2;
+
+  assert.throws(
+    () => context.apiDeleteRpbHistory('record-id', 'SALAH', 'valid-pin', 'valid-token'),
+    /Konfirmasi penghapusan RPB tidak sesuai/
+  );
+  assert.throws(
+    () => context.apiDeleteRpbHistory('record-id', 'HAPUS RPB', '', 'valid-token'),
+    /PIN required/
+  );
+
+  const result = context.apiDeleteRpbHistory('record-id', 'HAPUS RPB', 'valid-pin', 'valid-token');
+  const archiveWrite = writes.find((write) => write.column === 7);
+  assert.ok(archiveWrite, 'snapshot RPB is updated with deletion metadata');
+  assert.ok(JSON.parse(archiveWrite.value).deletedAt, 'deletion timestamp is retained in the snapshot');
+  assert.deepEqual(result.history, []);
+});
+
 test('invalid template categories report the spreadsheet row instead of throwing ReferenceError', () => {
   const context = createBackendContext();
   const row = Array(14).fill('');

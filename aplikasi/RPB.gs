@@ -180,6 +180,31 @@ function getRpbNextSequence_() {
   return maximum + 1;
 }
 
+function apiDeleteRpbHistory(id, confirmation, pin, token) {
+  requireAuthorized_(token);
+  requireDeletePin_(pin);
+  const all = id === '*';
+  if (confirmation !== (all ? 'HAPUS SEMUA RPB' : 'HAPUS RPB')) throw new Error('Konfirmasi penghapusan RPB tidak sesuai.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getRpbHistorySheet_(false);
+    const records = getRpbHistory_().filter((record) => all || record.id === String(id));
+    if (!records.length) throw new Error('Riwayat RPB tidak ditemukan. Muat ulang riwayat.');
+    const deletedAt = new Date().toISOString();
+    records.forEach((record) => {
+      const row = findRpbRecordRow_(sheet, record.id);
+      if (!row) throw new Error('Riwayat RPB berubah. Muat ulang riwayat.');
+      record.data.deletedAt = deletedAt;
+      sheet.getRange(row, 7).setValue(JSON.stringify(record.data));
+      sheet.getRange(row, 13).setValue(new Date());
+    });
+    return { history: getRpbHistory_(), message: `${records.length} RPB dihapus dari riwayat aktif. File arsip Drive tetap tersimpan; nomor tidak digunakan ulang.` };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function getRpbSequenceFromNumber_(number) {
   const match = String(number || '').match(/\/(\d+)\s+Rev/i);
   return match ? Number(match[1]) : 0;
@@ -228,7 +253,7 @@ function getRpbHistory_() {
     try { tracking = JSON.parse(row[13] || '[]'); } catch (error) {}
     if (!tracking.length && Array.isArray(data.tracking)) tracking = data.tracking;
     return { id: String(row[0]), number: String(row[1]), revision: Number(row[2]) || 0, status: String(row[3]), requestDate: row[4] instanceof Date ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd') : String(row[4]), lpdReceivedMonth: String(row[5] || ''), data, tracking, spreadsheetUrl: String(row[7] || ''), excelUrl: String(row[8] || ''), pdfUrl: String(row[9] || ''), folderUrl: String(row[10] || ''), parentId: String(row[11] || '') };
-  });
+  }).filter((record) => !record.data.deletedAt);
 }
 
 function getRpbRecordById_(sheet, id) {
@@ -241,7 +266,12 @@ function getRpbRecordById_(sheet, id) {
 function findRpbRecordRow_(sheet, id) {
   if (!sheet || sheet.getLastRow() < 2) return 0;
   const found = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).createTextFinder(String(id)).matchEntireCell(true).findNext();
-  return found ? found.getRow() : 0;
+  if (!found) return 0;
+  const row = found.getRow();
+  let data;
+  try { data = JSON.parse(sheet.getRange(row, 7).getValue() || '{}'); }
+  catch (error) { throw new Error('Data riwayat RPB tidak valid. Periksa penyimpanan sebelum mengubahnya.'); }
+  return data.deletedAt ? 0 : row;
 }
 
 function appendRpbRecord_(sheet, record) {

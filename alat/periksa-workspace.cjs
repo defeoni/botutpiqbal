@@ -12,7 +12,7 @@ const environment=new Function('require','__dirname',source.slice(0,source.index
     const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.exposeFunction('__workspaceBridge',(action,payload)=>env.plain(env.sandbox.apiWorkspace(action,payload,'session')));
-    await page.goto(pathToFileURL(path.join(root,'.local/aplikasi.html')).href);
+    await page.goto(process.env.UTP_PREVIEW_URL||pathToFileURL(path.join(root,'.local/aplikasi.html')).href);
     await page.evaluate(()=>{accessToken='session';window.workspaceRpc=(action,payload)=>window.__workspaceBridge(action,payload);});
     await page.locator('.sidebar-nav [data-project-tool="Tugas"]').click();
     await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('dimuat'));

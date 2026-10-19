@@ -634,13 +634,13 @@ document.querySelectorAll('[data-reset]').forEach((button) => {
 });
 
 $('btnHardReset').addEventListener('click', () => {
-  const confirmed = confirm('PERINGATAN: Seluruh file arsip memo akan dipindahkan ke Sampah, riwayat memo dikosongkan, dan semua counter nomor direset. Data Manpower dan template dipertahankan. Lanjutkan?');
+  const confirmed = confirm('RESET MEMO: file yang tercatat dalam riwayat Memo dipindahkan ke Sampah, riwayat Memo dikosongkan, dan counter nomor direset. Riwayat RPB, RPD, Nota/Keuangan (LPD), data Manpower, dan template tidak dihapus. Hapus dokumen lain melalui menu masing-masing. Lanjutkan reset Memo?');
   if (!confirmed) return;
   askDeletePin_().then((pin) => {
     if (!pin) return;
     const button = $('btnHardReset');
     button.disabled = true;
-    $('hardResetStatus').textContent = 'Hard reset sedang berjalan...';
+    $('hardResetStatus').textContent = 'Reset Memo sedang berjalan...';
     invokeServer('apiHardReset', [pin, accessToken], (result) => {
       button.disabled = false;
       $('hardResetStatus').textContent = result.message;
@@ -648,7 +648,7 @@ $('btnHardReset').addEventListener('click', () => {
       loadHistory();
     }, (error) => {
       button.disabled = false;
-      $('hardResetStatus').textContent = `Hard reset gagal: ${error.message}`;
+      $('hardResetStatus').textContent = `Reset Memo gagal: ${error.message}`;
     });
   });
 });
