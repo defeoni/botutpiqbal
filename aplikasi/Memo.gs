@@ -566,7 +566,9 @@ function apiSetWebhook(token) {
 
 function apiTelegramStatus(token) {
   requireAuthorized_(token);
-  return getTelegramStatus_();
+  const status = getTelegramStatus_();
+  if (PropertiesService.getScriptProperties().getProperty('TELEGRAM_TRANSPORT') === 'POLLING') return Object.assign(status, telegramPollingStatus_());
+  return status;
 }
 
 function requireAuthorized_(token) {
@@ -1442,7 +1444,7 @@ function processTelegramUpdate_(update) {
   const message = update.message;
   const callback = update.callback_query;
   const from = message ? message.from : callback && callback.from;
-  const chatId = message ? message.chat.id : callback && callback.message.chat.id;
+  const chatId = message && message.chat ? message.chat.id : callback && callback.message && callback.message.chat && callback.message.chat.id;
   if (!from || !chatId) return;
   const chatType = message ? message.chat.type : callback && callback.message.chat.type;
   if (chatType !== 'private') return;
@@ -1548,6 +1550,7 @@ function setTelegramWebhook_() {
   const token = props.getProperty('TELEGRAM_BOT_TOKEN');
   const secret = props.getProperty('BOT_WEBHOOK_KEY');
   const url = telegramDeploymentUrl_();
+  if (props.getProperty('TELEGRAM_TRANSPORT') === 'POLLING') return 'Telegram memakai pengambilan pesan otomatis. Webhook tidak diperlukan.';
   if (!token || !secret || !url) throw new Error('Isi TELEGRAM_BOT_TOKEN dan BOT_WEBHOOK_KEY, lalu deploy sebagai Web App.');
   props.setProperty('WEB_APP_URL', url);
   const response = UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
@@ -1617,5 +1620,7 @@ function answerTelegramCallback_(callbackId) {
     muteHttpExceptions: true
   });
   const result = JSON.parse(response.getContentText());
+  if (!result.ok && result.error_code === 400 && /query is too old|query id is invalid|query_id_invalid/i.test(result.description || '')) return false;
   if (!result.ok) throw new Error(`Telegram gagal mengonfirmasi tombol: ${result.description}`);
+  return true;
 }

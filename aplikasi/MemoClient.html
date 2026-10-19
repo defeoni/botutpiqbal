@@ -1039,10 +1039,15 @@ function loadTelegramStatus_() {
   invokeServer('apiTelegramStatus', [accessToken], (status) => {
     const lines = [
       `Bot: @${status.botUsername || '(username belum tersedia)'}`,
-      `URL webhook terdaftar untuk deployment ini: ${status.webhookActive ? 'Ya' : 'Tidak'}`,
+      status.transport === 'POLLING' ? 'Mode: pengambilan pesan otomatis tiap menit' : `URL webhook terdaftar untuk deployment ini: ${status.webhookActive ? 'Ya' : 'Tidak'}`,
       `OWNER_TELEGRAM_ID: ${status.ownerConfigured ? 'sudah diisi' : 'BELUM DIISI'}`,
       `Pesan tertunda: ${status.pendingUpdates}`
     ];
+    if (status.transport === 'POLLING') {
+      lines.push(status.message);
+      lines.push(`Pesan diproses: ${status.processedUpdates || 0}`);
+      if (status.checkedAt) lines.push('Pemeriksaan terakhir: ' + new Date(status.checkedAt).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'}));
+    }
     if (status.lastError) lines.push(`Error Telegram terakhir: ${status.lastError}`);
     else lines.push('Error webhook terbaru: tidak ada.');
     if (!status.ownerConfigured) lines.push('Kirim /start ke bot untuk melihat ID Telegram, lalu simpan ID itu sebagai OWNER_TELEGRAM_ID.');
