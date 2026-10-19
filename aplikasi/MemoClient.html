@@ -206,13 +206,20 @@ function startApplication(event) {
   });
 }
 
-function showApplication(owner) {
+function showApplication(owner, startPage = 'DOCUMENTS', developmentMode = false) {
   $('loginPanel').hidden = true;
   $('applicationShell').hidden = false;
-  $('userIdentity').textContent = `Akun: ${owner}`;
-  $('counterStatus').textContent = `Pengguna: ${owner}.`;
+  $('userIdentity').textContent = developmentMode ? 'Mode pengembangan · data contoh' : `Akun: ${owner}`;
+  $('btnReconnect').textContent = developmentMode ? 'Masuk data server' : 'Masuk ulang';
+  $('counterStatus').textContent = developmentMode ? 'Mode pengembangan tidak memuat data server.' : `Pengguna: ${owner}.`;
   setHomeCurrentDate_();
-  switchMainPage('HOME');
+  switchMainPage(startPage);
+}
+
+function openDevelopmentPreview_() {
+  accessToken = '';
+  showApplication('Mode pengembangan', 'DOCUMENTS', true);
+  $('appStatus').textContent = 'Mode pengembangan: Pusat Dokumen memakai data contoh. Masuk data server untuk administrasi aktif.';
 }
 
 function setHomeCurrentDate_() {
@@ -1071,5 +1078,5 @@ if (telegramApp) {
   telegramApp.expand();
 }
 $('loginForm').addEventListener('submit', startApplication);
-$('loginPassword').focus();
+openDevelopmentPreview_();
 </script>

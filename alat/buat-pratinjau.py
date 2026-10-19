@@ -36,7 +36,7 @@ def main():
     # Explicit preview-only simulation, never emitted by the Apps Script source build.
     html = html.replace("<head>", "<head><script>window.UTP_FRONTEND_PREVIEW = true;</script>", 1)
     before_body, after_body = html.rsplit("</body>", 1)
-    html = before_body + "<script>showApplication('Pratinjau lokal'); window.UTPFrontend.open('REQUESTS'); switchMainPage('HOME'); setTimeout(()=>window.refreshProjectSummary(),0); document.getElementById('appStatus').textContent='PRATINJAU LOKAL — data contoh material hanya di memori halaman, bukan server.';</script></body>" + after_body
+    html = before_body + "<script>showApplication('Pratinjau lokal','DOCUMENTS',true); window.UTPFrontend.open('REQUESTS'); switchMainPage('DOCUMENTS'); document.getElementById('appStatus').textContent='PRATINJAU LOKAL — Pusat Dokumen dan material memakai data contoh, bukan server.';</script></body>" + after_body
     if re.search(r"<\?\!=", html) or re.search(r"<\?=", html):
         raise RuntimeError("Pratinjau masih memiliki tag template Apps Script.")
 
