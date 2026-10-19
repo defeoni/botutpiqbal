@@ -118,8 +118,8 @@ function utpMutate_(action,p,ctx) {
     old=utpGet_('requests',p.id);
     if(!old||old.archived)throw new Error('Permintaan tidak ditemukan.');
     if(old.version!==Number(p.version))return {conflict:true,record:old};
-    if(utpProtected_('requests',old)||['FINALIZE','REVISION','ARRIVAL'].indexOf(p.operation)>=0)requireDeletePin_(p.pin);
-    ctx.party=p.party;ctx.reason=p.reason;ctx.confirmed=p.confirmed;ctx.coveredItemIds=p.coveredItemIds;
+    if(utpProtected_('requests',old)||['FINALIZE','REVISION','ARRIVAL','FULFILLMENT'].indexOf(p.operation)>=0)requireDeletePin_(p.pin);
+    ctx.party=p.party;ctx.reason=p.reason;ctx.confirmed=p.confirmed;ctx.coveredItemIds=p.coveredItemIds;ctx.arrivalDate=p.arrivalDate;
     if(p.operation==='FINAL_FILE') {
       ctx.evidence=utpFinalEvidence_(p.fileId);
       if(!ctx.evidence||ctx.evidence.recordId!==old.id||ctx.evidence.kind!=='MATERIAL_FINAL_HO')throw new Error('Bukti HO harus diunggah untuk permintaan ini.');

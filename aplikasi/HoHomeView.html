@@ -1,27 +1,12 @@
 <section id="blank-HO" class="home-page" aria-labelledby="hoHomeTitle" hidden>
-  <header class="home-project-header">
-    <div>
-      <p class="home-eyebrow">HEAD OFFICE OVERVIEW</p>
-      <h2 id="hoHomeTitle">Administrasi HO</h2>
-      <p class="muted">Memo, RPB, dan RPD dalam satu ringkasan.</p>
-    </div>
-    <div class="home-date"><span>Hari ini</span><strong id="hoCurrentDate"></strong></div>
-  </header>
-
-  <div class="home-section-heading">
-    <div><h2>Ringkasan administrasi HO</h2><p class="muted">Dokumen tersimpan dan aktivitas terbaru.</p></div>
-    <button type="button" class="btn primary main-nav-button" data-main="MEMO">Buat Memo</button>
+  <header class="workspace-hero ho-hero"><div><p class="home-eyebrow">HEAD OFFICE</p><h2 id="hoHomeTitle">Satu ruang untuk<br>dokumen dan tim Anda.</h2><p>Pantau Memo, pengajuan dana, dan data Manpower.</p><div class="actions"><button type="button" class="btn primary main-nav-button" data-main="MEMO">Buat Memo Internal ↗</button><button type="button" class="btn main-nav-button" data-main="RPD">Buka pengajuan dana</button></div></div><div class="hero-context"><span class="hero-context-label">ADMINISTRASI TERPUSAT</span><span class="hero-context-icon" data-icon="building"></span><strong id="hoCurrentDate"></strong><span>Dokumen · Pengajuan · Manpower</span></div></header>
+  <div class="home-summary-grid workspace-metrics">
+    <article class="home-summary-card"><div class="metric-caption"><h3>Memo Internal</h3><span class="metric-icon blue" data-icon="file"></span></div><span id="hoMemoCount" class="home-summary-number">—</span><p id="hoMemoSummary">Memuat riwayat</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Pengeluaran bulanan</h3><span class="metric-icon violet" data-icon="chart"></span></div><span id="hoRpbCount" class="home-summary-number">—</span><p id="hoRpbSummary">Memuat RPB</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Pengajuan dana</h3><span class="metric-icon amber" data-icon="wallet"></span></div><span id="hoRpdCount" class="home-summary-number">—</span><p>RPD tersimpan di server</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Manpower aktif</h3><span class="metric-icon teal" data-icon="users"></span></div><span id="hoManpowerCount" class="home-summary-number">—</span><p id="hoManpowerSummary">Direktori belum dimuat</p></article>
   </div>
-  <div class="home-summary-grid">
-    <article class="home-summary-card"><span id="hoMemoCount" class="home-summary-number">—</span><h3>Memo tersimpan</h3><p id="hoMemoSummary">Riwayat belum dimuat.</p></article>
-    <article class="home-summary-card"><span id="hoRpbCount" class="home-summary-number">—</span><h3>RPB tersimpan</h3><p id="hoRpbSummary">Buka RPB untuk memuat data.</p></article>
-    <article class="home-summary-card"><span id="hoRpdCount" class="home-summary-number">—</span><h3>RPD tersimpan</h3><p>Pengajuan dan status dicatat admin sesuai proses HO.</p></article>
-  </div>
-  <div class="home-support-grid"><section class="home-card chart-card"><h2>Dokumen administrasi HO</h2><p class="muted">Jumlah dokumen, bukan nilai pengajuan.</p><div id="hoDocumentChart" class="chart-content" aria-live="polite">Memuat data grafik…</div></section><section class="home-card"><h2>Aktivitas terbaru HO</h2><p id="hoRecent" role="status">Riwayat belum dimuat.</p></section></div>
-  <div class="home-summary-grid">
-    <article class="home-summary-card"><h3>Memo</h3><p>Buat memo, kelola personel, dan lihat riwayat memo.</p><button type="button" class="btn main-nav-button" data-main="MEMO">Buka Memo</button></article>
-    <article class="home-summary-card"><h3>RPB</h3><p>Rencana Pengeluaran Bulanan.</p><button type="button" class="btn main-nav-button" data-main="RPB">Buka RPB</button></article>
-    <article class="home-summary-card"><h3>RPD</h3><p>Rencana Pengeluaran Dana.</p><button type="button" class="btn main-nav-button" data-main="RPD">Buka RPD</button></article>
-  </div>
-  <p class="muted home-delivery-note">Riwayat Memo berada di bagian bawah halaman ini. Reset, hapus arsip, nomor dokumen, dan Telegram hanya ada di Pengaturan.</p>
+  <section class="home-card home-board-panel"><div class="home-section-heading"><div><p class="home-eyebrow">DOCUMENT WORKFLOW</p><h2>Papan administrasi HO</h2><p class="muted">Status mengikuti proses masing-masing dokumen.</p></div><span class="subtle-tag">Memo · RPB · RPD</span></div><div id="hoHomeBoard" class="overview-board ho-overview-board" aria-label="Kanban beranda HO"></div></section>
+  <div class="home-support-grid"><section class="home-card chart-card"><div class="home-section-heading"><div><p class="home-eyebrow">DISTRIBUSI</p><h2>Dokumen HO</h2></div></div><div id="hoDocumentChart" class="chart-content" aria-live="polite">Memuat grafik…</div></section><section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">PEOPLE DIRECTORY</p><h2>Data Manpower</h2></div><button class="btn main-nav-button" type="button" data-main="MANPOWER">Lihat semua ↗</button></div><p id="hoPeopleSummary" class="muted">Memuat direktori…</p><div id="hoPeopleList" class="people-preview"></div></section></div>
+  <section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">AKTIVITAS</p><h2>Terbaru dari Head Office</h2></div></div><p id="hoRecent" role="status">Riwayat belum dimuat.</p></section>
 </section>

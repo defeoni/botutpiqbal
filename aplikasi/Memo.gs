@@ -1577,7 +1577,7 @@ function getTelegramStatus_() {
     webhookActive: Boolean(activeUrl && activeBaseUrl === expectedUrl && activeUrl === expectedUrl + '?key=' + encodeURIComponent(props.getProperty('BOT_WEBHOOK_KEY') || '')),
     pendingUpdates: Number(webhook.pending_update_count || 0),
     lastError: webhook.last_error_message
-      ? `${webhook.last_error_message}${lastErrorDate ? ` (${Utilities.formatDate(new Date(lastErrorDate * 1000), APP.timezone, 'yyyy-MM-dd HH:mm:ss')})` : ''}`
+      ? `${telegramSafeError_(webhook.last_error_message)}${lastErrorDate ? ` (${Utilities.formatDate(new Date(lastErrorDate * 1000), APP.timezone, 'yyyy-MM-dd HH:mm:ss')})` : ''}`
       : '',
     ownerConfigured: Boolean(props.getProperty('OWNER_TELEGRAM_ID')),
     ownerName: props.getProperty('APP_OWNER_NAME') || 'Pemilik'

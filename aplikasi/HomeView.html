@@ -1,62 +1,12 @@
 <section id="blank-HOME" class="home-page" aria-labelledby="homeTitle">
-  <header class="home-project-header">
-    <div>
-      <p class="home-eyebrow">PROJECT OVERVIEW</p>
-      <h2 id="homeTitle">Terrasentra Bandung</h2>
-      <p class="muted">TRSM-51D26-D-M <span aria-hidden="true">·</span> PM: Juhana</p>
-    </div>
-    <div class="home-date"><span>Hari ini</span><strong id="homeCurrentDate"></strong></div>
-  </header>
-
-  <div class="home-section-heading">
-    <div><h2>Ringkasan tindakan</h2><span id="projectSource" class="muted">Data material belum dimuat.</span></div>
-    <button type="button" class="btn primary main-nav-button" data-main="REQUESTS" aria-describedby="homeCreateHelp">Buat Permintaan</button>
+  <header class="workspace-hero"><div><p class="home-eyebrow">PROJECT OPERATIONS</p><h2 id="homeTitle">Pekerjaan hari ini,<br>terlihat lebih jelas.</h2><p>Terrasentra Bandung <span class="hero-separator">/</span> PM: Juhana</p><div class="actions"><button type="button" class="btn primary main-nav-button" data-main="REQUESTS">Buka permintaan material <span aria-hidden="true">↗</span></button><span class="hero-project-code">TRSM-51D26-D-M</span></div></div><div class="hero-context"><span class="hero-context-label">RUANG KERJA PROYEK</span><span class="hero-context-icon" data-icon="building"></span><strong id="homeCurrentDate"></strong><span>Material · Operasional · Administrasi</span></div></header>
+  <div class="home-summary-grid workspace-metrics" aria-label="Ringkasan proyek">
+    <article class="home-summary-card"><div class="metric-caption"><h3>Dalam review</h3><span class="metric-icon amber" data-icon="clock"></span></div><span id="projectReviewCount" class="home-summary-number">—</span><p>Perlu tindak lanjut</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Menunggu barang</h3><span class="metric-icon blue" data-icon="truck"></span></div><span id="projectFinalCount" class="home-summary-number">—</span><p>Dokumen final aktif</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Barang diterima</h3><span class="metric-icon teal" data-icon="check"></span></div><span id="projectArrivalCount" class="home-summary-number">—</span><p>Kedatangan dikonfirmasi</p></article>
+    <article class="home-summary-card"><div class="metric-caption"><h3>Tugas proyek</h3><span class="metric-icon violet" data-icon="task"></span></div><span id="projectTaskCount" class="home-summary-number">—</span><p id="projectTaskSummary">Menunggu data server</p></article>
   </div>
-  <p id="homeCreateHelp" class="muted">Buka material untuk memuat ringkasan. Simulasi dapat diaktifkan terpisah melalui Pengaturan.</p>
-  <div class="home-summary-grid" aria-label="Ringkasan permintaan material">
-    <article class="home-summary-card">
-      <span id="projectReviewCount" class="home-summary-number">—</span>
-      <h3>Menunggu Input Review</h3>
-      <p>Permintaan aktif dalam proses review</p>
-    </article>
-    <article class="home-summary-card">
-      <span id="projectFinalCount" class="home-summary-number">—</span>
-      <h3>Menunggu Barang</h3>
-      <p>Permintaan final, kedatangan belum dikonfirmasi</p>
-    </article>
-    <article class="home-summary-card">
-      <span id="projectArrivalCount" class="home-summary-number">—</span>
-      <h3>Kedatangan Dikonfirmasi</h3>
-      <p>Konfirmasi kedatangan saja</p>
-    </article>
-  </div>
-
-  <section class="home-card chart-card"><div class="home-section-heading"><div><h2>Alur permintaan material</h2><p class="muted">Jumlah dokumen per status. Konfirmasi datang bukan pemeriksaan stok.</p></div></div><div id="projectStatusChart" class="chart-content" aria-live="polite">Memuat data grafik…</div></section>
-
-  <section class="home-card" aria-labelledby="homeRequestsTitle">
-    <div class="home-section-heading">
-      <div><h2 id="homeRequestsTitle">Permintaan terbaru</h2></div>
-    </div>
-    <p class="notice">“Input Hasil Review” mencatat hasil review. REV hanya bertambah melalui “Terbitkan Revisi”.</p>
-    <div class="tablewrap home-table-wrap">
-      <table class="home-request-table">
-        <thead><tr><th>Nomor referensi</th><th>Judul</th><th>Status proses</th><th>Kedatangan</th></tr></thead>
-        <tbody id="projectRecentRows"></tbody>
-      </table>
-    </div>
-    <p id="projectEmpty" class="muted">Belum ada permintaan yang dimuat.</p>
-  </section>
-
-  <div class="home-support-grid">
-    <section class="home-card" aria-labelledby="homeTasksTitle">
-      <div class="home-section-heading"><h2 id="homeTasksTitle">Tugas proyek</h2></div>
-      <p id="projectTaskSummary" class="muted">Belum ada draf tugas yang dimuat.</p>
-      <button type="button" class="btn" data-project-tool="Tugas">Buka Tugas</button>
-    </section>
-    <section class="home-card" aria-labelledby="homeTelegramTitle">
-      <div class="home-section-heading"><h2 id="homeTelegramTitle">Catatan proyek</h2></div>
-      <p id="projectLocalSummary" class="muted">Belum ada catatan yang dimuat.</p>
-    </section>
-  </div>
-  <p class="muted home-delivery-note">Barang Datang hanya untuk konfirmasi kedatangan. Kelengkapan, jumlah, dan kondisi barang tidak dicatat di sini.</p>
+  <section class="home-card home-board-panel"><div class="home-section-heading"><div><p class="home-eyebrow">WORKFLOW</p><h2>Papan permintaan material</h2><p id="projectSource" class="muted">Memuat data proyek…</p></div><button type="button" class="btn main-nav-button" data-main="REQUESTS">Buka papan lengkap ↗</button></div><div id="projectHomeBoard" class="overview-board" aria-label="Kanban beranda proyek"></div><p class="board-footnote">Satu kartu satu dokumen. Daftar final dapat mencakup sebagian item; penerimaan bukan pemeriksaan stok.</p></section>
+  <div class="home-support-grid"><section class="home-card chart-card"><div class="home-section-heading"><div><p class="home-eyebrow">DISTRIBUSI</p><h2>Status dokumen</h2></div></div><div id="projectStatusChart" class="chart-content" aria-live="polite">Memuat grafik…</div></section><section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">OPERASIONAL</p><h2>Catatan proyek</h2></div></div><p id="projectLocalSummary" class="muted">Memuat catatan…</p><div class="workspace-quicklinks"><button class="quicklink" data-project-tool="Tugas" type="button"><span data-icon="task"></span><span>Tugas &amp; tindak lanjut<small>Rencanakan pekerjaan tim</small></span><b>↗</b></button><button class="quicklink" data-project-tool="Nota/Keuangan" type="button"><span data-icon="wallet"></span><span>Nota &amp; keuangan<small>Catatan biaya operasional</small></span><b>↗</b></button><button class="quicklink" data-project-tool="Arsip Proyek" type="button"><span data-icon="folder"></span><span>Arsip proyek<small>Temukan dokumen dan lampiran</small></span><b>↗</b></button></div></section></div>
+  <section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">AKTIVITAS</p><h2>Permintaan terbaru</h2></div></div><div class="tablewrap home-table-wrap"><table class="home-request-table"><thead><tr><th>Referensi</th><th>Permintaan</th><th>Proses</th><th>Penerimaan</th></tr></thead><tbody id="projectRecentRows"></tbody></table></div><p id="projectEmpty" class="muted"></p></section>
 </section>

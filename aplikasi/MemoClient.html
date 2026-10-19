@@ -24,6 +24,7 @@ let pendingPayload = null;
 let currentType = INITIAL_TYPE;
 let currentMainPage = 'MEMO';
 let manpowerRecords = [];
+let manpowerLoaded = false;
 let memoHistoryRecords = [];
 let historyPage = 0;
 const HISTORY_PAGE_SIZE = 8;
@@ -156,7 +157,7 @@ function showLoginPanel_(message = '') {
 
 function returnToLogin_() {
   const token = accessToken;
-  accessToken = '';
+  accessToken = '';manpowerRecords=[];manpowerLoaded=false;
   if (window.UTPFrontend) window.UTPFrontend.resetSession();
   if (window.resetWorkspaceSession) window.resetWorkspaceSession();
   showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
@@ -261,14 +262,18 @@ function formatUiDate_(value) {
 
 function switchMainPage(page) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
   currentMainPage = page;
+  if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','SETTINGS'].includes(page)?'ho':'project');
+  if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
-  const titles = {HOME:'Beranda Administrasi Proyek',HO:'Beranda Administrasi HO',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan Sistem'};
+  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
+  document.title=(titles[page]||'Operasional Proyek')+' · UTP Workspace';
+  if($('pageCrumb'))$('pageCrumb').textContent=titles[page]||'Operasional';
   document.querySelectorAll('.main-nav-button').forEach((button) => {
-    button.classList.toggle('active', button.dataset.main === page);
+    button.classList.toggle('active', button.dataset.main === page);if(button.dataset.main===page){button.setAttribute('aria-current','page');const folder=button.closest('.nav-folder');if(folder)folder.open=true;}else button.removeAttribute('aria-current');
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
   document.querySelectorAll('.home-page, .blank-page, .rpb-page, .settings-page').forEach((element) => {
@@ -279,7 +284,8 @@ function switchMainPage(page) {
   if (page === 'HOME' && window.refreshProjectSummary) window.refreshProjectSummary();
   if (['HOME','HO'].includes(page) && window.loadWorkspaceDashboard) window.loadWorkspaceDashboard();
   if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
-  if (page === 'MEMO') switchType(currentType || INITIAL_TYPE);
+  if (page === 'MANPOWER' && accessToken) loadManpower();
+  if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
   if (materialPages.includes(page) && window.UTPFrontend) window.UTPFrontend.open(page);
@@ -293,6 +299,7 @@ window.utpRpc = (action, payload) => new Promise((resolve, reject) => {
 });
 
 function switchType(type) {
+  if(type==='DIRECTORY'){switchMainPage('MANPOWER');return;}
   if (!['PN', 'PG', 'SP', 'DIRECTORY'].includes(type)) type = 'PN';
   currentType = type;
   document.querySelectorAll('.memo-section').forEach((section) => {
@@ -683,11 +690,13 @@ function loadHistory() {
 function loadManpower() {
   $('manpowerStatus').textContent = 'Memuat direktori manpower...';
   invokeServer('apiGetManpower', [accessToken], (records) => {
-    manpowerRecords = records;
+    manpowerRecords = records;manpowerLoaded=true;
+    if(window.refreshHoSummary)window.refreshHoSummary();
     updateManpowerFilters_();
     renderManpower();
   }, (error) => {
-    manpowerRecords = [];
+    manpowerRecords = [];manpowerLoaded=false;
+    if(window.refreshHoSummary)window.refreshHoSummary();
     $('manpowerStatus').textContent = `Gagal memuat direktori manpower: ${error.message}`;
     $('manpowerList').replaceChildren();
   });

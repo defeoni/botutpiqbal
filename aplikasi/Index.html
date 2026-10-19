@@ -23,48 +23,54 @@
 
 <div id="applicationShell" class="application-shell" hidden>
 <aside class="app-sidebar">
-  <div class="sidebar-brand"><strong>PT. UTP</strong><span>Administrasi HO &amp; Proyek</span></div>
+  <div class="sidebar-brand"><span class="brand-monogram" aria-hidden="true">U</span><div><strong>UTP Workspace</strong><span>Project operations</span></div></div>
+  <div class="workspace-picker" aria-label="Ruang kerja"><button type="button" data-workspace="project" class="active">Proyek</button><button type="button" data-workspace="ho">Head Office</button></div>
+  <label class="nav-search"><span data-icon="search" aria-hidden="true"></span><input id="navSearch" type="search" placeholder="Cari menu…" aria-label="Cari menu ruang kerja"></label>
   <details id="mainMenu" class="app-menu" open>
-    <summary>Menu navigasi</summary>
+    <summary>Navigasi ruang kerja</summary>
     <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
-      <section class="sidebar-menu-group" aria-labelledby="menuProject">
-        <h2 id="menuProject">Administrasi Proyek</h2>
-        <button type="button" class="tab main-nav-button active" data-main="HOME">Beranda</button>
-        <button type="button" class="tab main-nav-button" data-main="CATALOG">Katalog Material</button>
-        <button type="button" class="tab main-nav-button" data-main="APPROVALS">Persetujuan Material</button>
-        <button type="button" class="tab main-nav-button" data-main="REQUESTS">Permintaan &amp; Review</button>
-        <button type="button" class="tab main-nav-button" data-main="ARRIVAL">Barang Datang</button>
-        <button class="tab" type="button" data-project-tool="Tugas">Tugas</button>
-        <button class="tab" type="button" data-project-tool="Nota/Keuangan">Nota/Keuangan</button>
-        <button class="tab" type="button" data-project-tool="Arsip Proyek">Arsip Proyek</button>
-        <button class="tab" type="button" data-project-tool="SDM">SDM</button>
-        <button class="tab" type="button" data-project-tool="Absensi">Absensi</button>
+      <section class="sidebar-menu-group" data-workspace-scope="project" aria-labelledby="menuProject">
+        <h2 id="menuProject">PROJECT WORKSPACE</h2>
+        <button type="button" class="tab main-nav-button active" data-main="HOME" data-icon="home">Beranda Proyek</button>
+        <details class="nav-folder" open><summary><span data-icon="layers"></span><span>Material &amp; logistik</span><span class="nav-chevron">⌄</span></summary><div class="nav-children">
+          <button type="button" class="tab main-nav-button" data-main="REQUESTS" data-icon="board">Permintaan &amp; Review</button>
+          <button type="button" class="tab main-nav-button" data-main="CATALOG" data-icon="box">Katalog Material</button>
+          <button type="button" class="tab main-nav-button" data-main="APPROVALS" data-icon="check">Persetujuan Material</button>
+          <button type="button" class="tab main-nav-button" data-main="ARRIVAL" data-icon="truck">Penerimaan Barang</button>
+        </div></details>
+        <h2>OPERASIONAL</h2>
+        <button class="tab" type="button" data-project-tool="Tugas" data-icon="task">Tugas</button>
+        <button class="tab" type="button" data-project-tool="Nota/Keuangan" data-icon="wallet">Nota &amp; Keuangan</button>
+        <button class="tab" type="button" data-project-tool="Arsip Proyek" data-icon="folder">Arsip Proyek</button>
+        <button class="tab" type="button" data-project-tool="Absensi" data-icon="calendar">Absensi</button>
+        <div class="nav-divider"></div><button type="button" class="tab main-nav-button" data-main="PROJECT_SETTINGS" data-icon="settings">Pengaturan Proyek</button>
       </section>
-      <section class="sidebar-menu-group" aria-labelledby="menuHo">
-        <h2 id="menuHo">Administrasi HO</h2>
-        <button type="button" class="tab main-nav-button" data-main="HO">Beranda HO</button>
-        <button type="button" class="tab main-nav-button" data-main="MEMO">Memo</button>
-        <button type="button" class="tab main-nav-button" data-main="RPB">RPB</button>
-        <button type="button" class="tab main-nav-button" data-main="RPD">RPD</button>
-      </section>
-      <section class="sidebar-menu-group" aria-labelledby="menuSettings">
-        <h2 id="menuSettings">Pengaturan</h2>
-        <button type="button" class="tab main-nav-button" data-main="SETTINGS">Sistem &amp; reset</button>
+      <section class="sidebar-menu-group" data-workspace-scope="ho" aria-labelledby="menuHo" hidden>
+        <h2 id="menuHo">HEAD OFFICE</h2>
+        <button type="button" class="tab main-nav-button" data-main="HO" data-icon="home">Beranda HO</button>
+        <h2>DOKUMEN &amp; PERSONEL</h2>
+        <button type="button" class="tab main-nav-button" data-main="MEMO" data-icon="file">Memo Internal</button>
+        <button type="button" class="tab main-nav-button" data-main="RPB" data-icon="chart">Pengeluaran Bulanan</button>
+        <button type="button" class="tab main-nav-button" data-main="RPD" data-icon="wallet">Pengajuan Dana</button>
+        <button type="button" class="tab main-nav-button" data-main="MANPOWER" data-icon="users">Data Manpower</button>
+        <div class="nav-divider"></div><button type="button" class="tab main-nav-button" data-main="SETTINGS" data-icon="settings">Pengaturan HO</button>
       </section>
     </nav>
+    <p id="navEmpty" class="muted" hidden>Menu tidak ditemukan.</p>
   </details>
+  <div class="sidebar-footer"><span class="sidebar-footer-dot"></span><div><strong>PT. Unicorn Tosan Perkasa</strong><small>Administrasi terpusat</small></div></div>
 </aside>
 
 <main class="app-main">
   <header class="header">
-    <h1>Beranda Admin PT. UTP</h1>
-    <div class="muted">Terrasentra Bandung · TRSM-51D26-D-M · PM: Juhana</div>
+    <div class="workspace-breadcrumb"><span id="workspaceLabel">Administrasi Proyek</span><span>/</span><span id="pageCrumb">Beranda</span></div><h1>Beranda Proyek</h1>
+    <div class="header-project">Terrasentra Bandung <span>TRSM-51D26-D-M</span></div>
     <div class="app-status-row">
       <p id="appStatus" class="muted" role="status" aria-live="polite">Menghubungkan aplikasi...</p>
       <div class="actions"><span class="identity" id="userIdentity"></span><button class="btn" type="button" id="btnReconnect">Masuk ulang</button></div>
     </div>
   </header>
-  <div class="actions"><button id="dashboardReload" class="btn" type="button">Muat ulang ringkasan</button><span id="dashboardStatus" class="muted" role="status"></span></div>
+  <div id="dashboardToolbar" class="actions"><button id="dashboardReload" class="btn" type="button">Muat ulang ringkasan</button><span id="dashboardStatus" class="muted" role="status"></span></div>
 
   <?!= include('HomeView'); ?>
   <?!= include('HoHomeView'); ?>
@@ -77,7 +83,6 @@
       <button type="button" class="tab active" data-type="PN">Memo Penambahan</button>
       <button type="button" class="tab" data-type="PG">Memo Penggantian OS</button>
       <button type="button" class="tab" data-type="SP">Memo Surplus</button>
-      <button type="button" class="tab" data-type="DIRECTORY">Data Manpower</button>
     </nav>
     <div class="grid" id="projectFields">
       <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value="TerraSentra Soreang, Bandung"></div>
@@ -114,7 +119,7 @@
     <div class="card"><h2>Daftar Personel Surplus</h2><div class="tablewrap"><table id="tableSP"><thead><tr><th>No.</th><th>Nama</th><th>Bidang</th><th>Keahlian</th><th>Tanggal Terakhir</th><th>Tujuan Proyek</th><th>Nama untuk KTP</th><th>File KTP</th><th>Aksi</th></tr></thead><tbody></tbody></table></div><button type="button" class="btn" data-add="SP">+ Tambah Personel</button></div>
   </section>
 
-  <section id="section-DIRECTORY" class="memo-section memo-area" hidden>
+  <section id="section-DIRECTORY" class="blank-page manpower-page" data-main-page="MANPOWER" hidden>
     <div class="card"><h2>Data Manpower</h2>
       <p class="muted">Direktori disimpan di Google Sheets terpisah dari arsip memo. Status terbaru ditentukan dari memo masuk, penggantian, atau surplus.</p>
       <div class="roster-filters">
@@ -149,11 +154,15 @@
     </div>
   </section>
 
-  <section id="settingsPage" class="settings-page" data-main-page="SETTINGS" hidden>
+  <section id="projectSettingsPage" class="settings-page" data-main-page="PROJECT_SETTINGS" hidden>
+    <div class="page-intro"><p class="home-eyebrow">PREFERENSI &amp; DATA</p><h2>Pengaturan Proyek</h2><p>Kelola sumber material dan data operasional proyek.</p></div>
     <div class="card"><h2>Ruang kerja Material</h2><p>Simulasi review, revisi, lampiran, dan final terpisah dari data server. Simulasi hanya dalam memori; hilang saat halaman dimuat ulang. File hanya dicatat namanya.</p><button id="materialLocalMode" type="button" class="btn">Buka simulasi material</button><button id="materialServerMode" type="button" class="btn">Kembali ke data server</button></div>
     <div class="card"><h2>Reset Administrasi Proyek di perangkat</h2><p>Hanya draf modul proyek perangkat ini. Arsip Google dan administrasi HO tetap dipertahankan.</p><button id="resetProjectLocal" type="button" class="btn red">Hapus draf proyek perangkat</button><p id="projectResetStatus" role="status"></p></div>
-    <div class="card"><h2>Reset data Proyek di server</h2><p class="error">Arsipkan permintaan, persetujuan, tugas, keuangan, arsip proyek, SDM, dan absensi. Master, file Drive, Memo, RPB, RPD, dan akses login dipertahankan. Data tetap disimpan sebagai arsip audit.</p><label>Ketik RESET PROYEK<input id="projectResetConfirmation" autocomplete="off"></label><button id="resetProjectServer" class="btn red" type="button">Reset data Proyek dengan PIN</button></div>
-    <h2>Administrasi HO — arsip Memo dan penomoran</h2>
+    <div class="card"><h2>Reset data Proyek di server</h2><p class="error">Arsipkan permintaan, persetujuan, tugas, keuangan, arsip proyek, catatan personel lama, dan absensi. Master, file Drive, Memo, RPB, RPD, dan akses login dipertahankan. Data tetap disimpan sebagai arsip audit.</p><label>Ketik RESET PROYEK<input id="projectResetConfirmation" autocomplete="off"></label><button id="resetProjectServer" class="btn red" type="button">Reset data Proyek dengan PIN</button></div>
+  </section>
+
+  <section id="settingsPage" class="settings-page" data-main-page="SETTINGS" hidden>
+    <div class="page-intro"><p class="home-eyebrow">SISTEM &amp; DOKUMEN</p><h2>Pengaturan Head Office</h2><p>Penomoran, arsip Memo, dan koneksi Telegram.</p></div>
     <div class="notice">Beberapa tindakan memerlukan kode konfirmasi. Bagikan URL aplikasi hanya kepada orang yang berhak mengaksesnya.</div>
     <div class="card"><h2>Hapus Semua Riwayat Memo</h2><p class="error">Tindakan ini menghapus seluruh riwayat memo dan memindahkan file memo terkait ke Sampah Google Drive.</p>
       <button class="btn red" type="button" id="btnClearHistory">Hapus Semua Riwayat Memo</button>

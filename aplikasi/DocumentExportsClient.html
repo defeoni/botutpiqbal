@@ -7,7 +7,18 @@
   function link(box,text,url){if(!/^https:\/\/(?:drive|docs)\.google\.com\//.test(String(url||'')))return;const a=node('a',text,'btn');a.href=url;a.target='_blank';a.rel='noopener noreferrer';box.appendChild(a);}
   function links(box,result){const files=result.files||[{excelUrl:result.excelUrl,downloadUrl:result.downloadUrl,pdfUrl:result.pdfUrl,editableUrl:result.editableUrl}];files.forEach((file,index)=>{const suffix=files.length>1?' · bagian '+(index+1)+' / '+files.length:'';link(box,'Buka Excel'+suffix,file.excelUrl);link(box,'Unduh Excel'+suffix,file.downloadUrl);if(file.editableUrl)link(box,'Google Sheets'+suffix,file.editableUrl);if(file.pdfUrl)link(box,'PDF'+suffix,file.pdfUrl);});link(box,'Folder arsip',result.folderUrl);(result.originals||[]).forEach(r=>link(box,'Bukti asli: '+r.name,r.url));if(result.warning)box.appendChild(node('p',result.warning,'notice'));box.appendChild(node('p','Sumber: '+result.templateName,'muted'));link(box,'Lihat sumber template',result.templateUrl);}
   function dialog(title){const d=node('dialog'),form=node('form');d.className='document-export-dialog';d.style.cssText='max-width:1000px;width:90vw;max-height:90vh;overflow:auto';form.appendChild(node('h2',title));d.appendChild(form);document.body.appendChild(d);const close=node('button','Tutup','btn');close.type='button';close.onclick=()=>d.close();form.appendChild(close);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();return {d,form,close};}
-  async function history(entity,record){const token=accessToken,{d,form}=dialog('Arsip ekspor dokumen'),status=node('p','Memuat arsip…');form.appendChild(status);try{const rows=await rpc('apiDocumentExportHistory',[entity,record.id,token]);if(!d.isConnected||token!==accessToken)return;status.textContent=rows.length?'Setiap ekspor menyimpan salinan versi saat dibuat.':'Belum ada ekspor tersimpan.';rows.slice().reverse().forEach(row=>{const box=node('article',null,'card');box.appendChild(node('h3',(row.kind==='initial'?'Permintaan Awal':row.kind==='final'?'Daftar Final':entity==='approvals'?'Draf Approval Material':'RPD')+' · versi '+row.version));box.appendChild(node('p',new Date(row.createdAt).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})));links(box,row.outputs);form.appendChild(box);});}catch(e){if(d.isConnected&&token===accessToken)status.textContent=e.message;}}
+  async function history(entity,record){
+    const token=accessToken,{d,form}=dialog('Arsip ekspor dokumen'),status=node('p','Memuat arsip…'),list=node('div'),nav=node('nav',null,'list-pagination'),retry=node('button','Coba lagi','btn');
+    retry.type='button';retry.hidden=true;form.append(status,retry,list,nav);let page=0;
+    async function load(){retry.hidden=true;status.textContent='Memuat arsip…';
+      try{const rows=await rpc('apiDocumentExportHistory',[entity,record.id,token]);if(!d.isConnected||token!==accessToken)return;
+        status.textContent=rows.length?'Setiap ekspor menyimpan salinan data saat dibuat.':'Belum ada ekspor tersimpan.';
+        function render(){list.replaceChildren();nav.replaceChildren();rows.slice(page*8,page*8+8).forEach(row=>{const box=node('article',null,'card'),title=entity==='approvalRecap'?'Rekap Approval':row.kind==='initial'?'Permintaan Awal':row.kind==='final'?'Daftar Final':entity==='approvals'?'Draf Approval Material':'RPD';box.appendChild(node('h3',title+(entity==='approvalRecap'?'':' · versi '+row.version)));box.appendChild(node('p',new Date(row.createdAt).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})));links(box,row.outputs);list.appendChild(box);});
+          if(rows.length>8){const prev=node('button','Sebelumnya','btn'),next=node('button','Berikutnya','btn');prev.type=next.type='button';prev.disabled=page===0;next.disabled=(page+1)*8>=rows.length;prev.onclick=()=>{page--;render();};next.onclick=()=>{page++;render();};nav.append(prev,node('span',(page*8+1)+'–'+Math.min((page+1)*8,rows.length)+' dari '+rows.length),next);}
+        }render();
+      }catch(e){if(d.isConnected&&token===accessToken){status.textContent=e.message;retry.hidden=false;}}
+    }retry.onclick=load;await load();
+  }
   function start(entity,record,kind,context){
     const token=accessToken,snapshot=entity!=='requests'?Object.assign({},record):kind==='initial'?record.initialSnapshot:record.finalSnapshot;
     if(!token||!snapshot)return;if(entity==='approvals')snapshot.items=[{name:record.material}];
@@ -31,6 +42,19 @@
     if(entity==='approvals'){add('Ekspor draf F.A1-03B','draft',true);link(box,'Contoh pengajuan approval lengkap','https://drive.google.com/file/d/1i8I9S6XGVb9cOopPrXrYRlm0P_kkiSqU/view');link(box,'Form rekap approval asli','https://drive.google.com/file/d/1AvsaZoLwyolQggvIDQZJKk7fjcAMtolK/view');}else if(entity==='rpd')add('Ekspor RPD','draft',true);else{add('Ekspor permintaan awal','initial',!!record.initialSnapshot);add('Ekspor daftar final','final',!!record.finalSnapshot&&(record.status==='FINAL'||record.arrived));}
     const old=node('button','Arsip ekspor','btn');old.type='button';old.disabled=preview||!record.version||ctx.busy;old.onclick=()=>history(entity,record);box.appendChild(old);if(reason)box.appendChild(node('span',reason,'muted'));return box;
   }
-  window.DocumentExports={approval:(record,context)=>actions('approvals',record,context),material:(record,context)=>actions('requests',record,context),rpd:(record,context)=>actions('rpd',record,context)};
+  function recap(){
+    const token=accessToken;if(!token||window.UTP_FRONTEND_PREVIEW===true)return;
+    const {d,form}=dialog('Ekspor rekap approval · F.A1-03A');const archives=node('button','Riwayat rekap','btn');archives.type='button';archives.onclick=()=>history('approvalRecap',{id:'all'});form.appendChild(archives);
+    form.appendChild(node('p','Mencakup semua approval aktif di server, termasuk di luar filter atau halaman saat ini. Sepuluh catatan per bagian. Status disalin sesuai otoritas; tidak menciptakan persetujuan. Tanggal berikut untuk arsip, bukan tanggal pengajuan.','notice'));
+    field(form,'Nama proyek','project','',true);field(form,'Tanggal arsip','documentDate',date(),true,'date');
+    const button=node('button','Buat Excel & arsipkan','btn primary'),status=node('p'),resultBox=node('div');button.type='submit';form.append(button,status,resultBox);let busy=false;
+    d.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+    form.onsubmit=async event=>{event.preventDefault();if(busy)return;if(token!==accessToken){status.textContent='Sesi berubah. Tutup dialog lalu masuk kembali.';return;}const values=new FormData(form),options={project:values.get('project'),documentDate:values.get('documentDate')};busy=true;form.querySelectorAll('button,input').forEach(e=>e.disabled=true);status.textContent='Membuat rekap dari template asli…';
+      try{const result=await rpc('apiDocumentExport',['approvalRecap','all',0,'draft',token,options]);if(d.isConnected&&token===accessToken){resultBox.replaceChildren();links(resultBox,result);status.textContent='Rekap tersimpan. Keputusan sumber tidak diubah.';}}
+      catch(e){if(d.isConnected&&token===accessToken)status.textContent=e.message;}
+      finally{busy=false;if(d.isConnected)form.querySelectorAll('button,input').forEach(e=>e.disabled=false);}
+    };
+  }
+  window.DocumentExports={recap,approval:(record,context)=>actions('approvals',record,context),material:(record,context)=>actions('requests',record,context),rpd:(record,context)=>actions('rpd',record,context)};
 })();
 </script>

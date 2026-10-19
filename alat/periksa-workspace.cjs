@@ -24,12 +24,13 @@ const environment=new Function('require','__dirname',source.slice(0,source.index
     await page.locator('#projectToolForm button[type="submit"], #projectToolForm button:not([type])').first().click();
     await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('Tersimpan'));
     const task=env.sandbox.apiWorkspace('list',{module:'tasks'},'session').records[0];assert.equal(task.version,2);assert.equal(task.name,'Periksa pompa revisi');
-    for(const name of ['Nota/Keuangan','Arsip Proyek','SDM','Absensi']){await page.locator('.sidebar-nav [data-project-tool="'+name+'"]').click();await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('dimuat'));assert.equal(await page.locator('#projectToolFields input,#projectToolFields select').count()>0,true);}
+    for(const name of ['Nota/Keuangan','Arsip Proyek','Absensi']){await page.locator('.sidebar-nav [data-project-tool="'+name+'"]').click();await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('dimuat'));assert.equal(await page.locator('#projectToolFields input,#projectToolFields select').count()>0,true);}
+    await page.locator('[data-workspace="ho"]').click();
     await page.locator('.sidebar-nav [data-main="RPD"]').click();await page.waitForFunction(()=>document.getElementById('rpdStatus').textContent.includes('dimuat'));
     await page.locator('#rpdPurpose').fill('Sewa mess');await page.locator('#rpdDate').fill('2026-10-25');await page.locator('#rpdRecipient').fill('Pemilik mess');
     const line=page.locator('#rpdLines tr').first();await line.locator('input').nth(0).fill('Sewa bulanan');await line.locator('input').nth(1).fill('2');await line.locator('input').nth(2).fill('500000');
     await page.locator('#rpdForm button[type="submit"],#rpdForm button:not([type])').first().click();await page.waitForFunction(()=>document.getElementById('rpdStatus').textContent.includes('tersimpan'));
     assert.equal(env.sandbox.apiWorkspace('list',{module:'rpd'},'session').records[0].total,1000000);
-    assert.deepEqual(errors,[]);console.log('PASS workspace PC: task create/edit, 5 module navigation, RPD server-derived total, no JS errors');
+    assert.deepEqual(errors,[]);console.log('PASS workspace PC: task create/edit, 4 module navigation, RPD server-derived total, no JS errors');
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

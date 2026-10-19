@@ -223,11 +223,18 @@ function utpMaterialCommand_(operation, source, existing, context) {
       next.revision=(existing.revision||1)+1;next.revisions=(next.revisions||[]).concat([{revision:next.revision,publishedAt:now,actor:party,reason:reason,snapshot:utpRequestSnapshot_(next)}]);
       changes=[{field:'revision',before:existing.revision,after:next.revision}];
     }
+  } else if(operation==='FULFILLMENT') {
+    if(next.status!=='FINAL'||!next.finalSnapshot||ctx.confirmed!==true)throw new Error('Konfirmasi penyediaan memerlukan daftar final dan pernyataan eksplisit.');
+    if(next.fulfillmentConfirmed)throw new Error('Penyediaan sudah dikonfirmasi; muat ulang daftar.');
+    next.fulfillmentConfirmed=true;next.fulfillmentAt=now;next.fulfillmentNote=utpText_(ctx.reason,'Sumber konfirmasi penyediaan',2000,true);party='Admin';reason=next.fulfillmentNote;
+    changes=[{field:'fulfillmentConfirmed',before:false,after:true}];
   } else if(operation==='ARRIVAL') {
     if(next.status!=='FINAL'||ctx.confirmed!==true)throw new Error('Konfirmasi kedatangan hanya untuk permintaan final.');
     next.arrived=true;next.arrivedAt=now;next.arrivalNote=utpText_(ctx.reason,'Sumber pengamatan',2000,true);party='Admin';reason=next.arrivalNote;
+    if(ctx.arrivalDate)next.arrivalDate=utpDate_(ctx.arrivalDate,'Tanggal kedatangan',true);
     changes=[{field:'arrived',before:false,after:true}];
   } else throw new Error('Tindakan Material tidak dikenal.');
+  if(['SAVE','FINAL_FILE','FINALIZE'].indexOf(operation)>=0&&existing.fulfillmentConfirmed){next.fulfillmentConfirmed=false;next.fulfillmentAt='';next.fulfillmentNote='';changes.push({field:'fulfillmentConfirmed',before:true,after:false});}
   next.history=(existing.history||[]).concat([{at:now,actor:party||'Admin',action:operation,reason:reason,changes:changes}]);
   return next;
 }

@@ -7,11 +7,11 @@
   const decisions = { PENDING: 'Belum diinput', APPROVED: 'Disetujui', REJECTED: 'Ditolak', DEFERRED: 'Ditunda' };
   const pages = { CATALOG: 'Katalog Material', APPROVALS: 'Persetujuan Material', REQUESTS: 'Permintaan & Review', ARRIVAL: 'Barang Datang' };
   const contractNotice = 'Workflow Material dinonaktifkan atau data ini memakai kontrak lama. Data tetap dapat dibaca.';
-  let epoch = 0, sequence = 0, timer, toastTimer, modal = null;
+  let epoch = 0, sequence = 0, timer, toastTimer, modal = null, pendingDashboardRecord = '';
   let state = freshState();
   function freshState() {
     return { page: 'CATALOG', data: null, loading: false, error: '', editor: null,
-      catalog: { query: '', brand: '', group: '', approvedOnly: false, favoriteOnly: false, items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '' };
+      catalog: { query: '', brand: '', group: '', approvedOnly: false, favoriteOnly: false, items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '', requestView: 'board', boardPages: {}, boardBusy: false };
   }
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -146,7 +146,7 @@
     const generation = epoch; state.loading = true; state.error = ''; render();
     try { const data = preview ? seed() : await read('bootstrap'); if (generation !== epoch) return; state.data = data; }
     catch (error) { if (generation !== epoch) return; state.error = error.message || String(error); }
-    finally { if (generation === epoch) { state.loading = false; render(); if (state.data && state.page === 'CATALOG') searchCatalog(); } }
+    finally { if (generation === epoch) { state.loading = false; render(); if (state.data && state.page === 'CATALOG') searchCatalog(); if(pendingDashboardRecord&&state.data){const id=pendingDashboardRecord;pendingDashboardRecord='';if(state.page==='REQUESTS')openRequest(id);} } }
   }
   function render() {
     const app = el('utpApp'), content = el('utpContent'); if (!app || !content) return;
@@ -172,7 +172,7 @@
     if (c.loading) { box.innerHTML = '<div class="utp-empty" role="status">Mencari material…</div>'; return; }
     if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
     if (!c.items.length) { box.innerHTML = !preview && state.data.masterCount === 0 ? empty('Master material belum tersedia', 'Impor master resmi melalui tombol Impor master CSV. Data contoh tidak digunakan pada katalog server.') : empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.'); return; }
-    box.innerHTML = '<p class="utp-muted">' + c.items.length + ' dari ' + esc(c.total) + ' hasil · maksimal 50. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview && !liveWorkflow()) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
+    box.innerHTML = '<p class="utp-muted">' + (c.offset+1) + '–' + (c.offset+c.items.length) + ' dari ' + esc(c.total) + ' hasil · 50 per halaman. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || 'Merek belum diketahui') + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview && !liveWorkflow()) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
     box.querySelector('p').textContent = (c.offset + 1) + '–' + (c.offset + c.items.length) + ' dari ' + c.total + ' hasil · 50 per halaman · approval aktif, favorit, nama.';
     box.insertAdjacentHTML('beforeend', pageControls(c.offset, c.total, 'catalog-page'));
   }
@@ -207,17 +207,68 @@
   }
   function renderApprovals() {
     const rows = (state.data.approvals || []).filter(item => norm([item.material, item.brand, (item.types || []).join(' '), item.status].join(' ')).includes(norm(state.approvalQuery)));
-    el('utpContent').innerHTML = header(pages.APPROVALS, 'Satu material satu approval · otoritas dicatat sesuai dokumen', button('Tambah approval', 'new-approval', '', 'primary', !preview && !liveWorkflow()) + button('Muat ulang', 'refresh-approvals')) +
+    el('utpContent').innerHTML = header(pages.APPROVALS, 'Satu material satu approval · otoritas dicatat sesuai dokumen', button('Tambah approval', 'new-approval', '', 'primary', !preview && !liveWorkflow()) + button('Muat ulang', 'refresh-approvals') + button('Ekspor rekap', 'export-approval-recap', '', '', preview)) +
       '<div class="utp-toolbar">' + input('approvalQuery', 'Cari persetujuan', state.approvalQuery, 'search', 'id="utpApprovalSearch"') + '</div><div id="utpApprovalList">' + (rows.length ? '<div class="utp-grid">' + rows.map(approval => '<article class="utp-card"><h3>' + esc(approval.material) + '</h3><p>' + esc(approval.generic ? 'Generik terkonfirmasi' : approval.brand || 'Merek belum diketahui') + ' · ' + esc((approval.types || []).join(', ') || 'Tipe tidak dibatasi') + '</p><div class="utp-actions">' + badge(approval.status === 'APPROVED' ? 'Disetujui ' + (approval.authority || '—') : approval.status === 'COMPARE' ? 'Compare · belum disetujui' : approval.status) + '</div><p class="utp-muted">' + esc(approval.note || '') + '</p><div class="utp-actions">' + button('Detail', 'approval-detail', 'data-id="' + esc(approval.id) + '"') + button('Edit', 'edit-approval', 'data-id="' + esc(approval.id) + '"', '', !preview && !liveWorkflow()) + '</div></article>').join('') + '</div>' : empty('Belum ada persetujuan yang cocok', 'Generik membutuhkan persetujuan tersendiri. Merek kosong tidak otomatis generik.')) + '</div>';
   }
   function renderRequests() {
+    if (state.requestView === 'board') return renderBoard();
     const rows = (state.data.requests || []).filter(record => norm([record.title, record.number].join(' ')).includes(norm(state.requestQuery)));
-    el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview && !liveDrafts()) + button('Muat ulang', 'refresh-requests')) +
+    el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview && !liveDrafts()) + button('Muat ulang', 'refresh-requests') + button('Tampilan Kanban', 'request-view', 'data-view="board"')) +
       '<div class="utp-toolbar">' + input('requestQuery', 'Cari judul atau nomor', state.requestQuery, 'search', 'id="utpRequestSearch"') + '</div>' +
       (rows.length ? '<div class="utp-grid">' + rows.map(record => {
         const count = (record.items || []).filter(item => ready(item, record).ok).length;
         return '<article class="utp-card"><div class="utp-actions">' + badge(record.initialSnapshot ? record.status === 'FINAL' ? 'Daftar final' : 'Dalam review' : record.status === 'DRAFT' ? 'Draf' : record.status) + badge('REV ' + String(record.revision || 1).padStart(3, '0')) + '</div><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + ' · ' + esc(record.date || '—') + '</p><p class="utp-muted">' + (record.items || []).length + ' item · ' + count + ' dapat dilanjutkan · versi data ' + esc(record.version || 1) + '</p><div class="utp-actions">' + button(preview || editableDraft(record) ? 'Buka permintaan' : 'Lihat detail', 'open-request', 'data-id="' + esc(record.id) + '"', 'primary') + '</div></article>';
       }).join('') + '</div>' : empty('Belum ada permintaan', 'Buat draf dan pilih item melalui pencarian terbatas.'));
+  }
+  const boardColumns=[['DRAFT','Draf'],['REVIEW','Review'],['FINAL','Siap dipenuhi'],['FULFILLMENT','Menunggu penerimaan'],['ARRIVED','Diterima'],['CANCELLED','Dibatalkan']];
+  function boardStage(record){
+    if(record.arrived||record.status==='ARRIVED')return 'ARRIVED';
+    if(record.status==='CANCELLED')return 'CANCELLED';
+    if(record.status==='FINAL')return record.fulfillmentConfirmed?'FULFILLMENT':'FINAL';
+    return record.status==='DRAFT'&&!record.initialSnapshot?'DRAFT':'REVIEW';
+  }
+  function boardNext(record){const stage=boardStage(record),index=boardColumns.findIndex(col=>col[0]===stage);return index>=0&&index<4?boardColumns[index+1]:null;}
+  function boardWritable(record){return !state.boardBusy&&(preview||liveWorkflow()&&record.itemContractVersion===1)&&!['ARRIVED','CANCELLED'].includes(boardStage(record));}
+  function boardCard(record){
+    const next=boardNext(record),items=record.items||[],readyCount=items.filter(item=>ready(item,record).ok).length;
+    const rejected=items.filter(item=>Object.values(item.decisions||{}).some(d=>d.status==='REJECTED')).length;
+    const deferred=items.filter(item=>!Object.values(item.decisions||{}).some(d=>d.status==='REJECTED')&&Object.values(item.decisions||{}).some(d=>d.status==='DEFERRED')).length;
+    const blockers=[...new Set(items.filter(item=>!ready(item,record).ok).map(item=>ready(item,record).text))];
+    const age=isValidDocumentDate(record.date)?Math.max(0,Math.floor((Date.parse(today()+'T00:00:00Z')-Date.parse(record.date+'T00:00:00Z'))/86400000)):null;
+    return '<article class="utp-card utp-board-card" data-board-id="'+esc(record.id)+'" draggable="'+boardWritable(record)+'"><h4>'+esc(record.title||'Tanpa judul')+'</h4><p>'+esc(record.number||'Nomor belum ditetapkan')+'</p><p class="utp-muted">'+esc(record.date||'—')+(age!==null?' · usia dokumen '+age+' hari':'')+' · REV '+esc(record.revision||1)+'</p><p>'+items.length+' item · '+readyCount+' siap · '+rejected+' ditolak · '+deferred+' ditunda</p>'+(record.finalSnapshot?'<p class="utp-muted">Daftar final: '+(record.finalSnapshot.items||[]).length+' item</p>':'')+(boardStage(record)==='REVIEW'&&blockers.length?'<p class="utp-board-blocker">'+esc(blockers.slice(0,2).join(' · '))+(blockers.length>2?' · hambatan lain di detail':'')+'</p>':'')+(record.arrivalDate?'<p class="utp-muted">Tanggal kedatangan: '+esc(record.arrivalDate)+'</p>':'')+(record.fulfillmentNote?'<p class="utp-muted">Penyediaan: '+esc(record.fulfillmentNote)+'</p>':'')+'<div class="utp-actions">'+button('Buka detail','open-request','data-id="'+esc(record.id)+'"')+(next?button('Lanjut: '+next[1],'kanban-move','data-id="'+esc(record.id)+'" data-stage="'+next[0]+'"','primary',!boardWritable(record)):'')+'</div></article>';
+  }
+  function renderBoard(){
+    const rows=(state.data.requests||[]).filter(r=>!r.archived&&norm([r.title,r.number].join(' ')).includes(norm(state.requestQuery)));
+    el('utpContent').innerHTML=header('Alur Permintaan Material','Satu kartu satu dokumen · geser atau gunakan tombol Lanjut',button('Buat permintaan','new-request','','primary',!preview&&!liveDrafts())+button('Muat ulang','refresh-requests')+button('Tampilan daftar','request-view','data-view="list"'))+'<div class="utp-toolbar">'+input('requestQuery','Cari judul atau nomor',state.requestQuery,'search','id="utpRequestSearch"')+'</div><p class="utp-muted" role="status">'+rows.length+' dokumen sesuai pencarian. Geser hanya ke tahap berikutnya; konfirmasi dan validasi tetap berlaku. Daftar final dapat mencakup sebagian item.</p><div class="utp-board" tabindex="0" aria-label="Papan alur material, gulir mendatar untuk kolom lainnya">'+boardColumns.map(([key,label])=>{
+      const group=rows.filter(r=>boardStage(r)===key),pages=Math.max(1,Math.ceil(group.length/12)),page=Math.min(state.boardPages[key]||0,pages-1);state.boardPages[key]=page;
+      return '<section class="utp-board-column" data-board-stage="'+key+'" aria-label="'+label+'"><h3>'+label+' '+badge(group.length)+'</h3><div class="utp-board-cards">'+(group.length?group.slice(page*12,page*12+12).map(boardCard).join(''):'<p class="utp-muted">Belum ada dokumen.</p>')+'</div>'+(pages>1?'<nav class="utp-actions" aria-label="Halaman '+label+'">'+button('Sebelumnya','board-page','data-column="'+key+'" data-page="'+(page-1)+'"','',page===0)+'<span>'+ (page+1)+' / '+pages+'</span>'+button('Berikutnya','board-page','data-column="'+key+'" data-page="'+(page+1)+'"','',page===pages-1)+'</nav>':'')+'</section>';
+    }).join('')+'</div>';
+  }
+  async function moveBoard(id,target){
+    const record=state.data.requests.find(r=>r.id===id);if(!record||!boardWritable(record))return toast('Dokumen hanya dapat dibaca atau tindakan sedang berjalan.',true);
+    if(state.editor&&(state.editor.dirty||state.editor.busy))return toast('Simpan isian yang sedang dibuka dahulu.',true);
+    const next=boardNext(record);if(!next||next[0]!==target)return toast('Tidak dapat melewati tahap atau menggeser mundur. Buka detail untuk review/revisi.',true);
+    if(target==='FULFILLMENT')return confirmFulfillment(id);
+    if(target==='ARRIVED')return confirmArrival(id,true);
+    const previous=boardStage(record);await openRequest(id);
+    const e=state.editor;if(!e||e.record.id!==id)return;
+    if(boardStage(e.record)!==previous){const i=state.data.requests.findIndex(r=>r.id===id);state.data.requests[i]=clone(e.record);state.editor=null;renderRequests();return toast('Status server telah berubah. Periksa kartu terbaru.',true);}
+    e.returnToBoard=true;
+    return action(target==='REVIEW'?'submit-request':'finalize-request',{dataset:{}});
+  }
+  function confirmFulfillment(id){
+    const record=state.data.requests.find(r=>r.id===id),version=record.version;
+    dialog('Konfirmasi penyediaan', '<p>'+esc(record.title)+'</p><p>Catat konfirmasi penyediaan daftar final. Ini bukan bukti pembayaran, stok, atau barang sudah datang.</p>'+check('confirmed','Penyediaan telah dikonfirmasi oleh pihak terkait',false,'required')+textArea('reason','Sumber konfirmasi / catatan','','required maxlength="2000"'),async form=>{
+      if(state.boardBusy)return;const generation=epoch,reason=formValue(form,'reason');if(!form.elements.confirmed.checked||!reason)throw new Error('Centang konfirmasi dan isi sumbernya.');
+      state.boardBusy=true;
+      try{
+        let result;
+        if(preview){const current=state.data.requests.find(r=>r.id===id);if(current.version!==version||boardStage(current)!=='FINAL')throw new Error('Status berubah. Muat ulang lalu periksa kembali.');result={record:clone(current)};Object.assign(result.record,{fulfillmentConfirmed:true,fulfillmentAt:now(),fulfillmentNote:reason,version:version+1});result.record.history=(result.record.history||[]).concat([audit('FULFILLMENT','Admin',reason,[{field:'fulfillmentConfirmed',before:false,after:true}])]);}
+        else result=await window.utpRpc('materialCommand',{id,version,operation:'FULFILLMENT',confirmed:true,reason,pin:askPin()});
+        if(generation!==epoch)return;if(result.conflict)throw new Error('Versi server berubah. Isian tetap ada; tutup dan muat ulang sebelum mencoba lagi.');
+        state.data.requests[state.data.requests.findIndex(r=>r.id===id)]=result.record;closeDialog();if(state.page==='REQUESTS'&&!state.editor)renderRequests();toast(preview?'Penyediaan dicatat di memori simulasi.':'Penyediaan dicatat di server.'+((result.warnings||[]).length?' '+result.warnings.join(' '):''));
+      }finally{if(generation===epoch){state.boardBusy=false;if(state.page==='REQUESTS'&&!state.editor)renderRequests();}}
+    },preview?'Konfirmasi simulasi':'Konfirmasi penyediaan');
   }
   function createEditor() {
     const record = { id: uid(), version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
@@ -290,7 +341,7 @@
   }
   function askPin() { const value=window.prompt('PIN pemilik untuk tindakan terlindungi:'); if(value===null)throw new Error('Tindakan dibatalkan.');return value; }
   async function materialCommand(operation, payload) {
-    const e=state.editor, generation=epoch;
+    const e=state.editor, generation=epoch;let succeeded=false;
     if(!e||e.busy)return false;
     e.busy=true;
     try {
@@ -301,9 +352,9 @@
       const index=state.data.requests.findIndex(row=>row.id===result.record.id);
       if(index<0)state.data.requests.push(clone(result.record));else state.data.requests[index]=clone(result.record);
       e.record=clone(result.record);e.base=clone(result.record);e.dirty=false;e.pendingHistory=[];e.error='';e.party='';e.reason='';
-      toast('Tersimpan di server.'+((result.warnings||[]).length?' '+result.warnings.join(' '):''));return true;
+      succeeded=true;toast('Tersimpan di server.'+((result.warnings||[]).length?' '+result.warnings.join(' '):''));return true;
     } catch(error){e.error=(error.message||String(error))+' Isian tetap dipertahankan.';throw error;}
-    finally{if(generation===epoch&&state.editor===e){e.busy=false;renderEditor();}}
+    finally{if(generation===epoch&&state.editor===e){e.busy=false;if(succeeded&&e.returnToBoard){state.editor=null;renderRequests();}else renderEditor();}}
   }
   async function uploadFile(file, kind, recordId) {
     if(!file||!file.size||file.size>5*1024*1024)throw new Error('File wajib diisi, maksimal 5 MB.');
@@ -331,6 +382,8 @@
     const changes = fieldChanges(e.base, r);
     if ((requireReason || (action !== 'SUBMIT' && r.initialSnapshot && changes.length)) && (!parties.includes(e.party) || !e.reason.trim())) throw new Error('Pilih pihak PM/MK/HO dan isi alasan perubahan dokumen sebelum menyimpan.');
     const result = clone(r);
+    if(result.fulfillmentConfirmed&&(action==='FINALIZE'||action==='SAVE'&&changes.length)){result.fulfillmentConfirmed=false;result.fulfillmentAt='';result.fulfillmentNote='';}
+    if(action==='SAVE'&&result.initialSnapshot&&changes.length){result.status='REVIEW';result.finalSnapshot=null;result.finalItemIds=[];}
     result.history = clone(server ? server.history || [] : []);
     result.history.push(...clone(e.pendingHistory));
     if (changes.length || action !== 'SAVE') result.history.push(audit(action || (r.initialSnapshot ? 'SAVE_REVIEW' : 'SAVE_DRAFT'), r.initialSnapshot ? e.party : 'Admin', e.reason, changes));
@@ -340,7 +393,7 @@
     if (index < 0) state.data.requests.push(result); else state.data.requests[index] = result;
     e.record = clone(result); if (e.record.initialSnapshot) freeze(e.record.initialSnapshot);
     e.base = clone(result); e.pendingHistory = []; e.dirty = false; e.error = ''; e.reason = ''; e.party = '';
-    renderEditor(); saved(action === 'SUBMIT' ? 'Permintaan diajukan; salinan awal dibekukan' : 'Permintaan disimpan');
+    if(e.returnToBoard){state.editor=null;renderRequests();}else renderEditor(); saved(action === 'SUBMIT' ? 'Permintaan diajukan; salinan awal dibekukan' : 'Permintaan disimpan');
     return true;
   }
   function dialog(title, body, onSubmit, saveLabel) {
@@ -561,21 +614,21 @@
     el('utpContent').innerHTML = header(pages.ARRIVAL, 'Konfirmasi pengamatan admin / gudang · bukan pemeriksaan kuantitas atau kelengkapan', button('Muat ulang', 'refresh-requests')) +
       (rows.length ? '<div class="utp-grid">' + rows.map(record => '<article class="utp-card"><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + '</p>' + badge(record.arrived || record.status === 'ARRIVED' ? 'Kedatangan dikonfirmasi' : 'Menunggu konfirmasi barang') + (record.arrivedAt ? '<p class="utp-muted">' + esc(dateText(record.arrivedAt)) + ' · ' + esc(record.arrivalNote) + '</p>' : '') + '<p class="utp-muted">Konfirmasi tidak mengukur jumlah diterima, kerusakan, atau kelengkapan, dan tidak otomatis menutup pekerjaan.</p><div class="utp-actions">' + button('Konfirmasi barang datang', 'confirm-arrival', 'data-id="' + esc(record.id) + '"', 'primary', !preview && !liveWorkflow() || record.arrived || record.status === 'ARRIVED') + button('Detail', 'open-request', 'data-id="' + esc(record.id) + '"') + '</div></article>').join('') + '</div>' : empty('Belum ada permintaan final', 'Item By Owner / By Other tidak otomatis dianggap sudah datang.'));
   }
-  function confirmArrival(id) {
+  function confirmArrival(id,returnToBoard) {
     const record = state.data.requests.find(row => row.id === id), expectedVersion = record.version;
-    dialog('Konfirmasi pengamatan barang datang', '<p>' + esc(record.title) + '</p><p class="utp-muted">Konfirmasi ini hanya mencatat kedatangan menurut admin/gudang. Tidak menyatakan jumlah lengkap atau kondisi barang.</p>' + check('confirmed', 'Saya telah menerima konfirmasi kedatangan / mengamati barang datang', false, 'required') + textArea('note', 'Sumber konfirmasi / catatan', '', 'required maxlength="2000"'), async form => {
+    dialog('Konfirmasi pengamatan barang datang', '<p>' + esc(record.title) + '</p><p class="utp-muted">Konfirmasi ini hanya mencatat kedatangan menurut admin/gudang. Tidak menyatakan jumlah lengkap atau kondisi barang.</p>' + input('arrivalDate','Tanggal kedatangan',today(),'date','required') + check('confirmed', 'Saya telah menerima konfirmasi kedatangan / mengamati barang datang', false, 'required') + textArea('note', 'Sumber konfirmasi / catatan', '', 'required maxlength="2000"'), async form => {
       const current = state.data.requests.find(row => row.id === id); if (current.version !== expectedVersion) throw new Error('Versi data berubah. Isian tetap ada. Tutup, muat ulang daftar, lalu periksa kembali sebelum konfirmasi.');
       if (!form.elements.confirmed.checked || !formValue(form, 'note')) throw new Error('Centang konfirmasi dan isi sumber pengamatan.');
       if(!preview){
-        const generation=epoch,result=await window.utpRpc('materialCommand',{id,version:expectedVersion,operation:'ARRIVAL',confirmed:true,reason:formValue(form,'note'),pin:askPin()});
+        const generation=epoch,result=await window.utpRpc('materialCommand',{id,version:expectedVersion,operation:'ARRIVAL',confirmed:true,arrivalDate:formValue(form,'arrivalDate'),reason:formValue(form,'note'),pin:askPin()});
         if(generation!==epoch)return;
         if(result.conflict)throw new Error('Data berubah. Isian tetap tersedia; muat ulang daftar sebelum mencoba lagi.');
-        state.data.requests[state.data.requests.findIndex(row=>row.id===id)]=result.record;closeDialog();renderArrival();toast('Kedatangan dicatat di server.');return;
+        state.data.requests[state.data.requests.findIndex(row=>row.id===id)]=result.record;closeDialog();if(state.page==='REQUESTS'&&returnToBoard)renderRequests();else if(state.page==='ARRIVAL')renderArrival();toast('Kedatangan dicatat di server.'+((result.warnings||[]).length?' '+result.warnings.join(' '):''));return;
       }
-      current.arrived = true; current.arrivedAt = now(); current.arrivalNote = formValue(form, 'note'); current.version += 1;
+      const arrivalDate=formValue(form,'arrivalDate');if(!isValidDocumentDate(arrivalDate))throw new Error('Tanggal kedatangan wajib valid.');current.arrivalDate=arrivalDate;current.arrived = true; current.arrivedAt = now(); current.arrivalNote = formValue(form, 'note'); current.version += 1;
       current.history.push(audit('ARRIVAL_CONFIRMATION', 'Admin', current.arrivalNote, [{ field: 'arrived', before: false, after: true }]));
-      closeDialog(); renderArrival(); saved('Konfirmasi kedatangan dicatat');
-    }, 'Konfirmasi simulasi');
+      closeDialog(); if(returnToBoard)renderRequests();else renderArrival(); saved('Konfirmasi kedatangan dicatat');
+    }, preview?'Konfirmasi simulasi':'Konfirmasi kedatangan');
   }
   async function refresh(entity) {
     if (preview) { render(); return; }
@@ -605,7 +658,10 @@
   }
   async function action(name, target) {
     const id = target.dataset.id, code = target.dataset.code;
-    if (state.editor && state.editor.busy) return;
+    if (state.boardBusy || state.editor && state.editor.busy) return;
+    if(name==='request-view'){state.requestView=target.dataset.view==='list'?'list':'board';return renderRequests();}
+    if(name==='board-page'){const key=target.dataset.column;if(!boardColumns.some(c=>c[0]===key))return;state.boardPages[key]=Math.max(0,Math.floor(Number(target.dataset.page)||0));return renderBoard();}
+    if(name==='kanban-move')return moveBoard(id,target.dataset.stage);
     const draftActions = ['new-request','use-item','save-request','edit-item','remove-item','add-master','add-temporary','lookup-select','retry-lookup'];
     if (!preview && draftActions.includes(name) && (!liveDrafts() || (state.editor && name !== 'new-request' && !editableDraft(state.editor.record)))) { toast(contractNotice, true); return; }
     if (!preview && !liveWorkflow() && !draftActions.includes(name) && ['favorite', 'use-item', 'new-request', 'new-approval', 'edit-approval', 'confirm-arrival', 'save-request', 'submit-request', 'publish-revision', 'finalize-request', 'edit-item', 'add-master', 'add-temporary', 'add-final-file','import-master'].includes(name)) { toast(contractNotice, true); return; }
@@ -626,6 +682,7 @@
       dialog('Detail persetujuan', '<h3>' + esc(row.material) + '</h3><p>' + esc(row.generic ? 'Generik terkonfirmasi' : row.brand || 'Merek belum diketahui') + ' · ' + esc((row.types || []).join(', ') || 'Tipe tidak dibatasi') + '</p><p>Status: ' + esc(row.status) + ' · otoritas: ' + esc(row.authority || 'Belum dicatat') + '</p><p>Kode terkait: ' + esc((row.itemCodes || []).join(', ') || 'Pencocokan nama material') + '</p><p>' + esc(row.note) + '</p>' + (row.brochure ? '<p>Brosur simulasi: ' + esc(row.brochure.name) + ' · tanpa unggah</p>' : '') + '<p class="utp-muted">Compare dan kolom usulan bukan bukti persetujuan. Kecocokan approval dihitung lagi saat item dibuka; salinan revisi mempertahankan isi saat diterbitkan.</p>', null);
       if(window.DocumentExports)el('utpDialogBody').appendChild(window.DocumentExports.approval(row,{preview}));return;
     }
+    if (name === 'export-approval-recap') return window.DocumentExports && window.DocumentExports.recap();
     if (name === 'refresh-approvals') return refresh('approvals');
     if (name === 'refresh-requests') return refresh('requests');
     if (name === 'new-request') {
@@ -663,12 +720,12 @@
     if (name === 'document-history') return documentHistory();
     if (name === 'show-final') return showFinal();
     if (name === 'finalize-request') {
-      const e = state.editor; if (e.dirty) return editorError('Simpan hasil review sebelum menetapkan daftar final.');
+      const e = state.editor; if (e.dirty) return editorError('Simpan hasil review sebelum menetapkan daftar final.');if(!e.record.items.some(item=>ready(item,e.record).ok))return editorError('Belum ada item yang memenuhi persetujuan, konfirmasi penyediaan, atau bukti final HO.');
       return dialog('Tetapkan daftar final · sebagian item boleh lanjut', select('party', 'Pihak pemberi instruksi', '', { '': 'Pilih pihak', PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + textArea('reason', 'Alasan penetapan daftar final', '', 'required maxlength="2000"') + '<p class="utp-muted">Item ditolak, ditunda, dan belum siap tetap tersimpan serta tidak masuk daftar final.</p>', async form => {
         const party = formValue(form, 'party'), reason = formValue(form, 'reason'); if (!party || !reason) throw new Error('Pihak dan alasan wajib diisi.');
         if(!preview){if(await materialCommand('FINALIZE',{party,reason,pin:askPin()}))closeDialog();return;}
-        const previous = e.record.status; e.record.status = 'FINAL'; e.party = party; e.reason = reason;
-        try { if (storeEditor('FINALIZE', true)) closeDialog(); else e.record.status = previous; } catch (error) { e.record.status = previous; throw error; }
+        const previous = clone(e.record); e.record.status = 'FINAL';e.record.finalItemIds=e.record.items.filter(item=>ready(item,e.record).ok).map(item=>item.id);e.record.finalSnapshot=snapshot(e.record);e.record.finalSnapshot.items=e.record.finalSnapshot.items.filter(item=>e.record.finalItemIds.includes(item.id)); e.party = party; e.reason = reason;
+        try { if (storeEditor('FINALIZE', true)) closeDialog(); else e.record = previous; } catch (error) { e.record = previous; throw error; }
       }, preview?'Tetapkan simulasi':'Tetapkan final');
     }
     if (name === 'publish-revision') return publishRevision();
@@ -686,6 +743,25 @@
       const target = event.target.closest('[data-action]'); if (!target || target.disabled) return;
       event.preventDefault(); Promise.resolve(action(target.dataset.action, target)).catch(error => { if (d.open) dialogError(error.message || String(error)); else if (state.editor && state.page === 'REQUESTS') editorError(error.message || String(error)); else toast(error.message || String(error), true); });
     }
+    let dragged=null;
+    app.addEventListener('dragstart',event=>{
+      const card=event.target.closest('[data-board-id]');if(!card)return;
+      const record=state.data&&state.data.requests.find(r=>r.id===card.dataset.boardId);
+      if(!record||!boardWritable(record)||event.target.closest('button,a,input')){event.preventDefault();return;}
+      dragged={id:record.id,version:record.version};event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',record.id);card.classList.add('is-dragging');
+    });
+    app.addEventListener('dragover',event=>{
+      const column=event.target.closest('[data-board-stage]');if(!column||!dragged)return;
+      const record=state.data.requests.find(r=>r.id===dragged.id),next=record&&boardNext(record);if(next&&next[0]===column.dataset.boardStage){event.preventDefault();event.dataTransfer.dropEffect='move';column.classList.add('is-drop-target');}
+    });
+    app.addEventListener('dragleave',event=>{const col=event.target.closest('[data-board-stage]');if(col&&!col.contains(event.relatedTarget))col.classList.remove('is-drop-target');});
+    app.addEventListener('dragend',()=>{dragged=null;app.querySelectorAll('.is-dragging,.is-drop-target').forEach(n=>n.classList.remove('is-dragging','is-drop-target'));});
+    app.addEventListener('drop',event=>{
+      const column=event.target.closest('[data-board-stage]'),drag=dragged;if(!column||!drag)return;event.preventDefault();dragged=null;
+      app.querySelectorAll('.is-dragging,.is-drop-target').forEach(n=>n.classList.remove('is-dragging','is-drop-target'));
+      const record=state.data.requests.find(r=>r.id===drag.id);if(!record||record.version!==drag.version)return toast('Data kartu berubah. Periksa ulang sebelum melanjutkan.',true);
+      Promise.resolve(moveBoard(drag.id,column.dataset.boardStage)).catch(error=>{if(d.open)dialogError(error.message);else toast(error.message,true);});
+    });
     app.addEventListener('click', click); d.addEventListener('click', click);
     el('utpCloseDialog').addEventListener('click', closeDialog); d.addEventListener('close', () => { if (!d.open) modal = null; });
     d.addEventListener('submit', event => {
@@ -704,7 +780,7 @@
       if (target.dataset.requestField && state.editor && !state.editor.busy) { state.editor.record[target.dataset.requestField] = target.value; state.editor.dirty = true; }
       if (target.dataset.reviewMeta && state.editor) state.editor[target.dataset.reviewMeta] = target.value;
       if (target.id === 'utpApprovalSearch') { state.approvalQuery = target.value; filterCards('APPROVALS', target.id); }
-      if (target.id === 'utpRequestSearch') { state.requestQuery = target.value; filterCards('REQUESTS', target.id); }
+      if (target.id === 'utpRequestSearch') { state.requestQuery = target.value; state.boardPages={}; filterCards('REQUESTS', target.id); }
     });
     app.addEventListener('change', event => {
       const target = event.target;
@@ -725,6 +801,7 @@
     const replacement = el(focusId); replacement.focus(); if (pos != null) replacement.setSelectionRange(pos, pos);
   }
   function open(page) {
+    if(page!=='REQUESTS')pendingDashboardRecord='';
     state.page = Object.prototype.hasOwnProperty.call(pages, page) ? page : 'CATALOG';
     closeDialog();
     if (el('utpApp')) el('utpApp').hidden = false;
@@ -732,10 +809,10 @@
     render(); if (state.page === 'CATALOG') searchCatalog();
   }
   function resetSession() {
-    epoch += 1; sequence += 1; clearTimeout(timer); clearTimeout(toastTimer); closeDialog(); state = freshState();
+    epoch += 1; sequence += 1; pendingDashboardRecord='';clearTimeout(timer); clearTimeout(toastTimer); closeDialog(); state = freshState();
     if (el('utpApp')) el('utpApp').hidden = true; if (el('utpContent')) el('utpContent').textContent = ''; if (el('utpToast')) el('utpToast').hidden = true;
   }
-  window.UTPFrontend = { open, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
+  window.UTPFrontend = { open, openRecord: id=>{pendingDashboardRecord=String(id);if(state.data){pendingDashboardRecord='';return openRequest(String(id));}if(!state.loading)return bootstrap();}, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
   window.UTPFrontend.setLocalMode = value => { resetSession(); preview = !!value; };
   if (preview) window.UTP_TEST__ = { today, dateText, isValidDocumentDate, isValidCalendarDate, calendarPartsInZone, validateRequest, now };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();

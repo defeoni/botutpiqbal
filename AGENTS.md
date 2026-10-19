@@ -9,3 +9,5 @@
 - Selesai satu pekerjaan: lapor hasil lokal, berhenti, tunggu konfirmasi.
 - Jika pengguna memberi batch bernomor, tuntaskan seluruh batch berurutan tanpa menunggu konfirmasi per nomor; larangan tes/commit/push/upload/deploy tetap berlaku sampai diminta khusus.
 - Izin eksplisit terbaru mengesampingkan default di atas. Jika pengguna menentukan urutan deploy → commit → tes → perbaiki, ikuti urutan itu; hasil koreksi perlu diterbitkan kembali agar deployment sesuai kode akhir.
+
+- Perintah “finishing”: tes → perbaiki semua kegagalan → commit → deploy. Tidak termasuk push GitHub kecuali diminta.

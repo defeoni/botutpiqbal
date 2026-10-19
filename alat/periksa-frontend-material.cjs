@@ -24,6 +24,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
     assert.ok(await page.locator('#homeCurrentDate').innerText());
     pass('Explicit preview opens the application and has a current date');
     for (const key of ['CATALOG','APPROVALS','REQUESTS','ARRIVAL','MEMO','RPB','RPD','HOME']) {
+      await page.locator('[data-workspace="'+(['MEMO','RPB','RPD','HO','MANPOWER','SETTINGS'].includes(key)?'ho':'project')+'"]').click();
       await page.locator('.sidebar-nav [data-main="'+key+'"]').click();
       await page.waitForTimeout(100);
       const material=['CATALOG','APPROVALS','REQUESTS','ARRIVAL'].includes(key);
@@ -32,7 +33,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
       if(key==='HOME') assert.equal(await page.locator('#blank-HOME').isVisible(),true);
       pass('Navigation '+key);
     }
-    await page.locator('#blank-HOME [data-main="REQUESTS"]').click();
+    await page.locator('#blank-HOME .workspace-hero [data-main="REQUESTS"]').click();
     assert.equal(await page.locator('#utpApp').isVisible(),true);
     pass('Home material action opens workspace');
     for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {

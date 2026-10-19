@@ -17,17 +17,39 @@ function apiEnsureTelegramConnection(token) {
   if (!lock.tryLock(3000)) return telegramConnectionSnapshot_();
   try {
     const triggers = ScriptApp.getProjectTriggers().filter(item => item.getHandlerFunction() === 'maintainTelegramConnection_');
-    if (!triggers.length) ScriptApp.newTrigger('maintainTelegramConnection_').timeBased().everyHours(1).create();
-    triggers.slice(1).forEach(item => ScriptApp.deleteTrigger(item));
+    const clock = triggers.find(item => item.getEventType() === ScriptApp.EventType.CLOCK);
+    triggers.filter(item => item !== clock).forEach(item => ScriptApp.deleteTrigger(item));
+    if (!clock) ScriptApp.newTrigger('maintainTelegramConnection_').timeBased().everyHours(1).create();
     props.setProperty('TELEGRAM_AUTO_CONNECT', 'true');
   } finally { lock.releaseLock(); }
   return maintainTelegramConnection_();
 }
 
 function telegramConnectionSnapshot_() {
-  const raw = PropertiesService.getScriptProperties().getProperty('TELEGRAM_CONNECTION_STATUS');
-  try { return raw ? JSON.parse(raw) : { configured: false, webhookActive: false, message: 'Status koneksi belum tersedia.' }; }
+  const props = PropertiesService.getScriptProperties(), raw = props.getProperty('TELEGRAM_CONNECTION_STATUS');
+  try {
+    if (!raw) return { configured: false, webhookActive: false, message: 'Status koneksi belum tersedia.' };
+    const result = JSON.parse(raw), checked = Date.parse(result.checkedAt || '');
+    result.cached = true;
+    result.stale = !Number.isFinite(checked) || Date.now() - checked > 600000;
+    if (result.lastError) result.lastError = telegramSafeError_(result.lastError);
+    const retry = Number(props.getProperty('TELEGRAM_CONNECTION_NEXT_CHECK') || 0);
+    result.message = 'Status tersimpan' + (result.stale ? ' — perlu pemeriksaan ulang' : '') + ': ' + telegramSafeError_(result.message || 'Belum tersedia.');
+    if (Number.isFinite(checked)) result.message += ' Diperiksa ' + Utilities.formatDate(new Date(checked), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm') + ' WIB.';
+    if (retry > Date.now()) result.message += ' Pemeriksaan berikutnya paling cepat ' + Utilities.formatDate(new Date(retry), 'Asia/Jakarta', 'HH:mm') + ' WIB.';
+    return result;
+  }
   catch (_) { return { configured: false, webhookActive: false, message: 'Status koneksi belum tersedia.' }; }
+}
+
+function telegramSafeError_(value) {
+  const props = PropertiesService.getScriptProperties();
+  let text = String(value || '');
+  ['TELEGRAM_BOT_TOKEN', 'BOT_WEBHOOK_KEY'].forEach(key => {
+    const secret = props.getProperty(key);
+    if (secret) [secret, encodeURIComponent(secret)].forEach(part => { text = text.split(part).join('[DIHAPUS]'); });
+  });
+  return text.replace(/([?&]key=)[^&\s"'<>]+/gi, '$1[DIHAPUS]').slice(0, 1500);
 }
 
 function maintainTelegramConnection_() {
