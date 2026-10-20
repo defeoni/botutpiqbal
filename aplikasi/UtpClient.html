@@ -11,7 +11,7 @@
   let state = freshState();
   function freshState() {
     return { page: 'CATALOG', data: null, loading: false, error: '', editor: null,
-      catalog: { query: '', brandClass: 'ALL', brand: '', typeQuery: '', group: '', approvedOnly: false, favoriteOnly: false, items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '', requestView: 'board', boardPages: {}, boardBusy: false };
+      catalog: { query: '', brandClass: 'ALL', brand: '', typeQuery: '', group: '', approvedOnly: false, favoriteOnly: false, sortBy: '', sortDirection: 'asc', brands: [], items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '', requestView: 'board', boardPages: {}, boardBusy: false };
   }
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -19,6 +19,9 @@
   const el = id => document.getElementById(id);
   const now = () => new Date().toISOString();
   const uid = () => 'local-' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '-' + (++sequence));
+  const activeProject = () => window.ProjectWorkspace ? window.ProjectWorkspace.getActiveId() : 'all';
+  function projectMatches(record) { const project=activeProject();return project==='all'||(record.projectId||'legacy')===project; }
+  function newProjectId() { const project=activeProject();if(window.ProjectWorkspace&&project==='all')throw new Error('Pilih satu proyek sebelum membuat dokumen material baru.');return project==='all'?'':project; }
   const WIB_TIME_ZONE = 'Asia/Jakarta';
   function calendarPartsInZone(date, timeZone) {
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
@@ -52,13 +55,29 @@
   function materialFilterMarkup(filters, scope) {
     const attr = key => 'data-' + scope + '-filter="' + key + '"';
     return select('brandClass', 'Jenis merek', filters.brandClass || 'ALL', { ALL: 'Semua jenis merek', BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi', UNKNOWN: 'Merek belum diketahui' }, attr('brandClass')) +
-      input('brand', 'Merek persis', filters.brand, 'text', attr('brand')) +
+      input('brand', 'Merek tersimpan / merek persis', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>' +
       input('typeQuery', 'Tipe / spesifikasi mengandung kata', filters.typeQuery, 'search', attr('typeQuery')) +
       input('group', 'Kelompok persis', filters.group, 'text', attr('group')) +
       check('approvedOnly', 'Sesuai approval aktif', filters.approvedOnly, attr('approvedOnly'));
   }
   function textArea(name, label, value, attrs) { return '<label class="utp-field">' + esc(label) + '<textarea name="' + esc(name) + '" ' + (attrs || '') + '>' + esc(value) + '</textarea></label>'; }
-  function check(name, label, checked, attrs) { return '<label class="utp-field"><span><input type="checkbox" name="' + esc(name) + '"' + (checked ? ' checked' : '') + ' ' + (attrs || '') + '> ' + esc(label) + '</span></label>'; }
+  function check(name, label, checked, attrs) { return '<label class="utp-field utp-check"><span><input type="checkbox" name="' + esc(name) + '"' + (checked ? ' checked' : '') + ' ' + (attrs || '') + '> ' + esc(label) + '</span></label>'; }
+  function knownBrands() {
+    return Array.from(new Set([...(state.catalog.brands || []), ...((state.data && state.data.catalog) || []).map(item => item.brand), ...((state.data && state.data.approvals) || []).flatMap(item => String(item.brand || '').split(/[,;\n]/))].map(value => String(value || '').trim()).filter(Boolean))).sort((a,b) => a.localeCompare(b,'id'));
+  }
+  function refreshBrandOptions() {
+    ['catalog','lookup'].forEach(scope => { const list=el('utpBrands-'+scope); if(list)list.innerHTML=knownBrands().map(brand=>'<option value="'+esc(brand)+'"></option>').join(''); });
+  }
+  function catalogSortButton(key,label) {
+    const active=state.catalog.sortBy===key;
+    return button(label+' '+(active?(state.catalog.sortDirection==='asc'?'↑':'↓'):'↕'),'catalog-sort','data-sort="'+key+'" title="Urutkan seluruh hasil berdasarkan '+esc(label)+'" aria-pressed="'+active+'"','utp-sort');
+  }
+  function compareCatalogItems(a,b,filters) {
+    if(!filters.sortBy)return Number(b.approved)-Number(a.approved)||Number(b.favorite)-Number(a.favorite)||a.name.localeCompare(b.name,'id')||a.code.localeCompare(b.code);
+    const key=filters.sortBy,direction=filters.sortDirection==='desc'?-1:1;
+    const difference=key==='approved'?Number(!!a.approved)-Number(!!b.approved):String(a[key]||'').localeCompare(String(b[key]||''),'id',{numeric:true,sensitivity:'base'});
+    return difference*direction||String(a.code).localeCompare(String(b.code),'id',{numeric:true});
+  }
   function empty(title, text) { return '<div class="utp-empty"><strong>' + esc(title) + '</strong><p>' + esc(text || '') + '</p></div>'; }
   function errorBox(message, action) { return '<div class="utp-error" role="alert"><p>' + esc(message) + '</p>' + (action ? button('Coba lagi', action) : '') + '</div>'; }
   function header(title, description, action) { return '<header class="utp-page-head"><div><h2>' + esc(title) + '</h2><p class="utp-muted">' + esc(description) + '</p></div><div class="utp-actions">' + (action || '') + '</div></header>'; }
@@ -180,7 +199,9 @@
     if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
     const range = c.total ? (c.offset + 1) + '–' + (c.offset + c.items.length) : '0';
     if (!c.items.length) { box.innerHTML = (state.data.masterCount === 0 && !preview ? empty('Master material belum tersedia', 'Impor master resmi melalui tombol Impor master CSV. Data contoh tidak digunakan pada katalog server.') : empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.')) + '<p class="utp-muted">' + range + ' dari ' + c.total + ' hasil · 50 per halaman.</p>'; return; }
-    box.innerHTML = '<p class="utp-muted">' + range + ' dari ' + esc(c.total) + ' hasil · 50 per halaman. Urutan: approval aktif, favorit, nama.</p><div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview && !liveWorkflow()) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
+    const sortLabels={code:'kode',name:'nama material',brand:'merek',model:'tipe',group:'kelompok',unit:'satuan',approved:'approval'};
+    const order=c.sortBy?sortLabels[c.sortBy]+' '+(c.sortDirection==='asc'?'menaik':'menurun'):'approval aktif, favorit, nama';
+    box.innerHTML = '<p class="utp-muted">' + range + ' dari ' + esc(c.total) + ' hasil · 50 per halaman. Urutan seluruh hasil: '+esc(order)+'. Klik judul kolom untuk mengurutkan.</p><div class="utp-tablewrap"><table><thead><tr><th><div class="utp-sort-group">'+catalogSortButton('code','Kode')+catalogSortButton('name','Material')+'</div></th><th><div class="utp-sort-group">'+catalogSortButton('brand','Merek')+catalogSortButton('model','Tipe')+'</div></th><th><div class="utp-sort-group">'+catalogSortButton('group','Kelompok')+catalogSortButton('unit','Satuan')+'</div></th><th>'+catalogSortButton('approved','Approval')+'</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview && !liveWorkflow()) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
     box.insertAdjacentHTML('beforeend', pageControls(c.offset, c.total, 'catalog-page'));
   }
   function pageControls(offset, total, actionName) {
@@ -217,32 +238,34 @@
       const approval = approvalFor(item);
       return Object.assign({}, item, { approved: !!approval, approvalId: approval ? approval.id : '', approvalAuthority: approval ? approval.authority : '' });
     }).filter(item => !filters.approvedOnly || item.approved);
-    items.sort((a, b) => Number(b.approved) - Number(a.approved) || Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name, 'id') || a.code.localeCompare(b.code));
+    items.sort((a, b) => compareCatalogItems(a,b,filters));
     const limit = Math.min(50, filters.limit || 50), offset = items.length ? Math.min(filters.offset || 0, Math.floor((items.length-1)/limit)*limit) : 0;
-    return { items: items.slice(offset, offset + limit), total: items.length, offset, limit };
+    return { items: items.slice(offset, offset + limit), total: items.length, offset, limit, brands: Array.from(new Set(state.data.catalog.map(item=>item.brand).filter(Boolean))) };
   }
   async function searchCatalog() {
     if (!state.data) return;
     clearTimeout(timer); const generation = epoch, requestId = ++sequence, c = state.catalog;
     c.requestId = requestId; c.loading = true; c.error = ''; renderCatalogResults();
-    const filters = { query: c.query, brandClass: c.brandClass, brand: c.brand, typeQuery: c.typeQuery, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, limit: 50, offset: c.offset };
+    const filters = { query: c.query, brandClass: c.brandClass, brand: c.brand, typeQuery: c.typeQuery, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
     try {
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || c.requestId !== requestId) return;
       if (!Array.isArray(result.items)) throw new Error('Hasil pencarian server tidak valid.');
       c.items = result.items.slice(0, 50); c.total = result.total == null ? c.items.length : result.total;
       c.offset = result.offset == null ? c.offset : result.offset;
+      if(Array.isArray(result.brands))c.brands=result.brands;
+      refreshBrandOptions();
     } catch (error) { if (generation !== epoch || c.requestId !== requestId) return; c.error = error.message || String(error); }
     finally { if (generation === epoch && c.requestId === requestId) { c.loading = false; if (state.page === 'CATALOG') renderCatalogResults(); } }
   }
   function renderApprovals() {
-    const rows = (state.data.approvals || []).filter(item => norm([item.material, item.brand, (item.types || []).join(' '), item.status].join(' ')).includes(norm(state.approvalQuery)));
+    const rows = (state.data.approvals || []).filter(item => projectMatches(item)&&norm([item.material, item.brand, (item.types || []).join(' '), item.status].join(' ')).includes(norm(state.approvalQuery)));
     el('utpContent').innerHTML = header(pages.APPROVALS, 'Satu material satu approval · otoritas dicatat sesuai dokumen', button('Tambah approval', 'new-approval', '', 'primary', !preview && !liveWorkflow()) + button('Muat ulang', 'refresh-approvals') + button('Ekspor rekap', 'export-approval-recap', '', '', preview)) +
       '<div class="utp-toolbar">' + input('approvalQuery', 'Cari persetujuan', state.approvalQuery, 'search', 'id="utpApprovalSearch"') + '</div><div id="utpApprovalList">' + (rows.length ? '<div class="utp-grid">' + rows.map(approval => '<article class="utp-card"><h3>' + esc(approval.material) + '</h3><p>' + esc(approval.generic ? 'Generik terkonfirmasi' : approval.brand || 'Merek belum diketahui') + ' · ' + esc((approval.types || []).join(', ') || 'Tipe tidak dibatasi') + '</p><div class="utp-actions">' + badge(approval.status === 'APPROVED' ? 'Disetujui ' + (approval.authority || '—') : approval.status === 'COMPARE' ? 'Compare · belum disetujui' : approval.status) + '</div><p class="utp-muted">' + esc(approval.note || '') + '</p><div class="utp-actions">' + button('Detail', 'approval-detail', 'data-id="' + esc(approval.id) + '"') + button('Edit', 'edit-approval', 'data-id="' + esc(approval.id) + '"', '', !preview && !liveWorkflow()) + '</div></article>').join('') + '</div>' : empty('Belum ada persetujuan yang cocok', 'Generik membutuhkan persetujuan tersendiri. Merek kosong tidak otomatis generik.')) + '</div>';
   }
   function renderRequests() {
     if (state.requestView === 'board') return renderBoard();
-    const rows = (state.data.requests || []).filter(record => norm([record.title, record.number].join(' ')).includes(norm(state.requestQuery)));
+    const rows = (state.data.requests || []).filter(record => projectMatches(record)&&norm([record.title, record.number].join(' ')).includes(norm(state.requestQuery)));
     el('utpContent').innerHTML = header(pages.REQUESTS, 'Permintaan awal, input review admin, dan dokumen revisi', button('Buat permintaan', 'new-request', '', 'primary', !preview && !liveDrafts()) + button('Muat ulang', 'refresh-requests') + button('Tampilan Kanban', 'request-view', 'data-view="board"')) +
       '<div class="utp-toolbar">' + input('requestQuery', 'Cari judul atau nomor', state.requestQuery, 'search', 'id="utpRequestSearch"') + '</div>' +
       (rows.length ? '<div class="utp-grid">' + rows.map(record => {
@@ -268,7 +291,7 @@
     return '<article class="utp-card utp-board-card" data-board-id="'+esc(record.id)+'" draggable="'+boardWritable(record)+'"><h4>'+esc(record.title||'Tanpa judul')+'</h4><p>'+esc(record.number||'Nomor belum ditetapkan')+'</p><p class="utp-muted">'+esc(record.date||'—')+(age!==null?' · usia dokumen '+age+' hari':'')+' · REV '+esc(record.revision||1)+'</p><p>'+items.length+' item · '+readyCount+' siap · '+rejected+' ditolak · '+deferred+' ditunda</p>'+(record.finalSnapshot?'<p class="utp-muted">Daftar final: '+(record.finalSnapshot.items||[]).length+' item</p>':'')+(boardStage(record)==='REVIEW'&&blockers.length?'<p class="utp-board-blocker">'+esc(blockers.slice(0,2).join(' · '))+(blockers.length>2?' · hambatan lain di detail':'')+'</p>':'')+(record.arrivalDate?'<p class="utp-muted">Tanggal kedatangan: '+esc(record.arrivalDate)+'</p>':'')+(record.fulfillmentNote?'<p class="utp-muted">Penyediaan: '+esc(record.fulfillmentNote)+'</p>':'')+'<div class="utp-actions">'+button('Buka detail','open-request','data-id="'+esc(record.id)+'"')+(next?button('Lanjut: '+next[1],'kanban-move','data-id="'+esc(record.id)+'" data-stage="'+next[0]+'"','primary',!boardWritable(record)):'')+'</div></article>';
   }
   function renderBoard(){
-    const rows=(state.data.requests||[]).filter(r=>!r.archived&&norm([r.title,r.number].join(' ')).includes(norm(state.requestQuery)));
+    const rows=(state.data.requests||[]).filter(r=>!r.archived&&projectMatches(r)&&norm([r.title,r.number].join(' ')).includes(norm(state.requestQuery)));
     el('utpContent').innerHTML=header('Alur Permintaan Material','Satu kartu satu dokumen · geser atau gunakan tombol Lanjut',button('Buat permintaan','new-request','','primary',!preview&&!liveDrafts())+button('Muat ulang','refresh-requests')+button('Tampilan daftar','request-view','data-view="list"'))+'<div class="utp-toolbar">'+input('requestQuery','Cari judul atau nomor',state.requestQuery,'search','id="utpRequestSearch"')+'</div><p class="utp-muted" role="status">'+rows.length+' dokumen sesuai pencarian. Geser hanya ke tahap berikutnya; konfirmasi dan validasi tetap berlaku. Daftar final dapat mencakup sebagian item.</p><div class="utp-board" tabindex="0" aria-label="Papan alur material, gulir mendatar untuk kolom lainnya">'+boardColumns.map(([key,label])=>{
       const group=rows.filter(r=>boardStage(r)===key),pages=Math.max(1,Math.ceil(group.length/12)),page=Math.min(state.boardPages[key]||0,pages-1);state.boardPages[key]=page;
       return '<section class="utp-board-column" data-board-stage="'+key+'" aria-label="'+label+'"><h3>'+label+' '+badge(group.length)+'</h3><div class="utp-board-cards">'+(group.length?group.slice(page*12,page*12+12).map(boardCard).join(''):'<p class="utp-muted">Belum ada dokumen.</p>')+'</div>'+(pages>1?'<nav class="utp-actions" aria-label="Halaman '+label+'">'+button('Sebelumnya','board-page','data-column="'+key+'" data-page="'+(page-1)+'"','',page===0)+'<span>'+ (page+1)+' / '+pages+'</span>'+button('Berikutnya','board-page','data-column="'+key+'" data-page="'+(page+1)+'"','',page===pages-1)+'</nav>':'')+'</section>';
@@ -301,7 +324,7 @@
     },preview?'Konfirmasi simulasi':'Konfirmasi penyediaan');
   }
   function createEditor() {
-    const record = { id: uid(), version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
+    const record = { id: uid(), projectId:newProjectId(), version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
     state.editor = { record, base: null, dirty: true, error: '', party: '', reason: '', pendingHistory: [], failNext: false, busy: false };
   }
   function renderEditor() {
@@ -369,7 +392,7 @@
       return false;
     } finally { if (generation === epoch && state.editor === e) { e.busy = false; if (state.page === 'REQUESTS') renderEditor(); } }
   }
-  function askPin() { const value=window.prompt('PIN pemilik untuk tindakan terlindungi:'); if(value===null)throw new Error('Tindakan dibatalkan.');return value; }
+  function askPin() { if(window.UTP_PIN_DEFERRED===true)return '';const value=window.prompt('PIN pemilik untuk tindakan terlindungi:'); if(value===null)throw new Error('Tindakan dibatalkan.');return value; }
   async function materialCommand(operation, payload) {
     const e=state.editor, generation=epoch;let succeeded=false;
     if(!e||e.busy)return false;
@@ -498,6 +521,8 @@
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || context !== modal || id !== context.searchId) return;
       context.items = result.items.slice(0, 50);
+      if(Array.isArray(result.brands))state.catalog.brands=result.brands;
+      refreshBrandOptions();
       box.innerHTML = context.items.length ? '<div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval aktif</th><th>Pilih</th></tr></thead><tbody>' + context.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br>' + esc(item.model || '—') + '</td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + esc(item.approved ? 'Sesuai · ' + (item.approvalAuthority || 'approval aktif') : 'Belum sesuai') + '</td><td>' + button('Pilih', 'lookup-select', 'data-code="' + esc(item.code) + '"') + '</td></tr>').join('') + '</tbody></table></div>' : empty('Tidak ditemukan', 'Ubah filter pencarian atau tambah item sementara.');
       const range = context.items.length ? (Number(result.offset || 0) + 1) + '–' + (Number(result.offset || 0) + context.items.length) : '0';
       box.insertAdjacentHTML('beforeend', '<p class="utp-muted">' + range + ' dari ' + result.total + ' hasil · 50 per halaman.</p>' + pageControls(Number(result.offset || 0), result.total, 'lookup-page'));
@@ -530,7 +555,7 @@
   }
   function editApproval(id) {
     const original = (state.data.approvals || []).find(row => row.id === id);
-    const a = clone(original || { id: uid(), version: 0, material: '', brand: '', types: [], itemCodes: [], generic: false, authority: 'PM', status: 'COMPARE', note: '' });
+    const a = clone(original || { id: uid(), projectId:newProjectId(), version: 0, material: '', brand: '', types: [], itemCodes: [], generic: false, authority: 'PM', status: 'COMPARE', note: '' });
     dialog(original ? 'Edit persetujuan' : 'Tambah persetujuan', '<div class="utp-grid">' + input('material', 'Material', a.material, 'text', 'required maxlength="300"') + select('classification', 'Jenis approval', a.generic ? 'GENERIC' : 'BRANDED', { BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi' }) + input('brand', 'Merek (pisahkan beberapa merek dengan koma)', a.brand, 'text', 'maxlength="160"') + input('types', 'Tipe yang diizinkan (pisahkan dengan koma)', (a.types||[]).join(', '), 'text', 'maxlength="2000"') + input('itemCodes', 'Kode item terkait (pisahkan dengan koma)', (a.itemCodes||[]).join(', '), 'text', 'maxlength="2000"') + select('authority', 'Otoritas sesuai bukti', a.authority, { PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + select('status', 'Status persetujuan', a.status, { COMPARE: 'Compare · belum disetujui', APPROVED: 'Disetujui', REJECTED: 'Ditolak' }) + input('brochure', preview?'Brosur (metadata simulasi)':'Brosur PDF/Word (opsional)', '', 'file', 'accept=".pdf,.doc,.docx"') + '</div>' + textArea('note', 'Catatan / alasan perubahan', a.note, 'required maxlength="2000"'), async form => {
       const changed = clone(a); ['material', 'brand', 'authority', 'status', 'note'].forEach(key => { changed[key] = formValue(form, key); });
       changed.generic = formValue(form, 'classification') === 'GENERIC';
@@ -645,7 +670,7 @@
     }, 'Terapkan pilihan ke isian');
   }
   function renderArrival() {
-    const rows = (state.data.requests || []).filter(record => record.status === 'FINAL' || record.arrived || record.status === 'ARRIVED');
+    const rows = (state.data.requests || []).filter(record => projectMatches(record)&&(record.status === 'FINAL' || record.arrived || record.status === 'ARRIVED'));
     el('utpContent').innerHTML = header(pages.ARRIVAL, 'Konfirmasi pengamatan admin / gudang · bukan pemeriksaan kuantitas atau kelengkapan', button('Muat ulang', 'refresh-requests')) +
       (rows.length ? '<div class="utp-grid">' + rows.map(record => '<article class="utp-card"><h3>' + esc(record.title) + '</h3><p>' + esc(record.number || 'Nomor belum ditetapkan') + '</p>' + badge(record.arrived || record.status === 'ARRIVED' ? 'Kedatangan dikonfirmasi' : 'Menunggu konfirmasi barang') + (record.arrivedAt ? '<p class="utp-muted">' + esc(dateText(record.arrivedAt)) + ' · ' + esc(record.arrivalNote) + '</p>' : '') + '<p class="utp-muted">Konfirmasi tidak mengukur jumlah diterima, kerusakan, atau kelengkapan, dan tidak otomatis menutup pekerjaan.</p><div class="utp-actions">' + button('Konfirmasi barang datang', 'confirm-arrival', 'data-id="' + esc(record.id) + '"', 'primary', !preview && !liveWorkflow() || record.arrived || record.status === 'ARRIVED') + button('Detail', 'open-request', 'data-id="' + esc(record.id) + '"') + '</div></article>').join('') + '</div>' : empty('Belum ada permintaan final', 'Item By Owner / By Other tidak otomatis dianggap sudah datang.'));
   }
@@ -704,6 +729,7 @@
     if(name==='print-request')return printRequest();
     if (name === 'retry-bootstrap') return bootstrap();
     if (name === 'search-catalog') return searchCatalog();
+    if (name === 'catalog-sort') { const c=state.catalog,key=target.dataset.sort;if(!['code','name','brand','model','group','unit','approved'].includes(key))return;c.sortDirection=c.sortBy===key&&c.sortDirection==='asc'?'desc':'asc';c.sortBy=key;c.offset=0;return searchCatalog(); }
     if (name === 'catalog-page') { if (state.catalog.loading) return; state.catalog.offset = Number(target.dataset.offset); return searchCatalog(); }
     if (name === 'lookup-page') return lookup(modal.query, Number(target.dataset.offset));
     if (name === 'close-dialog') return closeDialog();
@@ -848,12 +874,35 @@
     if (!state.data) return bootstrap();
     render(); if (state.page === 'CATALOG') searchCatalog();
   }
+  async function createBlank(page) {
+    if(!['REQUESTS','APPROVALS'].includes(page))return false;
+    if(state.loading||state.boardBusy||state.editor&&state.editor.busy||modal&&modal.busy){toast('Tunggu proses material selesai sebelum membuka form kosong.',true);return false;}
+    if(state.editor&&state.editor.dirty&&!confirm('Tutup isian permintaan yang belum disimpan dan buat form kosong?'))return false;
+    if(modal&&modal.onSubmit&&!confirm('Tutup isian dialog yang belum disimpan dan buat form kosong?'))return false;
+    try {
+      newProjectId();
+      if(!state.data)await bootstrap();
+      if(!state.data)return false;
+      if(!preview&&(page==='REQUESTS'?!liveDrafts():!liveWorkflow())){toast(contractNotice,true);return false;}
+      closeDialog();
+      if(page==='REQUESTS'){createEditor();state.page=page;if(typeof switchMainPage==='function')switchMainPage(page);else renderEditor();}
+      else{state.page=page;if(typeof switchMainPage==='function')switchMainPage(page);else renderApprovals();editApproval();}
+      return true;
+    } catch(error){toast(error.message||String(error),true);return false;}
+  }
   function resetSession() {
     epoch += 1; sequence += 1; pendingDashboardRecord='';clearTimeout(timer); clearTimeout(toastTimer); closeDialog(); state = freshState();
     if (el('utpApp')) el('utpApp').hidden = true; if (el('utpContent')) el('utpContent').textContent = ''; if (el('utpToast')) el('utpToast').hidden = true;
   }
-  window.UTPFrontend = { open, openRecord: id=>{pendingDashboardRecord=String(id);if(state.data){pendingDashboardRecord='';return openRequest(String(id));}if(!state.loading)return bootstrap();}, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
+  window.UTPFrontend = { open, createBlank, openRecord: id=>{pendingDashboardRecord=String(id);if(state.data){pendingDashboardRecord='';return openRequest(String(id));}if(!state.loading)return bootstrap();}, resetSession, getState: () => clone({ preview, page: state.page, data: state.data, editor: state.editor, catalog: state.catalog, error: state.error }) };
   window.UTPFrontend.setLocalMode = value => { resetSession(); preview = !!value; };
+  document.addEventListener('utp-project-change',()=>{
+    state.boardPages={};
+    if(!state.data)return;
+    if(state.editor&&(state.editor.busy||state.editor.dirty)||modal&&modal.onSubmit){toast('Isian material tetap terkait proyek asalnya. Simpan atau tutup isian sebelum membuat dokumen untuk proyek lain.');return;}
+    if(state.editor&&!projectMatches(state.editor.record))state.editor=null;
+    if(el('utpApp')&&!el('utpApp').hidden){render();if(state.page==='CATALOG')searchCatalog();}
+  });
   if (preview) window.UTP_TEST__ = { today, dateText, isValidDocumentDate, isValidCalendarDate, calendarPartsInZone, validateRequest, now };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
 })();

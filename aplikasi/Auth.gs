@@ -29,7 +29,7 @@ function ownerSession_(credentials){
   ownerCheck_(credentials&&credentials.password,'AUTH');
   var token=Utilities.getUuid()+Utilities.getUuid(),salt=p.getProperty('AUTH_SALT')||INITIAL_AUTH_SALT;
   CacheService.getScriptCache().put('owner_'+token,JSON.stringify({expires:Date.now()+21600000,salt:salt}),21600);
-  return {token:token,owner:p.getProperty('APP_OWNER_NAME')||'Admin PT. UTP',version:APP.version};
+  return {token:token,owner:p.getProperty('APP_OWNER_NAME')||'Admin PT. UTP',version:APP.version,pinDeferred:developmentPinDeferred_()};
 }
 function ownerRequireSession_(token){
   var raw=token&&CacheService.getScriptCache().get('owner_'+token),r=raw?JSON.parse(raw):null,salt=PropertiesService.getScriptProperties().getProperty('AUTH_SALT')||INITIAL_AUTH_SALT;

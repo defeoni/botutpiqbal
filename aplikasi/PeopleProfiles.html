@@ -1,0 +1,83 @@
+<dialog id="peopleProfileDialog" class="people-profile-dialog">
+  <form id="peopleProfileForm">
+    <header><h2 id="peopleProfileTitle">Profil personel</h2><button type="button" id="peopleProfileClose" class="btn" aria-label="Tutup profil">Tutup</button></header>
+    <p id="peopleProfileProject"></p>
+    <p>Data ini boleh dilengkapi kapan saja. Label lengkap berarti telepon, alamat, dan kontak darurat terisi; tidak menentukan kelayakan bekerja.</p>
+    <p id="peopleProfileCompleteness" class="people-profile-badge"></p>
+    <div class="grid">
+      <label>Telepon (opsional)<input id="peopleProfilePhone" type="tel" maxlength="100" autocomplete="off"></label>
+      <label>Kontak darurat (opsional)<input id="peopleProfileEmergency" maxlength="300" placeholder="Nama, hubungan, dan nomor telepon" autocomplete="off"></label>
+      <label>Alamat (opsional)<textarea id="peopleProfileAddress" maxlength="500" autocomplete="off"></textarea></label>
+      <label>Catatan (opsional)<textarea id="peopleProfileNote" maxlength="1000"></textarea></label>
+    </div>
+    <details><summary>Kolom tambahan sesuai kebutuhan</summary><div id="peopleProfileCustom"></div><button type="button" id="peopleProfileAddField" class="btn">＋ Tambah kolom</button></details>
+    <p id="peopleProfileMessage" role="status"></p>
+    <footer><button type="submit" class="btn primary">Simpan profil</button><button type="button" id="peopleProfilePrint" class="btn">Cetak / Simpan PDF</button></footer>
+  </form>
+</dialog>
+<style>
+.people-profile-dialog{width:min(780px,90vw);max-height:88vh;overflow:auto;border:1px solid #d9e3f0;border-radius:12px;padding:24px;color:#314b70;background:#fff;font-size:14px}
+.people-profile-dialog::backdrop{background:#23385766}.people-profile-dialog header,.people-profile-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.people-profile-dialog h2{font-size:22px;margin:0}.people-profile-dialog p{line-height:1.6}.people-profile-dialog label,.people-profile-dialog input,.people-profile-dialog textarea{font-size:14px}.people-profile-dialog summary{cursor:pointer;padding:12px 0;font-weight:650}.people-profile-custom-row{display:grid;grid-template-columns:1fr 2fr auto;align-items:end;gap:12px;margin:12px 0}.people-profile-dialog .people-profile-badge,.people-profile-status{display:inline-block;padding:5px 8px;border-radius:5px;background:#edf4ff;color:#365b89;font-size:12px}.people-profile-dialog .grid{margin:18px 0}.people-profile-dialog footer{justify-content:flex-start;margin-top:18px}.people-profile-dialog button{margin:0}
+</style>
+<script>
+(function(){
+  const get=id=>document.getElementById(id),dialog=get('peopleProfileDialog'),form=get('peopleProfileForm');
+  const ids={phone:'peopleProfilePhone',address:'peopleProfileAddress',emergency:'peopleProfileEmergency',note:'peopleProfileNote'};
+  let person=null,version=0,loading=false,dirty=false,generation=0,summaries=[],summaryToken='';
+  const key=(name,project)=>[name,project].map(value=>String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('id')).join('|');
+  const rpc=(action,payload,token)=>new Promise((resolve,reject)=>invokeServer('apiPeopleProfiles',[action,payload,token],resolve,reject));
+  const message=text=>get('peopleProfileMessage').textContent=text;
+  function complete(record){return !!(record.phone&&record.address&&record.emergency);}
+  function values(){return Object.assign(Object.fromEntries(Object.entries(ids).map(([name,id])=>[name,get(id).value.trim()])),{custom:Array.from(get('peopleProfileCustom').children).map(row=>({label:row.querySelector('[data-profile-label]').value.trim(),value:row.querySelector('[data-profile-value]').value.trim()}))});}
+  function badge(){get('peopleProfileCompleteness').textContent=complete(values())?'Profil lengkap':'Profil belum lengkap · dapat dilengkapi nanti';}
+  function busy(value){loading=value;form.querySelectorAll('input,textarea,button').forEach(node=>node.disabled=value);}
+  function addField(field={label:'',value:''}){
+    const box=get('peopleProfileCustom');if(box.children.length>=12){message('Maksimal 12 kolom tambahan.');return;}
+    const row=document.createElement('div');row.className='people-profile-custom-row';
+    [['label','Nama kolom',80],['value','Isi kolom',500]].forEach(([name,label,max])=>{const holder=document.createElement('label'),input=document.createElement('input');holder.textContent=label;input.dataset[name==='label'?'profileLabel':'profileValue']='';input.maxLength=max;input.value=field[name]||'';holder.appendChild(input);row.appendChild(holder);});
+    const remove=document.createElement('button');remove.type='button';remove.className='btn';remove.textContent='Hapus kolom';remove.onclick=()=>{row.remove();dirty=true;};row.appendChild(remove);box.appendChild(row);
+  }
+  function fill(record){Object.entries(ids).forEach(([name,id])=>get(id).value=record[name]||'');get('peopleProfileCustom').replaceChildren();(record.custom||[]).forEach(addField);version=record.version||0;dirty=false;badge();}
+  function status(name,project){const row=summaries.find(item=>key(item.name,item.project)===key(name,project));return row&&row.complete?'Profil lengkap':'Profil belum lengkap';}
+  function decorate(){document.querySelectorAll('[data-person-profile]').forEach(button=>{const name=button.dataset.personProfile,project=button.dataset.personProject||button.dataset.project||'';let tag=button.parentElement.querySelector('.people-profile-status');if(!tag){tag=document.createElement('span');tag.className='people-profile-status';button.after(tag);}tag.textContent=status(name,project);});}
+  async function refresh(){
+    if(!accessToken)return;const token=accessToken;summaryToken=token;
+    try{const result=await rpc('list',{},token);if(token!==accessToken||summaryToken!==token)return;summaries=Array.isArray(result)?result:[];decorate();}catch(error){if(token===accessToken)document.querySelectorAll('.people-profile-status').forEach(node=>node.textContent='Status profil belum dimuat');}
+  }
+  async function open(record){
+    if(loading)return;
+    if(!accessToken){showLoginPanel_('Masuk untuk membuka profil personel.');return;}
+    if(!record||!record.name||!record.project)return;
+    const token=accessToken,ticket=++generation;person={name:record.name,project:record.project};fill({});
+    get('peopleProfileTitle').textContent='Profil · '+person.name;get('peopleProfileProject').textContent='Proyek: '+person.project;
+    if(!dialog.open)dialog.showModal();busy(true);message('Memuat profil…');
+    try{const result=await rpc('get',person,token);if(ticket!==generation||token!==accessToken)return;fill(result.record||{});message('Isian boleh kosong dan dilengkapi kapan saja.');}
+    catch(error){if(ticket===generation&&token===accessToken)message(error.message);}
+    finally{if(ticket===generation)busy(false);}
+  }
+  function close(){if(loading)return;if(dirty&&!confirm('Tutup profil tanpa menyimpan perubahan?'))return;generation++;dialog.close();}
+  form.addEventListener('input',()=>{dirty=true;badge();});get('peopleProfileClose').onclick=close;
+  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
+  get('peopleProfileAddField').onclick=()=>{addField();dirty=true;};
+  form.onsubmit=async event=>{
+    event.preventDefault();if(loading||!person)return;
+    const token=accessToken,ticket=generation,record=values(),identity=Object.assign({},person);
+    if(record.custom.some(field=>field.value&&!field.label)){message('Isi nama kolom tambahan terlebih dahulu.');return;}
+    busy(true);message('Menyimpan profil…');
+    try{const result=await rpc('save',Object.assign({},identity,{version,record}),token);if(ticket!==generation||token!==accessToken)return;if(result.conflict){message('Profil berubah di sesi lain. Isian Anda tetap di sini; tutup dan buka ulang untuk memuat versi terbaru.');return;}fill(result.record);summaries=summaries.filter(item=>key(item.name,item.project)!==key(identity.name,identity.project));summaries.push({name:identity.name,project:identity.project,complete:complete(result.record)});decorate();message(result.warning||'Profil tersimpan.');}
+    catch(error){if(ticket===generation&&token===accessToken)message(error.message);}
+    finally{if(ticket===generation)busy(false);}
+  };
+  get('peopleProfilePrint').onclick=()=>{
+    if(loading||!person)return;const page=window.open('','_blank');if(!page){message('Izinkan jendela cetak untuk menyimpan profil sebagai PDF.');return;}
+    page.opener=null;page.document.title='Profil '+person.name;
+    const root=page.document.body;root.style.cssText='font:14px/1.6 Arial,sans-serif;margin:36px;color:#172b42';
+    const add=(tag,text)=>{const node=page.document.createElement(tag);node.textContent=text;root.appendChild(node);};
+    const record=values();add('h1','Profil Personel');add('h2',person.name);add('p','Proyek: '+person.project);add('p',complete(record)?'Profil lengkap':'Profil belum lengkap');
+    [['Telepon',record.phone],['Alamat',record.address],['Kontak darurat',record.emergency],['Catatan',record.note]].concat(record.custom.map(field=>[field.label,field.value])).forEach(([label,value])=>{if(label)add('p',label+': '+(value||'—'));});
+    add('p','Dicetak dari isian profil. Pilih Simpan sebagai PDF pada dialog cetak.');page.focus();page.print();
+  };
+  document.addEventListener('click',event=>{const button=event.target.closest('[data-person-profile]');if(!button)return;const record=(typeof manpowerRecords==='undefined'?[]:manpowerRecords).find(item=>key(item.name,item.project)===key(button.dataset.personProfile,button.dataset.personProject||button.dataset.project));if(record)open(record);});
+  window.PeopleProfiles={open,refresh,decorate,status,reset(){generation++;person=null;summaries=[];summaryToken='';dirty=false;busy(false);if(dialog.open)dialog.close();}};
+})();
+</script>

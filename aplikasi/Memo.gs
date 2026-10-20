@@ -180,6 +180,7 @@ function apiCreateMemo(payload, token, requestId) {
       const whatsappDraft = buildMemoWhatsAppDraft_(validated, number, documentDate, sheet, pdf, folder);
       result.waDraft = whatsappDraft;
       historyRecord = appendMemoHistory_(validated, number, documentDate, sheet, pdf, folder, createdFileIds, whatsappDraft);
+      try{utpWrite_('memoProjects',{id:number,projectId:validated.projectId||'legacy'},0);}catch(linkError){if(!linkError.recordSaved)throw linkError;result.warning=linkError.message;}
       manpowerRecord = appendManpowerEvents_(validated, number, documentDate);
       props.setProperty(counterKey, String(sequence));
       counterCommitted = true;
@@ -271,6 +272,7 @@ function apiGetMemoHistory(token) {
       rowIndex: index + 2,
       createdAt: row[0] instanceof Date ? row[0].toISOString() : String(row[0]),
       number: String(row[1]),
+      projectId: (utpGet_('memoProjects',String(row[1]))||{}).projectId||'legacy',
       type: String(row[2]),
       project: String(row[3]),
       documentDate: row[4] instanceof Date
@@ -425,6 +427,7 @@ function apiDeleteManpower(name, project, pin, token) {
 }
 
 function requireDeletePin_(pin) {
+  if (developmentPinDeferred_()) return;
   ownerCheck_(String(pin || '').trim(), 'PIN');
 }
 
@@ -481,7 +484,6 @@ function apiSaveManpower(person, token) {
     workArea: String(person.workArea || '').trim()
   };
   if (!['AKTIF', 'NONAKTIF'].includes(clean.status)) throw new Error('Status personel tidak valid.');
-  if (clean.status === 'AKTIF' && !clean.startDate) throw new Error('Tanggal mulai wajib diisi untuk personel aktif.');
   if (clean.startDate) dateFromIso_(clean.startDate);
   if (clean.endDate) dateFromIso_(clean.endDate);
   [clean.domicile, clean.department, clean.skill, clean.foreman, clean.workArea].forEach((value) => {
@@ -573,6 +575,7 @@ function validatePayload_(payload) {
   if (!payload || !APP.types[payload.typeKey]) throw new Error('Jenis memo tidak valid.');
   const clean = {
     typeKey: payload.typeKey,
+    projectId: workspaceProjectId_(payload.projectId||'legacy',false),
     projectName: requiredText_(payload.projectName, 'Nama proyek', 160),
     projectCode: requiredText_(payload.projectCode, 'Kode proyek', 32),
     tanggalDoc: requiredText_(payload.tanggalDoc, 'Tanggal dokumen', 50),
@@ -1434,7 +1437,7 @@ function safeFileName_(value) {
   return String(value || 'Memo').replace(/[\\/:*?"<>|#%{}~&]/g, '-').trim().slice(0, 100) || 'Memo';
 }
 
-function processTelegramUpdate_(update) {
+function processTelegramUpdate_(update,transportLocked) {
   const message = update.message;
   const callback = update.callback_query;
   const from = message ? message.from : callback && callback.from;
@@ -1460,6 +1463,7 @@ function processTelegramUpdate_(update) {
     return;
   }
 
+  if (handleTelegramWorkspaceMedia_(update,chatId,transportLocked)) return;
   if (callback) {
     answerTelegramCallback_(callback.id);
     if (callback.data === 'status') {

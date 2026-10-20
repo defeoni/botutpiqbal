@@ -37,7 +37,11 @@
   }
   window.workspaceRpc = (action, payload) => {
     if (!accessToken) return Promise.reject(new Error('Masuk dahulu untuk mengakses data proyek.'));
-    return rpc('apiWorkspace', [action, payload || {}, accessToken]);
+    const p=Object.assign({},payload),projectId=window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';
+    if(action==='list')p.projectId=projectId;
+    if(action==='upload'){if(projectId==='all')return Promise.reject(new Error('Pilih satu proyek untuk lampiran.'));p.projectId=projectId;}
+    if(action==='save'){if(projectId==='all')return Promise.reject(new Error('Pilih satu proyek sebelum menyimpan catatan.'));p.record=Object.assign({},p.record,{projectId:p.record&&p.record.projectId||projectId});}
+    return rpc('apiWorkspace', [action, p, accessToken]);
   };
   function render() {
     const d = dashboard;
@@ -86,17 +90,19 @@
     put('dashboardStatus', d && d.warnings.length ? 'Sebagian data gagal dimuat: '+d.warnings.join(' | ') : d ? 'Ringkasan server berhasil dimuat.' : '');
   }
   window.loadWorkspaceDashboard = async function () {
+    if(window.ProjectWorkspace)await window.ProjectWorkspace.ready();
     if (!accessToken || loading) { render(); return; }
     const token=accessToken, epoch=generation; loading=true;
     put('dashboardStatus','Memuat ringkasan server…');
-    try { const data=await rpc('apiDashboard',[token]);if(epoch===generation && token===accessToken){dashboard=data;render();} }
+    try { const data=await rpc('apiDashboard',[token,window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all']);if(epoch===generation && token===accessToken){dashboard=data;render();} }
     catch(error){if(epoch===generation)put('dashboardStatus','Gagal memuat ringkasan: '+error.message+' · tekan Muat ulang ringkasan.');}
     finally {if(epoch===generation)loading=false;}
   };
   window.refreshHoSummary = render;
   window.decorateWorkspace=decorate;decorate();
   window.refreshProjectSummary = render;
-  window.resetWorkspaceSession = () => {generation++;loading=false;dashboard=null;render();if(window.WorkspaceTools)window.WorkspaceTools.reset();if(window.RpdWorkspace&&window.RpdWorkspace.reset)window.RpdWorkspace.reset();};
+  window.resetWorkspaceSession = () => {generation++;loading=false;dashboard=null;window.UTP_PIN_DEFERRED=false;if(window.PeopleProfiles)window.PeopleProfiles.reset();if(window.ProjectWorkspace)window.ProjectWorkspace.reset();if(window.DocumentCenter)window.DocumentCenter.resetSession();render();if(window.WorkspaceTools)window.WorkspaceTools.reset();if(window.RpdWorkspace&&window.RpdWorkspace.reset)window.RpdWorkspace.reset();};
+  document.addEventListener('utp-project-change',()=>{generation++;loading=false;dashboard=null;render();window.loadWorkspaceDashboard();if(window.DocumentCenter)window.DocumentCenter.reload();});
   document.addEventListener('click', async event => {
     const b=event.target.closest('button');if(!b)return;
     if(b.dataset.workspace){switchMainPage(b.dataset.workspace==='ho'?'HO':'HOME');}

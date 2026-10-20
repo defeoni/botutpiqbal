@@ -106,7 +106,7 @@ function apiUtp(action, payload, token) {
   if(action==='bootstrap') return utpBootstrap_();
   if(action==='list') return {records:utpRead_(utpEntity_(p.entity),p.includeArchived)};
   if(action==='detail') return {record:utpGet_(utpEntity_(p.entity),p.id)};
-  if(action==='searchItems') return utpSearchItems_(utpMaster_(),p,utpRead_('approvals'));
+  if(action==='searchItems'){var scope=workspaceProjectId_(p.projectId,true);return utpSearchItems_(utpMaster_(),p,utpRead_('approvals').filter(function(r){return workspaceProjectMatches_(r,scope);}));}
   if(action==='importPreview') {var plan=utpPreviewImport_(p.csv,utpMaster_());delete plan.items;delete plan.rows;return plan;}
   var lock=LockService.getScriptLock();lock.waitLock(30000);
   try {return utpMutate_(action,p,utpContext_());} finally {lock.releaseLock();}
@@ -126,7 +126,7 @@ function utpMutate_(action,p,ctx) {
       var evidenceFile=DriveApp.getFileById(ctx.evidence.fileId);
       if(evidenceFile.isTrashed()||evidenceFile.getMimeType()!==ctx.evidence.mime)throw new Error('File bukti HO tidak tersedia atau format berubah.');
     }
-    r=utpMaterialCommand_(p.operation,p.record,old,ctx);
+    r=utpMaterialCommand_(p.operation,p.record,old,ctx);r.projectId=old.projectId||'legacy';
     if(p.operation==='FINALIZE')r.items.filter(function(item){return r.finalItemIds.indexOf(item.id)>=0&&item.requiredAuthority==='HO';}).forEach(function(item){
       var finalDocument=utpFinalEvidence_(item.finalFileId);
       if(!finalDocument||finalDocument.recordId!==r.id||finalDocument.kind!=='MATERIAL_FINAL_HO')throw new Error('Bukti final HO belum terdaftar untuk dokumen ini.');
@@ -145,7 +145,7 @@ function utpMutate_(action,p,ctx) {
     if(old && (old.archived || old.itemContractVersion!==1 || old.status!=='DRAFT' || old.initialSnapshot))throw new Error('Hanya draf Material per item aktif yang dapat diubah.');
     if(old && old.version!==source.version)return {conflict:true,record:old};
     if(!old && source.version!==0)throw new Error('Draf tidak ditemukan. Data tidak dibuat ulang.');
-    r=utpValidateMaterialDraft_(source,old,ctx);r.id=source.id;
+    r=utpValidateMaterialDraft_(source,old,ctx);r.id=source.id;r.projectId=workspaceProjectId_(old&&old.projectId||source.projectId||'legacy',false);
     r=utpRecordRequestSave_(r,old,ctx.now,p.actor||'Admin');
     try {return {record:utpWrite_('requests',r,source.version),warnings:[]};}
     catch(error) {
@@ -159,7 +159,7 @@ function utpMutate_(action,p,ctx) {
     entity=utpEntity_(p.entity);old=p.record.id?utpRequireRecord_(entity,p.record):null;
     if(entity==='requests' && (old && old.itemContractVersion===1 || p.record.itemContractVersion===1))throw new Error('Draf Material per item harus memakai penyimpanan khusus.');
     if(utpProtected_(entity,old))requireDeletePin_(p.pin);
-    r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();
+    r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();r.projectId=workspaceProjectId_(old&&old.projectId||p.record.projectId||'legacy',false);
     if(entity==='approvals') {
       if(r.status==='APPROVED'&&(!old||old.status!=='APPROVED'))requireDeletePin_(p.pin);
       if(r.brochureId&&!utpDocument_(r.brochureId))throw new Error('Brosur harus diunggah melalui aplikasi.');

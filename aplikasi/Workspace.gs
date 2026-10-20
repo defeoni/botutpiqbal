@@ -12,7 +12,7 @@ function workspaceRecord_(module, input) {
   var r={id:workspaceText_(input.id,100)||Utilities.getUuid(),name:workspaceText_(input.name||input.purpose,200),date:workspaceDate_(input.date),note:workspaceText_(input.note,2000),status:workspaceText_(input.status||'Draf',40),fields:{}};
   if(!/^[a-zA-Z0-9-]{8,100}$/.test(r.id)||!r.name)throw new Error('Identitas dan judul wajib valid.');
   var allowed=module==='rpd'?['DRAFT','SUBMITTED']:['Draf','Perlu tindak lanjut','Selesai dicatat'];if(allowed.indexOf(r.status)<0)throw new Error('Status tidak valid.');
-  var schemas={tasks:['assignee','priority','due'],finance:['reference','vendor','amount','category','proof'],archives:['reference','category','location','revision'],people:['role','company','phone','start'],attendance:['person','attendance','area','hours']};
+  var schemas={tasks:['assignee','priority','due','documentUrl'],finance:['reference','vendor','amount','category','proof'],archives:['reference','category','location','revision'],people:['role','company','phone','start'],attendance:['person','attendance','area','hours']};
   if(module==='rpd') {
     r.purpose=r.name;r.recipient=workspaceText_(input.recipient,200);r.paymentDetails=workspaceText_(input.paymentDetails,500);r.proof=workspaceText_(input.proof,500);
     if(!r.recipient)throw new Error('Penerima dana wajib diisi.');
@@ -32,12 +32,12 @@ function workspaceRecord_(module, input) {
 }
 function apiWorkspace(action,payload,token) {
   requireAuthorized_(token);var p=payload||{},module=p.module,entity=Object.prototype.hasOwnProperty.call(WORKSPACE_MODULES_,module)?WORKSPACE_MODULES_[module]:null;
-  if(action==='summary'){var counts={},activities=[];Object.keys(WORKSPACE_MODULES_).forEach(function(k){var rows=utpRead_(WORKSPACE_MODULES_[k]);counts[k]=rows.length;rows.forEach(function(r){activities.push({module:k,id:r.id,name:r.name||r.purpose,status:r.status,updatedAt:r.updatedAt,date:r.updatedAt,text:(r.name||r.purpose)+' · '+r.status});});});activities.sort(function(a,b){return String(b.updatedAt).localeCompare(String(a.updatedAt));});return {counts:counts,activities:activities.slice(0,15)};}
-  if(!entity)throw new Error('Modul tidak dikenal.');if(action==='list')return {records:utpRead_(entity)};
+  if(action==='summary'){var scope=workspaceProjectId_(p.projectId,true),counts={},activities=[];Object.keys(WORKSPACE_MODULES_).forEach(function(k){var rows=utpRead_(WORKSPACE_MODULES_[k]).filter(function(r){return workspaceProjectMatches_(r,scope);});counts[k]=rows.length;rows.forEach(function(r){activities.push({module:k,id:r.id,name:r.name||r.purpose,status:r.status,updatedAt:r.updatedAt,date:r.updatedAt,text:(r.name||r.purpose)+' · '+r.status});});});activities.sort(function(a,b){return String(b.updatedAt).localeCompare(String(a.updatedAt));});return {counts:counts,activities:activities.slice(0,15)};}
+  if(!entity)throw new Error('Modul tidak dikenal.');if(action==='list'){var projectId=workspaceProjectId_(p.projectId,true);return {records:utpRead_(entity).filter(function(r){return workspaceProjectMatches_(r,projectId);})};}
   if(['save','delete','upload'].indexOf(action)<0)throw new Error('Tindakan tidak dikenal.');
   var lock=LockService.getScriptLock();lock.waitLock(30000);
   try {
-    if(action==='upload'){if(['finance','archives','rpd'].indexOf(module)<0)throw new Error('Modul ini tidak menerima lampiran.');return utpUpload_({name:p.name,mime:p.mime,base64:p.base64,kind:'workspace-'+module,recordId:''});}
+    if(action==='upload'){if(['finance','archives','rpd'].indexOf(module)<0)throw new Error('Modul ini tidak menerima lampiran.');var scope=workspaceProjectId_(p.projectId||'legacy',false),folder=workspaceProjectFolder_(scope,module==='finance'?'Nota dan Keuangan':module==='archives'?'Arsip':'RPD');var uploaded=utpUpload_({name:p.name,mime:p.mime,base64:p.base64,kind:'workspace-'+module,recordId:scope});DriveApp.getFileById(uploaded.id).moveTo(folder);return uploaded;}
     var input=action==='save'?p.record||{}:p;
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Catatan tidak valid.');
     if(input.id!=null&&(typeof input.id!=='string'||! /^[a-zA-Z0-9-]{8,100}$/.test(input.id)))throw new Error('Identitas catatan tidak valid.');
@@ -48,7 +48,15 @@ function apiWorkspace(action,payload,token) {
     if(old?old.version!==version:version!==0)return {conflict:true,record:old};
     var record;
     if(action==='delete'){requireDeletePin_(p.pin);if(!old)throw new Error('Catatan tidak ditemukan.');record=JSON.parse(JSON.stringify(old));record.archived=true;record.deletedAt=new Date().toISOString();}
-    else {record=workspaceRecord_(module,input);if(module==='rpd'&&(record.status==='SUBMITTED'||old&&old.status==='SUBMITTED'))requireDeletePin_(p.pin);}
+    else {record=workspaceRecord_(module,input);record.projectId=workspaceProjectId_(input.projectId||old&&old.projectId||'legacy',false);if(old&&(old.projectId||'legacy')!==record.projectId)throw new Error('Proyek catatan berubah. Muat ulang.');if(old){['source','attachments','pendingReview'].forEach(function(k){if(old[k]!=null)record[k]=old[k];});}if(module==='rpd'&&(record.status==='SUBMITTED'||old&&old.status==='SUBMITTED'))requireDeletePin_(p.pin);}
+    if(action==='save'){
+      var attachments=input.attachments==null?old&&old.attachments||[]:input.attachments;
+      if(!Array.isArray(attachments)||attachments.length>30)throw new Error('Maksimal 30 lampiran.');
+      record.attachments=attachments.map(function(f){var url=workspaceText_(f.url,1000);if(!/^https:\/\/(drive|docs)\.google\.com\//i.test(url))throw new Error('Tautan lampiran harus Google Drive.');return {name:workspaceText_(f.name,200),url:url,mime:workspaceText_(f.mime,100)};});
+      record.source=old&&old.source||'Web App';if(old&&old.telegramMessageId)record.telegramMessageId=old.telegramMessageId;
+      record.pendingReview=module==='finance'&&record.source==='Telegram'&&(record.fields.vendor==='Belum diisi'||record.fields.category==='Perlu klasifikasi');
+      record.history=(old&&old.history||[]).slice();record.history.push({at:new Date().toISOString(),status:record.status,reason:record.note||'Catatan disimpan'});
+    }
     try{return {record:utpWrite_(entity,record,version)};}catch(error){if(error.recordSaved)return {record:utpGet_(entity,record.id),warning:error.message};throw error;}
   } finally {lock.releaseLock();}
 }

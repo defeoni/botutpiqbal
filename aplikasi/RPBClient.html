@@ -39,10 +39,12 @@ document.addEventListener('click', (event) => {
 });
 
 function loadRpbData_() {
+  const projectId=window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy';
   window.hoRpbLoadState = 'loading';
   if (window.refreshHoSummary) window.refreshHoSummary();
   const formEditVersion = rpbFormEditVersion_;
-  invokeServer('apiGetRpbData', [accessToken], (data) => {
+  invokeServer('apiGetRpbData', [accessToken,projectId], (data) => {
+    if(window.ProjectWorkspace&&projectId!==window.ProjectWorkspace.getActiveId())return;
     rpbState_ = data;
     window.hoRpbLoadState = 'ready';
     if (window.refreshHoSummary) window.refreshHoSummary();
@@ -65,7 +67,8 @@ function loadRpbData_() {
     renderRpbMaster_();
     renderRpbHistory_();
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
-      invokeServer('apiLoadRpbDraft', [accessToken], (draft) => {
+      if(projectId==='all'){addRpbLine_();return;}
+      invokeServer('apiLoadRpbDraft', [accessToken,projectId], (draft) => {
         if ($('rpbItemsTable').tBodies[0].rows.length || rpbFormEditVersion_ !== formEditVersion) return;
         if (draft) populateRpbForm_(draft);
         else addRpbLine_();
@@ -153,8 +156,14 @@ function collectRpbForm_() {
     unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
     week: row.querySelector('[data-rpb-field="week"]').value
   })).filter((item) => item.itemId);
-  return { requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
+  return {projectId:window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy', requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
 }
+
+window.createBlankRpb_=function(){
+  if(!confirm('Buka RPB baru? Isian formulir saat ini akan dikosongkan; arsip tetap disimpan.'))return false;
+  rpbFormEditVersion_++;rpbRevisionOf_='';$('rpbItemsTable').tBodies[0].replaceChildren();addRpbLine_();$('rpbRequestDate').value=todayJakarta_();$('rpbLpdConfirmed').checked=false;
+  return true;
+};
 
 function populateRpbForm_(data) {
   rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
@@ -335,6 +344,7 @@ function renderRpbHistory_() {
   const root = $('rpbHistoryList'); root.innerHTML = '';
   if (!rpbState_.history.length) { root.textContent = 'Belum ada riwayat RPB.'; return; }
   rpbState_.history.forEach((record) => {
+    if(window.ProjectWorkspace){const id=window.ProjectWorkspace.getActiveId();if(id!=='all'&&((record.data||{}).projectId||'legacy')!==id)return;}
     const card = document.createElement('article'); card.className = 'card rpb-history-card';
     const title = document.createElement('h3'); title.textContent = record.number; card.appendChild(title);
     const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);

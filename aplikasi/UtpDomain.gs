@@ -409,9 +409,11 @@ function utpSearchItems_(items, filters, approvals) {
     copy.approved = !!approval; copy.approvalId = approval ? approval.id : ''; copy.approvalAuthority = approval ? approval.authority : '';
     return copy;
   }).filter(function (item) { return !options.approvedOnly || item.approved; });
-  matches.sort(function (a, b) { return Number(b.approved) - Number(a.approved) || Number(!!b.favorite) - Number(!!a.favorite) || String(a.name).localeCompare(String(b.name), 'id') || String(a.code).localeCompare(String(b.code)); });
+  var sortBy=String(options.sortBy||''),direction=options.sortDirection==='desc'?-1:1;
+  if(sortBy&&['code','name','brand','model','group','unit','approved'].indexOf(sortBy)<0)throw new Error('Kolom pengurutan tidak valid.');
+  matches.sort(function (a, b) {return sortBy?direction*(sortBy==='approved'?Number(a.approved)-Number(b.approved):String(a[sortBy]||'').localeCompare(String(b[sortBy]||''),'id',{numeric:true}))||String(a.code).localeCompare(String(b.code)):Number(b.approved) - Number(a.approved) || Number(!!b.favorite) - Number(!!a.favorite) || String(a.name).localeCompare(String(b.name), 'id') || String(a.code).localeCompare(String(b.code)); });
   offset = matches.length ? Math.min(offset, Math.floor((matches.length - 1) / limit) * limit) : 0;
-  return { items: matches.slice(offset, offset + limit), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length };
+  return { items: matches.slice(offset, offset + limit), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length,brands:Array.from(new Set((items||[]).filter(function(r){return !r.archived&&r.brand;}).map(function(r){return r.brand;}))).sort() };
 }
 function utpParseCsv_(source) {
   var csv = String(source || '').replace(/^\uFEFF/, ''), rows = [], row = [], value = '', quoted = false, afterQuote = false;

@@ -160,7 +160,7 @@ function pollTelegramUpdates_() {
     for (const update of updates) {
       if (Date.now() - started > 20000) break;
       if (!Number.isSafeInteger(update.update_id) || update.update_id < offset) continue;
-      processTelegramUpdate_(update);
+      processTelegramUpdate_(update, true);
       // A failed handler retains its offset for retry instead of losing the command.
       props.setProperty('TELEGRAM_UPDATE_OFFSET', String(update.update_id + 1));
       offset = update.update_id + 1;
@@ -171,4 +171,68 @@ function pollTelegramUpdates_() {
   } catch (error) {
     props.setProperty('TELEGRAM_LAST_POLL_ERROR', telegramSafeError_(error.message || 'Pengambilan pesan gagal.'));
   } finally { lock.releaseLock(); }
+}
+
+// Called only after processTelegramUpdate_ has verified the private owner chat.
+// The source message ID is the stable key, so retries cannot create duplicate notes.
+function handleTelegramWorkspaceMedia_(update, chatId, transportLocked) {
+  const message=update.message,callback=update.callback_query;
+  const parts=callback&&String(callback.data||'').match(/^tg(proj|dest):(\d+):([a-zA-Z0-9-]+)$/);
+  const photo=message&&Array.isArray(message.photo)&&message.photo.length?message.photo[message.photo.length-1]:null;
+  if(!parts&&!(message&&(photo||message.document)))return false;
+  const messageId=parts?parts[2]:String(message.message_id),id='tg-'+chatId+'-'+messageId;
+  // Polling already holds the shared storage lock. Webhook delivery acquires it here.
+  const lock=transportLocked?null:LockService.getScriptLock();if(lock)lock.waitLock(10000);
+  try {
+    if(callback)answerTelegramCallback_(callback.id);
+    let pending=utpGet_('telegramInbox',id);
+    if(pending&&pending.completed){
+      sendTelegramMessage_(chatId,'Lampiran ini sudah masuk ke '+(pending.destination==='finance'?'Nota & Keuangan':'Arsip Proyek')+'. Buka Web App untuk melengkapi catatan.');
+      return true;
+    }
+    if(!parts){
+      const file=photo||message.document,mime=photo?'image/jpeg':String(file.mime_type||'');
+      const allowed=['application/pdf','image/jpeg','image/png','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+      if(allowed.indexOf(mime)<0||Number(file.file_size||0)>5*1024*1024){sendTelegramMessage_(chatId,'Gunakan foto JPG/PNG, PDF, Word, atau Excel maksimal 5 MB.');return true;}
+      if(!pending){
+        pending={id:id,chatId:String(chatId),messageId:messageId,fileId:file.file_id,name:photo?'Foto Telegram '+messageId+'.jpg':String(file.file_name||'Lampiran Telegram '+messageId),mime:mime,caption:String(message.caption||'').slice(0,2000),receivedAt:new Date().toISOString(),completed:false};
+        utpWrite_('telegramInbox',pending,null);
+      }
+      const projects=utpRead_('workspaceProjects').filter(project=>project.id!=='legacy');
+      const buttons=projects.map(project=>[{text:String(project.name||project.code||'Proyek').slice(0,60),callback_data:'tgproj:'+messageId+':'+project.id}]);
+      buttons.push([{text:'Data awal / belum dipetakan',callback_data:'tgproj:'+messageId+':legacy'}]);
+      sendTelegramMessage_(chatId,'📁 Pilih proyek untuk '+pending.name+':',{inline_keyboard:buttons});
+      return true;
+    }
+    if(!pending||pending.chatId!==String(chatId)){sendTelegramMessage_(chatId,'Lampiran tidak ditemukan. Kirim ulang foto atau dokumennya.');return true;}
+    if(parts[1]==='proj'){
+      const projectId=parts[3],project=projectId==='legacy'?{id:'legacy',name:'Data awal / belum dipetakan'}:utpGet_('workspaceProjects',projectId);
+      if(!project||project.archived){sendTelegramMessage_(chatId,'Proyek tidak tersedia. Kirim ulang lampiran dan pilih proyek aktif.');return true;}
+      pending.projectId=projectId;pending.projectName=project.name;utpWrite_('telegramInbox',pending,pending.version);
+      sendTelegramMessage_(chatId,'Simpan '+pending.name+' di '+project.name+' sebagai:',{inline_keyboard:[[{text:'🧾 Nota & Keuangan',callback_data:'tgdest:'+messageId+':finance'},{text:'📂 Arsip Proyek',callback_data:'tgdest:'+messageId+':archives'}]]});
+      return true;
+    }
+    const destination=parts[3];if(['finance','archives'].indexOf(destination)<0||!pending.projectId){sendTelegramMessage_(chatId,'Pilih proyek dahulu dengan mengirim ulang lampiran.');return true;}
+    if(pending.projectId!=='legacy'){const project=utpGet_('workspaceProjects',pending.projectId);if(!project||project.archived){sendTelegramMessage_(chatId,'Proyek sudah tidak aktif. Kirim ulang lampiran.');return true;}}
+    // One destination per incoming message, including repeated callback deliveries.
+    const entity=destination==='finance'?'workspaceFinance':'workspaceArchives';
+    const other=utpGet_(destination==='finance'?'workspaceArchives':'workspaceFinance',id),existing=utpGet_(entity,id);
+    if(other){sendTelegramMessage_(chatId,'Lampiran sudah tersimpan pada tujuan lain. Kelola catatan melalui Web App.');return true;}
+    if(!existing){
+      const metadata=telegramPollingApi_('getFile',{file_id:pending.fileId});
+      if(!metadata||!metadata.file_path||Number(metadata.file_size||0)>5*1024*1024)throw new Error('Berkas Telegram tidak tersedia atau melebihi 5 MB.');
+      const token=PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN');
+      const path=String(metadata.file_path);if(!/^[a-zA-Z0-9_./-]+$/.test(path)||path.indexOf('..')!==-1)throw new Error('Lokasi berkas Telegram tidak valid.');
+      const response=UrlFetchApp.fetch('https://api.telegram.org/file/bot'+token+'/'+path,{muteHttpExceptions:true});
+      if(response.getResponseCode()!==200)throw new Error('Foto Telegram belum dapat diunduh. Coba tombol tujuan kembali.');
+      const uploaded=utpUpload_({name:pending.name,mime:pending.mime,base64:Utilities.base64Encode(response.getBlob().getBytes()),kind:'telegram-workspace',recordId:id});
+      DriveApp.getFileById(uploaded.id).moveTo(workspaceProjectFolder_(pending.projectId,destination==='finance'?'Nota dan Keuangan':'Arsip'));
+      const fields=destination==='finance'?{reference:'Telegram '+messageId,vendor:'Belum diisi',amount:0,category:'Perlu klasifikasi',proof:uploaded.url}:{reference:'Telegram '+messageId,category:'Lampiran Telegram',location:uploaded.url,revision:''};
+      const record={id:id,projectId:pending.projectId,name:pending.caption?pending.caption.slice(0,200):pending.name,date:Utilities.formatDate(new Date(pending.receivedAt),APP.timezone,'yyyy-MM-dd'),status:'Draf',note:pending.caption,fields:fields,source:'Telegram',pendingReview:true,attachments:[{name:uploaded.name,url:uploaded.url,mime:uploaded.mime,fileId:uploaded.id}],telegramMessageId:messageId,history:[{at:new Date().toISOString(),status:'Draf',reason:'Diterima melalui Telegram; menunggu verifikasi pemilik.'}]};
+      utpWrite_(entity,record,null);
+    }
+    pending=utpGet_('telegramInbox',id);pending.completed=true;pending.destination=destination;utpWrite_('telegramInbox',pending,pending.version);
+    sendTelegramMessage_(chatId,'✅ Lampiran masuk ke '+(destination==='finance'?'Nota & Keuangan':'Arsip Proyek')+' · '+pending.projectName+'. Buka catatan di Web App untuk melengkapi tanggal, nominal, dan keterangan.');
+    return true;
+  } finally {if(lock)lock.releaseLock();}
 }

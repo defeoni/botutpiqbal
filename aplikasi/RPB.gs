@@ -35,8 +35,9 @@ const RPB_HISTORY_HEADERS = [
   'Dihapus Pada'
 ];
 
-function apiGetRpbData(token) {
+function apiGetRpbData(token,projectId) {
   requireAuthorized_(token);
+  projectId=workspaceProjectId_(projectId||'legacy',true);
   const sheet = getRpbMasterSheet_();
   return {
     categories: RPB_CATEGORIES.slice(),
@@ -48,7 +49,7 @@ function apiGetRpbData(token) {
     masterUrl: sheet.getParent().getUrl() + '#gid=' + sheet.getSheetId(),
     history: getRpbHistory_(),
     nextSequence: getRpbNextSequence_(),
-    draftVersion: Number(PropertiesService.getUserProperties().getProperty('RPB_DRAFT_REVISION')) || 0
+    draftVersion: Number(PropertiesService.getUserProperties().getProperty(rpbDraftKey_('RPB_DRAFT_REVISION',projectId))) || 0
   };
 }
 
@@ -61,20 +62,22 @@ function apiSaveRpbDraft(payload, token) {
   lock.waitLock(30000);
   try {
     const props = PropertiesService.getUserProperties();
-    const currentVersion = Number(props.getProperty('RPB_DRAFT_REVISION')) || 0;
+    const currentVersion = Number(props.getProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId))) || 0;
     if (draftVersion <= currentVersion) return { saved: false, stale: true, draftVersion: currentVersion };
     clean.draftVersion = draftVersion;
-    props.setProperty('RPB_DRAFT', JSON.stringify(clean));
-    props.setProperty('RPB_DRAFT_REVISION', String(draftVersion));
+    props.setProperty(rpbDraftKey_('RPB_DRAFT',clean.projectId), JSON.stringify(clean));
+    props.setProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId), String(draftVersion));
     return { saved: true, draftVersion, savedAt: new Date().toISOString() };
   } finally {
     lock.releaseLock();
   }
 }
 
-function apiLoadRpbDraft(token) {
+function rpbDraftKey_(key,projectId){return !projectId||projectId==='legacy'?key:key+'_'+projectId;}
+function apiLoadRpbDraft(token,projectId) {
   requireAuthorized_(token);
-  const text = PropertiesService.getUserProperties().getProperty('RPB_DRAFT');
+  projectId=workspaceProjectId_(projectId||'legacy',false);
+  const text = PropertiesService.getUserProperties().getProperty(rpbDraftKey_('RPB_DRAFT',projectId));
   if (!text) return null;
   try { return JSON.parse(text); } catch (error) { return null; }
 }
@@ -111,7 +114,7 @@ function apiCreateRpb(payload, token, revisionOf) {
     }
     const number = `${RPB_CONFIG.formPrefix}${String(sequence).padStart(2, '0')} Rev ${String(revision).padStart(2, '0')}`;
     clean.number = number;
-    const folder = getRpbArchiveFolder_(clean.requestDate);
+    const folder = getRpbArchiveFolder_(clean.requestDate,clean.projectName);
     const outputs = createRpbFiles_(clean, number, folder, createdIds);
     const id = Utilities.getUuid();
     if (!clean.rootId) clean.rootId = id;
@@ -121,12 +124,12 @@ function apiCreateRpb(payload, token, revisionOf) {
     });
     const userProperties = PropertiesService.getUserProperties();
     const submittedDraftVersion = Number(payload.draftVersion);
-    const currentDraftVersion = Number(userProperties.getProperty('RPB_DRAFT_REVISION')) || 0;
+    const currentDraftVersion = Number(userProperties.getProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId))) || 0;
     const consumedDraftVersion = Number.isSafeInteger(submittedDraftVersion) && submittedDraftVersion >= 0
       ? Math.max(currentDraftVersion, submittedDraftVersion)
       : currentDraftVersion;
-    userProperties.deleteProperty('RPB_DRAFT');
-    userProperties.setProperty('RPB_DRAFT_REVISION', String(consumedDraftVersion));
+    userProperties.deleteProperty(rpbDraftKey_('RPB_DRAFT',clean.projectId));
+    userProperties.setProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId), String(consumedDraftVersion));
     return {
       id, number, revision, spreadsheetUrl: outputs.spreadsheetUrl, excelUrl: outputs.excelUrl,
       pdfUrl: outputs.pdfUrl, folderUrl: folder.getUrl(), waDraft: buildRpbWhatsAppDraft_(clean, number, outputs)
@@ -348,14 +351,15 @@ function validateRpbPayload_(payload, requireLpd) {
     return { itemId: master.id, category: master.category, name: master.name, unit: master.unit, quantity, unitPrice, total, week };
   });
   if (requireLpd && !items.length) throw new Error('Tambahkan minimal satu barang.');
-  return { projectName: RPB_CONFIG.projectName, projectCode: RPB_CONFIG.projectCode, projectManager: RPB_CONFIG.projectManager, requestDate, lpdReceivedMonth, lpdReceivedConfirmed: payload.lpdReceivedConfirmed === true, items, sequence: Number(payload.sequence) || 0, revision: Number(payload.revision) || 0, rootId: String(payload.rootId || ''), revisionOf: String(payload.revisionOf || ''), tracking: Array.isArray(payload.tracking) ? payload.tracking : [] };
+  const projectId=workspaceProjectId_(payload.projectId||'legacy',false),project=projectId==='legacy'?null:utpGet_('workspaceProjects',projectId);
+  return {projectId, projectName:project?project.name:RPB_CONFIG.projectName, projectCode:project?project.code:RPB_CONFIG.projectCode, projectManager:project?project.pm:RPB_CONFIG.projectManager, requestDate, lpdReceivedMonth, lpdReceivedConfirmed: payload.lpdReceivedConfirmed === true, items, sequence: Number(payload.sequence) || 0, revision: Number(payload.revision) || 0, rootId: String(payload.rootId || ''), revisionOf: String(payload.revisionOf || ''), tracking: Array.isArray(payload.tracking) ? payload.tracking : [] };
 }
 
-function getRpbArchiveFolder_(requestDate) {
+function getRpbArchiveFolder_(requestDate,projectName) {
   const date = dateFromIso_(requestDate);
   const month = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][date.getMonth()];
   const root = getArchiveRootFolder_();
-  const project = getOrCreateArchiveSubfolder_(root, 'Project TerraSentra Soreang, Bandung');
+  const project = getOrCreateArchiveSubfolder_(root, 'Project '+(projectName||RPB_CONFIG.projectName));
   const type = getOrCreateArchiveSubfolder_(project, 'RPB');
   const category = getOrCreateArchiveSubfolder_(type, 'Rencana Pengeluaran Bulanan');
   return getOrCreateArchiveSubfolder_(category, `${month} ${date.getFullYear()}`);
@@ -363,7 +367,7 @@ function getRpbArchiveFolder_(requestDate) {
 
 function createRpbFiles_(data, number, folder, createdIds) {
   const source = SpreadsheetApp.openById(RPB_CONFIG.sourceSpreadsheetId);
-  const copy = DriveApp.getFileById(source.getId()).makeCopy(`${number} - ${RPB_CONFIG.projectName}`, folder);
+  const copy = DriveApp.getFileById(source.getId()).makeCopy(`${number} - ${data.projectName}`, folder);
   createdIds.push(copy.getId());
   const book = SpreadsheetApp.openById(copy.getId());
   let master = book.getSheetByName('Master Barang');
@@ -402,17 +406,17 @@ function buildRpbTemplate_(book, data, number) {
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
   recap.getRange('C2').setValue(new Date(date.getFullYear(), date.getMonth(), 1, 12));
-  recap.getRange('C3').setValue(RPB_CONFIG.projectName);
-  recap.getRange('C4').setValue(RPB_CONFIG.projectCode);
+  recap.getRange('C3').setValue(data.projectName);
+  recap.getRange('C4').setValue(data.projectCode);
   recap.getRange('B8:B14').setValues(RPB_CATEGORIES.map((category) => [category]));
   detail.getRange('D1').setValue(`BUDGET BULANAN\n${number}`);
   detail.getRange('K3').setValue(date);
-  detail.getRange('K4').setValue(RPB_CONFIG.projectName);
-  detail.getRange('K5').setValue(RPB_CONFIG.projectCode);
+  detail.getRange('K4').setValue(data.projectName);
+  detail.getRange('K5').setValue(data.projectCode);
   detail.getRange('K6').setValue(monthLabel);
   assets.getRange('D1').setValue(`BUDGET BULANAN\n${number}`);
-  assets.getRange('K4').setValue(RPB_CONFIG.projectName);
-  assets.getRange('K5').setValue(RPB_CONFIG.projectCode);
+  assets.getRange('K4').setValue(data.projectName);
+  assets.getRange('K5').setValue(data.projectCode);
 
   const detailItems = data.items.filter((item) => !['Asset', 'Perlengkapan'].includes(item.category));
   const assetItems = data.items.filter((item) => ['Asset', 'Perlengkapan'].includes(item.category));
@@ -546,7 +550,7 @@ function writeRpbTemplateItems_(sheet, start, items) {
 
 function buildRpbWhatsAppDraft_(data, number, outputs) {
   const lines = data.items.map((item) => `• ${item.name}: ${item.quantity} ${item.unit} — ${item.week}`);
-  return `Yth. Pa Juhana (PM),\n\nBerikut pengajuan RPB proyek ${RPB_CONFIG.projectName}.\nNo. Form: ${number}\nTanggal pengajuan: ${data.requestDate}\nLPD bulan sebelumnya: diterima (${data.lpdReceivedMonth})\n\nBarang yang diajukan:\n${lines.join('\n')}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.\nExcel: ${outputs.excelUrl}\nPDF: ${outputs.pdfUrl}`;
+  return `Yth. ${data.projectManager||'Project Manager'} (PM),\n\nBerikut pengajuan RPB proyek ${data.projectName}.\nNo. Form: ${number}\nTanggal pengajuan: ${data.requestDate}\nLPD bulan sebelumnya: diterima (${data.lpdReceivedMonth})\n\nBarang yang diajukan:\n${lines.join('\n')}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.\nExcel: ${outputs.excelUrl}\nPDF: ${outputs.pdfUrl}`;
 }
 
 function apiGetRpbMaster(token) {

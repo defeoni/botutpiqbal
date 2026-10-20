@@ -161,6 +161,15 @@
   .utp .utp-sticky { position: static; }
 }
 
+:is(.utp,.utp-dialog) .utp-check{display:flex;align-self:end;align-items:center;min-height:42px;margin:0;padding:9px 12px;border:1px solid #dbe5ee;border-radius:7px;background:#f8fafc}
+:is(.utp,.utp-dialog) .utp-check>span{display:flex;align-items:center;gap:9px;white-space:normal;line-height:1.4}
+:is(.utp,.utp-dialog) .utp-check input[type="checkbox"]{width:17px;height:17px;min-height:0;flex:0 0 17px;margin:0;padding:0}
+.utp .utp-sort-group{display:flex;flex-wrap:wrap;gap:4px}
+.utp .utp-sort{padding:6px 7px;margin:0;border-color:transparent;background:transparent;color:#355577;font-size:13px;box-shadow:none}
+.utp .utp-sort[aria-pressed="true"]{background:#e8f0ff;color:#1d4ed8;border-color:#adc5f3}
+:is(.utp,.utp-dialog) .utp-button{transition:none}
+.utp #utpCatalogFilters .utp-field,.utp #utpCatalogResults table{font-size:13px}
+.utp #utpCatalogFilters>label:first-child{flex-basis:100%}
 .utp-board{display:flex;gap:14px;overflow-x:auto;align-items:flex-start;padding:4px 2px 18px;overscroll-behavior-x:contain}
 .utp-board-column{flex:0 0 270px;min-width:0;background:#f1f5f9;border:1px solid #dbe3e9;border-radius:12px;padding:12px}
 .utp-board-column>h3{display:flex;align-items:center;justify-content:space-between;font-size:15px;margin:0 0 14px}

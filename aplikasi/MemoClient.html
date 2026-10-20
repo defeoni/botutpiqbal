@@ -98,6 +98,7 @@ function invokeServer(functionName, args, onSuccess, onFailure) {
 }
 
 function askDeletePin_(purpose = 'penghapusan') {
+  if (window.UTP_PIN_DEFERRED === true) return Promise.resolve('DEVELOPMENT');
   const dialog = $('deletePinDialog');
   const form = $('deletePinForm');
   const input = $('deletePinValue');
@@ -185,6 +186,7 @@ function startApplication(event) {
     submit.disabled = false;
     $('loginPassword').value = '';
     accessToken = result.token;
+    window.UTP_PIN_DEFERRED=result.pinDeferred===true;
     const startPage = resumeMainPage || 'DOCUMENTS';
     resumeMainPage = '';
     showApplication(result.owner, startPage);
@@ -323,7 +325,10 @@ function switchMainPage(page) {
 // Use the existing authenticated session. The frontend never embeds a token in markup.
 window.utpRpc = (action, payload) => new Promise((resolve, reject) => {
   if (!accessToken) return reject(new Error('Masuk terlebih dahulu untuk membaca data material.'));
-  invokeServer('apiUtp', [action, payload || {}, accessToken], resolve, reject);
+  const p=Object.assign({},payload),id=window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';
+  if(action==='searchItems')p.projectId=id;
+  if(p.record&&['save','saveMaterialDraft'].includes(action)){if(!p.record.version&&id==='all')return reject(new Error('Pilih satu proyek sebelum membuat dokumen.'));p.record=Object.assign({},p.record,{projectId:p.record.projectId||(p.record.version?'legacy':id)});}
+  invokeServer('apiUtp', [action, p, accessToken], resolve, reject);
 });
 
 function switchType(type) {
@@ -510,6 +515,7 @@ function buildPayload() {
   if (!['PN', 'PG', 'SP'].includes(typeKey)) throw new Error('Pilih jenis memo sebelum membuat dokumen.');
   const payload = {
     typeKey,
+    projectId: window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy',
     projectName: $('projectName').value.trim(),
     projectCode: $('projectCode').value.trim(),
     outputs: {
@@ -534,6 +540,13 @@ function buildPayload() {
   if (people.filter((person) => person.ktpFileId || person.ktpBase64).length > 30) throw new Error('Maksimal 30 foto KTP per memo.');
   return payload;
 }
+
+window.createBlankMemo_=function(type){
+  if(!confirm('Buka lembar Memo baru? Isian formulir saat ini akan dikosongkan; arsip tersimpan tetap ada.'))return false;
+  ['tablePN','tablePG','tableSP'].forEach(id=>{const table=$(id);if(table&&table.tBodies[0])table.tBodies[0].replaceChildren();});
+  const p=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();if(p){$('projectName').value=p.name;$('projectCode').value=p.code;}
+  setDefaultDocumentDates();switchType(type||'PN');addRow(type||'PN');return true;
+};
 
 $('btnSubmit').addEventListener('click', () => {
   $('formError').textContent = '';
@@ -806,6 +819,7 @@ function renderManpower() {
     else ktpCell.textContent = '—';
     row.insertCell().textContent = record.memoNumber || 'Input manual';
     const actionCell = row.insertCell();
+    const profileButton=document.createElement('button');profileButton.type='button';profileButton.className='btn';profileButton.textContent='♙ Profil';profileButton.dataset.personProfile=record.name;profileButton.dataset.personProject=record.project;actionCell.appendChild(profileButton);
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
     deleteButton.className = 'btn red';
@@ -826,6 +840,7 @@ function renderManpower() {
     actionCell.appendChild(deleteButton);
   });
   container.appendChild(table);
+  if(window.PeopleProfiles)window.PeopleProfiles.refresh();
 }
 
 ['rosterSearch', 'rosterStatus', 'rosterSkill', 'rosterProject', 'rosterSort', 'rosterStartFrom', 'rosterStartTo']
@@ -868,6 +883,7 @@ function renderHistory() {
   const dateFrom = $('historyDateFrom').value;
   const dateTo = $('historyDateTo').value;
   const filtered = memoHistoryRecords.filter((record) => {
+    if(window.ProjectWorkspace){const id=window.ProjectWorkspace.getActiveId();if(id!=='all'&&(record.projectId||'legacy')!==id)return false;}
     const search = `${record.number} ${record.project}`.toLocaleLowerCase('id');
     return (!query || search.includes(query)) && (!type || record.type === type) &&
       (!dateFrom || record.documentDate >= dateFrom) && (!dateTo || record.documentDate <= dateTo);
