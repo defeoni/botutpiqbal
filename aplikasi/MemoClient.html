@@ -23,6 +23,7 @@ let accessToken = '';
 let pendingPayload = null;
 let currentType = INITIAL_TYPE;
 let currentMainPage = 'MEMO';
+let resumeMainPage = '';
 let manpowerRecords = [];
 let manpowerLoaded = false;
 let memoHistoryRecords = [];
@@ -184,7 +185,20 @@ function startApplication(event) {
     submit.disabled = false;
     $('loginPassword').value = '';
     accessToken = result.token;
-    showApplication(result.owner);
+    const startPage = resumeMainPage || 'DOCUMENTS';
+    resumeMainPage = '';
+    showApplication(result.owner, startPage);
+    const projectTool = window.pendingProjectTool;
+    window.pendingProjectTool = '';
+    if (projectTool && window.openProjectTool && window.openProjectTool(projectTool) !== false) {
+      switchMainPage('TOOLS');
+      document.querySelector('.app-main > .header h1').textContent = projectTool;
+      document.title = `${projectTool} · UTP Workspace`;
+      $('pageCrumb').textContent = projectTool;
+      document.querySelectorAll('.sidebar-nav [data-project-tool]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.projectTool === projectTool);
+      });
+    }
     const serverVersion = result.version || 'versi server tidak diketahui';
     $('appStatus').textContent = `Aplikasi siap digunakan sebagai ${result.owner}.`;
     loadCounters();
@@ -270,8 +284,14 @@ function formatUiDate_(value) {
 function switchMainPage(page) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
   if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
+  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
+    resumeMainPage = page;
+    showLoginPanel_('Masuk data server untuk membuka formulir dan menyimpan dokumen.');
+    return;
+  }
   currentMainPage = page;
   if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','SETTINGS'].includes(page)?'ho':'project');
+  if(page==='DOCUMENTS'&&$('workspaceLabel'))$('workspaceLabel').textContent='Operasional Bersama';
   if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
   const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};

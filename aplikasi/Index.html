@@ -24,11 +24,19 @@
 <div id="applicationShell" class="application-shell" hidden>
 <aside class="app-sidebar">
   <div class="sidebar-brand"><span class="brand-monogram" aria-hidden="true">U</span><div><strong>UTP Workspace</strong><span>Project operations</span></div></div>
-  <div class="workspace-picker" aria-label="Ruang kerja"><button type="button" data-workspace="project" class="active">Proyek</button><button type="button" data-workspace="ho">Head Office</button></div>
   <label class="nav-search"><span data-icon="search" aria-hidden="true"></span><input id="navSearch" type="search" placeholder="Cari menu…" aria-label="Cari menu ruang kerja"></label>
   <details id="mainMenu" class="app-menu" open>
     <summary>Navigasi ruang kerja</summary>
     <nav class="sidebar-nav" aria-label="Navigasi aplikasi">
+      <section class="sidebar-menu-group" data-workspace-scope="shared" aria-label="Operasional bersama">
+        <h2>OPERASIONAL BERSAMA</h2>
+        <button class="tab main-nav-button" type="button" data-main="DOCUMENTS" data-icon="file">Pusat Dokumen</button>
+        <button class="tab" type="button" data-project-tool="Tugas" data-icon="task">Tugas</button>
+        <button class="tab" type="button" data-project-tool="Nota/Keuangan" data-icon="wallet">Nota &amp; Keuangan</button>
+        <button class="tab" type="button" data-project-tool="Arsip Proyek" data-icon="folder">Arsip Proyek</button>
+        <button class="tab" type="button" data-project-tool="Absensi" data-icon="calendar">Absensi</button>
+      </section>
+      <div class="workspace-picker" aria-label="Ruang kerja"><button type="button" data-workspace="project" class="active">Proyek</button><button type="button" data-workspace="ho">Head Office</button></div>
       <section class="sidebar-menu-group" data-workspace-scope="project" aria-labelledby="menuProject">
         <h2 id="menuProject">PROJECT WORKSPACE</h2>
         <button type="button" class="tab main-nav-button active" data-main="HOME" data-icon="home">Beranda Proyek</button>
@@ -38,12 +46,6 @@
           <button type="button" class="tab main-nav-button" data-main="APPROVALS" data-icon="check">Persetujuan Material</button>
           <button type="button" class="tab main-nav-button" data-main="ARRIVAL" data-icon="truck">Penerimaan Barang</button>
         </div></details>
-        <h2>OPERASIONAL</h2>
-        <button class="tab main-nav-button" type="button" data-main="DOCUMENTS" data-icon="file">Pusat Dokumen</button>
-        <button class="tab" type="button" data-project-tool="Tugas" data-icon="task">Tugas</button>
-        <button class="tab" type="button" data-project-tool="Nota/Keuangan" data-icon="wallet">Nota &amp; Keuangan</button>
-        <button class="tab" type="button" data-project-tool="Arsip Proyek" data-icon="folder">Arsip Proyek</button>
-        <button class="tab" type="button" data-project-tool="Absensi" data-icon="calendar">Absensi</button>
         <div class="nav-divider"></div><button type="button" class="tab main-nav-button" data-main="PROJECT_SETTINGS" data-icon="settings">Pengaturan Proyek</button>
       </section>
       <section class="sidebar-menu-group" data-workspace-scope="ho" aria-labelledby="menuHo" hidden>
