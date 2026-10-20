@@ -180,7 +180,7 @@ function apiCreateMemo(payload, token, requestId) {
       const whatsappDraft = buildMemoWhatsAppDraft_(validated, number, documentDate, sheet, pdf, folder);
       result.waDraft = whatsappDraft;
       historyRecord = appendMemoHistory_(validated, number, documentDate, sheet, pdf, folder, createdFileIds, whatsappDraft);
-      try{utpWrite_('memoProjects',{id:number,projectId:validated.projectId||'legacy'},0);}catch(linkError){if(!linkError.recordSaved)throw linkError;result.warning=linkError.message;}
+      try{utpWrite_('memoProjects',{id:number,projectId:validated.projectId||'legacy',workspaceDocumentId:validated.workspaceDocumentId||''},0);}catch(linkError){if(!linkError.recordSaved)throw linkError;result.warning=linkError.message;}
       manpowerRecord = appendManpowerEvents_(validated, number, documentDate);
       props.setProperty(counterKey, String(sequence));
       counterCommitted = true;
@@ -268,11 +268,13 @@ function apiGetMemoHistory(token) {
     }
     if (!sheet || sheet.getLastRow() < 2) return [];
     const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+    const projectLinks = utpRead_('memoProjects').reduce((out, record) => { out[record.id] = record; return out; }, {});
     return values.map((row, index) => ({
       rowIndex: index + 2,
       createdAt: row[0] instanceof Date ? row[0].toISOString() : String(row[0]),
       number: String(row[1]),
-      projectId: (utpGet_('memoProjects',String(row[1]))||{}).projectId||'legacy',
+      projectId: (projectLinks[String(row[1])]||{}).projectId||'legacy',
+      workspaceDocumentId: (projectLinks[String(row[1])]||{}).workspaceDocumentId||'',
       type: String(row[2]),
       project: String(row[3]),
       documentDate: row[4] instanceof Date
@@ -576,6 +578,7 @@ function validatePayload_(payload) {
   const clean = {
     typeKey: payload.typeKey,
     projectId: workspaceProjectId_(payload.projectId||'legacy',false),
+    workspaceDocumentId: workspaceText_(payload.workspaceDocumentId,100),
     projectName: requiredText_(payload.projectName, 'Nama proyek', 160),
     projectCode: requiredText_(payload.projectCode, 'Kode proyek', 32),
     tanggalDoc: requiredText_(payload.tanggalDoc, 'Tanggal dokumen', 50),
@@ -587,8 +590,9 @@ function validatePayload_(payload) {
       pdf: Boolean(payload.outputs && payload.outputs.pdf),
       whatsapp: Boolean(payload.outputs && payload.outputs.whatsapp)
     },
-    waRecipient: String(payload.waRecipient || 'Pak Juwana (PM)').trim().slice(0, 160) || 'Pak Juwana (PM)',
+    waRecipient: String(payload.waRecipient || 'Project Manager').trim().slice(0, 160) || 'Project Manager',
   };
+  clean.workspaceDocumentId = workspaceDocumentId_(clean.workspaceDocumentId, clean.projectId);
   if (!clean.outputs.spreadsheet && !clean.outputs.pdf) {
     throw new Error('Pilih minimal satu arsip: Google Sheets atau PDF.');
   }
@@ -990,7 +994,7 @@ function appendMemoHistory_(data, number, documentDate, sheetFile, pdfFile, fold
 }
 
 function buildMemoWhatsAppDraft_(data, number, documentDate, sheetFile, pdfFile, folder) {
-  const recipient = data.waRecipient || 'Pak Juwana (PM)';
+  const recipient = data.waRecipient || 'Project Manager';
   const applicationDate = Utilities.formatDate(documentDate, APP.timezone, 'dd MMM yyyy');
   const effectiveDate = data.berlakuEfektif
     ? formatLongDate_(data.berlakuEfektif)

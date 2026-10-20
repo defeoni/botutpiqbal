@@ -47,7 +47,7 @@ function apiGetRpbData(token,projectId) {
     projectCode: RPB_CONFIG.projectCode,
     projectManager: RPB_CONFIG.projectManager,
     masterUrl: sheet.getParent().getUrl() + '#gid=' + sheet.getSheetId(),
-    history: getRpbHistory_(),
+    history: getRpbHistory_(projectId),
     nextSequence: getRpbNextSequence_(),
     draftVersion: Number(PropertiesService.getUserProperties().getProperty(rpbDraftKey_('RPB_DRAFT_REVISION',projectId))) || 0
   };
@@ -98,6 +98,7 @@ function apiCreateRpb(payload, token, revisionOf) {
       if (!parent) throw new Error('RPB lama untuk revisi tidak ditemukan. Muat ulang riwayat.');
       if (parent.deletedAt) throw new Error('RPB yang sudah dihapus tidak dapat direvisi.');
       const prior = JSON.parse(parent.dataJson || '{}');
+      if((prior.projectId||'legacy')!==clean.projectId)throw new Error('Revisi RPB harus tetap berada pada proyek asal. Pilih proyek RPB tersebut.');
       sequence = Number(prior.sequence) || getRpbSequenceFromNumber_(parent.number);
       revision = getRpbHighestRevision_(history, sequence) + 1;
       clean.sequence = sequence;
@@ -114,7 +115,7 @@ function apiCreateRpb(payload, token, revisionOf) {
     }
     const number = `${RPB_CONFIG.formPrefix}${String(sequence).padStart(2, '0')} Rev ${String(revision).padStart(2, '0')}`;
     clean.number = number;
-    const folder = getRpbArchiveFolder_(clean.requestDate,clean.projectName);
+    const folder = getRpbArchiveFolder_(clean.requestDate,clean.projectId);
     const outputs = createRpbFiles_(clean, number, folder, createdIds);
     const id = Utilities.getUuid();
     if (!clean.rootId) clean.rootId = id;
@@ -149,8 +150,9 @@ function apiCreateRpb(payload, token, revisionOf) {
   }
 }
 
-function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token) {
+function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token, projectId) {
   requireAuthorized_(token);
+  projectId=workspaceProjectId_(projectId||'legacy',true);
   requireDeletePin_(pin);
   if (!RPB_STATUSES.includes(String(status))) throw new Error('Pilih status tracking yang tersedia.');
   const evidence = String(evidenceUrl || '').trim();
@@ -162,14 +164,16 @@ function apiUpdateRpbTracking(id, status, note, evidenceUrl, pin, token) {
     if (!sheet) throw new Error('Riwayat RPB belum tersedia.');
     const row = findRpbRecordRow_(sheet, id);
     if (!row) throw new Error('Riwayat RPB tidak ditemukan.');
-    if (getRpbRecordById_(sheet, id).deletedAt) throw new Error('RPB yang sudah dihapus tidak dapat diubah tracking-nya.');
+    const existing=getRpbRecordById_(sheet,id);
+    if (existing.deletedAt) throw new Error('RPB yang sudah dihapus tidak dapat diubah tracking-nya.');
+    if(!workspaceProjectMatches_(JSON.parse(existing.dataJson||'{}'),projectId))throw new Error('RPB tidak berada pada proyek aktif.');
     let tracking = [];
     try { tracking = JSON.parse(sheet.getRange(row, 14).getValue() || '[]'); } catch (error) {}
     tracking.push({ status, note: String(note || '').trim().slice(0, 500), evidenceUrl: evidence.slice(0, 500), at: new Date().toISOString() });
     sheet.getRange(row, 4).setValue(status);
     sheet.getRange(row, 13).setValue(new Date());
     sheet.getRange(row, 14).setValue(JSON.stringify(tracking));
-    return { history: getRpbHistory_() };
+    return { history: getRpbHistory_(projectId) };
   } finally {
     lock.releaseLock();
   }
@@ -227,7 +231,7 @@ function getRpbHistorySheet_(create) {
   return sheet;
 }
 
-function getRpbHistory_() {
+function getRpbHistory_(projectId) {
   const sheet = getRpbHistorySheet_(false);
   if (!sheet || sheet.getLastRow() < 2) return [];
   return sheet.getRange(2, 1, sheet.getLastRow() - 1, RPB_HISTORY_HEADERS.length).getValues().reverse()
@@ -239,7 +243,7 @@ function getRpbHistory_() {
       try { tracking = JSON.parse(row[13] || '[]'); } catch (error) {}
       if (!tracking.length && Array.isArray(data.tracking)) tracking = data.tracking;
       return { id: String(row[0]), number: String(row[1]), revision: Number(row[2]) || 0, status: String(row[3]), requestDate: row[4] instanceof Date ? Utilities.formatDate(row[4], APP.timezone, 'yyyy-MM-dd') : String(row[4]), lpdReceivedMonth: String(row[5] || ''), data, tracking, spreadsheetUrl: String(row[7] || ''), excelUrl: String(row[8] || ''), pdfUrl: String(row[9] || ''), folderUrl: String(row[10] || ''), parentId: String(row[11] || '') };
-    }).filter((record) => !record.data.deletedAt);
+    }).filter((record) => !record.data.deletedAt&&(!projectId||workspaceProjectMatches_(record.data,projectId)));
 }
 
 function getRpbRecordById_(sheet, id) {
@@ -264,8 +268,9 @@ function appendRpbRecord_(sheet, record) {
   ]]);
 }
 
-function apiDeleteRpbHistory(id, confirmation, pin, token) {
+function apiDeleteRpbHistory(id, confirmation, pin, token, projectId) {
   requireAuthorized_(token);
+  projectId=workspaceProjectId_(projectId||'legacy',true);
   requireDeletePin_(pin);
   const all = id === '*';
   if (confirmation !== (all ? 'HAPUS SEMUA RPB' : 'HAPUS RPB')) throw new Error('Konfirmasi penghapusan RPB tidak sesuai.');
@@ -273,7 +278,7 @@ function apiDeleteRpbHistory(id, confirmation, pin, token) {
   lock.waitLock(30000);
   try {
     const sheet = getRpbHistorySheet_(false);
-    const records = getRpbHistory_().filter((record) => all || record.id === String(id));
+    const records = getRpbHistory_(projectId).filter((record) => all || record.id === String(id));
     if (!records.length) throw new Error('Riwayat RPB tidak ditemukan. Muat ulang riwayat.');
     const deletedAt = new Date().toISOString();
     records.forEach((record) => {
@@ -283,14 +288,15 @@ function apiDeleteRpbHistory(id, confirmation, pin, token) {
       sheet.getRange(row, 7).setValue(JSON.stringify(record.data));
       sheet.getRange(row, 13).setValue(new Date());
     });
-    return { history: getRpbHistory_(), nextSequence: getRpbNextSequence_(), message: `${records.length} RPB dihapus dari riwayat aktif. File arsip Drive tetap tersimpan; nomor tidak digunakan ulang.` };
+    return { history: getRpbHistory_(projectId), nextSequence: getRpbNextSequence_(), message: `${records.length} RPB dihapus dari riwayat aktif pada lingkup proyek yang dipilih. File arsip Drive tetap tersimpan; nomor tidak digunakan ulang.` };
   } finally {
     lock.releaseLock();
   }
 }
 
-function apiDeleteAllRpbHistory(confirmation, pin, token) {
+function apiDeleteAllRpbHistory(confirmation, pin, token, projectId) {
   requireAuthorized_(token);
+  projectId=workspaceProjectId_(projectId||'legacy',true);
   if (String(confirmation || '') !== 'HAPUS SEMUA RPB') throw new Error('Konfirmasi penghapusan seluruh riwayat RPB tidak cocok.');
   requireDeletePin_(pin);
   const lock = LockService.getScriptLock();
@@ -302,7 +308,8 @@ function apiDeleteAllRpbHistory(confirmation, pin, token) {
     const deletedAt = new Date();
     let deletedCount = 0;
     const deletionValues = rows.map((row) => {
-      if (row[0] && !row[14]) {
+      let data={};try{data=JSON.parse(row[6]||'{}');}catch(error){}
+      if (row[0] && !row[14]&&!data.deletedAt&&workspaceProjectMatches_(data,projectId)) {
         deletedCount += 1;
         return [deletedAt];
       }
@@ -310,7 +317,7 @@ function apiDeleteAllRpbHistory(confirmation, pin, token) {
     });
     if (!deletedCount) throw new Error('Tidak ada riwayat RPB aktif untuk dihapus.');
     sheet.getRange(2, 15, deletionValues.length, 1).setValues(deletionValues);
-    return { message: `${deletedCount} RPB dihapus dari daftar aktif. Snapshot, tracking, dan file Drive tetap tersimpan.`, deletedCount, history: getRpbHistory_(), nextSequence: getRpbNextSequence_() };
+    return { message: `${deletedCount} RPB dihapus dari daftar aktif pada lingkup proyek yang dipilih. Snapshot, tracking, dan file Drive tetap tersimpan.`, deletedCount, history: getRpbHistory_(projectId), nextSequence: getRpbNextSequence_() };
   } finally {
     lock.releaseLock();
   }
@@ -352,15 +359,13 @@ function validateRpbPayload_(payload, requireLpd) {
   });
   if (requireLpd && !items.length) throw new Error('Tambahkan minimal satu barang.');
   const projectId=workspaceProjectId_(payload.projectId||'legacy',false),project=projectId==='legacy'?null:utpGet_('workspaceProjects',projectId);
-  return {projectId, projectName:project?project.name:RPB_CONFIG.projectName, projectCode:project?project.code:RPB_CONFIG.projectCode, projectManager:project?project.pm:RPB_CONFIG.projectManager, requestDate, lpdReceivedMonth, lpdReceivedConfirmed: payload.lpdReceivedConfirmed === true, items, sequence: Number(payload.sequence) || 0, revision: Number(payload.revision) || 0, rootId: String(payload.rootId || ''), revisionOf: String(payload.revisionOf || ''), tracking: Array.isArray(payload.tracking) ? payload.tracking : [] };
+  return {projectId, projectName:project?project.name:RPB_CONFIG.projectName, projectCode:project?project.code:RPB_CONFIG.projectCode, projectManager:project?project.pm:RPB_CONFIG.projectManager, workspaceDocumentId:workspaceDocumentId_(payload.workspaceDocumentId,projectId), requestDate, lpdReceivedMonth, lpdReceivedConfirmed: payload.lpdReceivedConfirmed === true, items, sequence: Number(payload.sequence) || 0, revision: Number(payload.revision) || 0, rootId: String(payload.rootId || ''), revisionOf: String(payload.revisionOf || ''), tracking: Array.isArray(payload.tracking) ? payload.tracking : [] };
 }
 
-function getRpbArchiveFolder_(requestDate,projectName) {
+function getRpbArchiveFolder_(requestDate,projectId) {
   const date = dateFromIso_(requestDate);
   const month = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][date.getMonth()];
-  const root = getArchiveRootFolder_();
-  const project = getOrCreateArchiveSubfolder_(root, 'Project '+(projectName||RPB_CONFIG.projectName));
-  const type = getOrCreateArchiveSubfolder_(project, 'RPB');
+  const type = workspaceProjectFolder_(projectId,'RPB');
   const category = getOrCreateArchiveSubfolder_(type, 'Rencana Pengeluaran Bulanan');
   return getOrCreateArchiveSubfolder_(category, `${month} ${date.getFullYear()}`);
 }

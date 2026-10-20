@@ -1,13 +1,36 @@
 <script>
 let rpbState_ = { categories: [], items: [], statuses: [], history: [], nextSequence: 1 };
 let rpbRevisionOf_ = '';
+let rpbWorkspaceDocumentId_ = '';
 let rpbDraftTimer_ = null;
 let rpbDraftVersion_ = 0;
 let rpbFormEditVersion_ = 0;
 let rpbSubmitting_ = false;
 let rpbMasterPage_ = 1;
 let rpbDeletionInProgress_ = false;
+let rpbProjectId_ = '';
+let rpbScopeGeneration_ = 0;
+let rpbLoadGeneration_ = 0;
+let rpbDirty_ = false;
+let rpbSessionToken_ = '';
+const rpbProjectDrafts_ = new Map();
 const RPB_MASTER_PAGE_SIZE_ = 25;
+
+function activeRpbProject_(){return window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy';}
+function rpbCurrentScope_(projectId,generation,token){return projectId===rpbProjectId_&&projectId===activeRpbProject_()&&generation===rpbScopeGeneration_&&token===accessToken;}
+function rpbScopeHistory_(){return (rpbState_.history||[]).filter(record=>rpbProjectId_==='all'||((record.data||{}).projectId||'legacy')===rpbProjectId_);}
+function switchRpbScope_(){
+  const projectId=activeRpbProject_();
+  if(rpbSessionToken_!==accessToken){rpbProjectDrafts_.clear();rpbSessionToken_=accessToken;rpbProjectId_='';}
+  if(projectId===rpbProjectId_)return;
+  clearTimeout(rpbDraftTimer_);
+  if(rpbProjectId_&&rpbProjectId_!=='all')rpbProjectDrafts_.set(rpbProjectId_,{data:collectRpbForm_(),dirty:rpbDirty_});
+  rpbProjectId_=projectId;rpbScopeGeneration_++;rpbFormEditVersion_++;rpbDraftVersion_=0;rpbRevisionOf_='';rpbWorkspaceDocumentId_='';rpbDirty_=false;rpbSubmitting_=false;rpbDeletionInProgress_=false;
+  $('rpbItemsTable').tBodies[0].replaceChildren();$('rpbRequestDate').value=todayJakarta_();$('rpbLpdMonth').value='';$('rpbLpdConfirmed').checked=false;$('rpbResult').hidden=true;
+  $('rpbSubmit').textContent='Buat RPB / Kirim Pengajuan';$('rpbSubmit').disabled=false;setRpbFormDisabled_(false);
+  ['rpbDraftStatus','rpbFormError','rpbHistoryStatus'].forEach(id=>$(id).textContent='');
+  rpbState_.history=[];renderRpbHistory_();
+}
 
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
@@ -39,12 +62,14 @@ document.addEventListener('click', (event) => {
 });
 
 function loadRpbData_() {
-  const projectId=window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy';
+  switchRpbScope_();
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken,loadId=++rpbLoadGeneration_;
+  const current=()=>rpbCurrentScope_(projectId,generation,token)&&loadId===rpbLoadGeneration_;
   window.hoRpbLoadState = 'loading';
   if (window.refreshHoSummary) window.refreshHoSummary();
   const formEditVersion = rpbFormEditVersion_;
-  invokeServer('apiGetRpbData', [accessToken,projectId], (data) => {
-    if(window.ProjectWorkspace&&projectId!==window.ProjectWorkspace.getActiveId())return;
+  invokeServer('apiGetRpbData', [token,projectId], (data) => {
+    if(!current())return;
     rpbState_ = data;
     window.hoRpbLoadState = 'ready';
     if (window.refreshHoSummary) window.refreshHoSummary();
@@ -66,18 +91,20 @@ function loadRpbData_() {
     });
     renderRpbMaster_();
     renderRpbHistory_();
+    const local=rpbProjectDrafts_.get(projectId);
+    if(local&&!$('rpbItemsTable').tBodies[0].rows.length){populateRpbForm_(local.data);rpbDirty_=local.dirty;rpbProjectDrafts_.delete(projectId);if(local.dirty)$('rpbDraftStatus').textContent='Isian proyek ini dipulihkan. Simpan draf untuk menyimpan ke server.';}
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
       if(projectId==='all'){addRpbLine_();return;}
-      invokeServer('apiLoadRpbDraft', [accessToken,projectId], (draft) => {
-        if ($('rpbItemsTable').tBodies[0].rows.length || rpbFormEditVersion_ !== formEditVersion) return;
+      invokeServer('apiLoadRpbDraft', [token,projectId], (draft) => {
+        if (!current()||$('rpbItemsTable').tBodies[0].rows.length || rpbFormEditVersion_ !== formEditVersion) return;
         if (draft) populateRpbForm_(draft);
         else addRpbLine_();
       }, () => {
-        if (!$('rpbItemsTable').tBodies[0].rows.length && rpbFormEditVersion_ === formEditVersion) addRpbLine_();
+        if (current()&&!$('rpbItemsTable').tBodies[0].rows.length && rpbFormEditVersion_ === formEditVersion) addRpbLine_();
       });
     } else refreshRpbItemChoices_();
     $('rpbTotal').textContent = `Nomor pengajuan berikutnya: UTP.FM-SP.02/${String(data.nextSequence).padStart(2, '0')} Rev 00`;
-  }, (error) => { window.hoRpbLoadState = 'error'; if (window.refreshHoSummary) window.refreshHoSummary(); $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
+  }, (error) => {if(!current())return; window.hoRpbLoadState = 'error'; if (window.refreshHoSummary) window.refreshHoSummary(); $('rpbFormError').textContent = `Gagal memuat RPB: ${error.message}`; });
 }
 
 function addRpbLine_(data = {}) {
@@ -156,16 +183,20 @@ function collectRpbForm_() {
     unitPrice: row.querySelector('[data-rpb-field="unitPrice"]').value,
     week: row.querySelector('[data-rpb-field="week"]').value
   })).filter((item) => item.itemId);
-  return {projectId:window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy', requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
+  return {projectId:rpbProjectId_||activeRpbProject_(), workspaceDocumentId:rpbWorkspaceDocumentId_||window.UTP_PENDING_DOCUMENT_ID||'', requestDate: $('rpbRequestDate').value, lpdReceivedMonth: $('rpbLpdMonth').value, lpdReceivedConfirmed: $('rpbLpdConfirmed').checked, revisionOf: rpbRevisionOf_, draftVersion: rpbDraftVersion_, items };
 }
 
 window.createBlankRpb_=function(){
+  if(rpbSubmitting_||rpbDeletionInProgress_)return false;
+  switchRpbScope_();
+  if(rpbProjectId_==='all'){$('rpbFormError').textContent='Pilih satu proyek untuk membuka RPB kosong.';return false;}
   if(!confirm('Buka RPB baru? Isian formulir saat ini akan dikosongkan; arsip tetap disimpan.'))return false;
-  rpbFormEditVersion_++;rpbRevisionOf_='';$('rpbItemsTable').tBodies[0].replaceChildren();addRpbLine_();$('rpbRequestDate').value=todayJakarta_();$('rpbLpdConfirmed').checked=false;
+  clearTimeout(rpbDraftTimer_);rpbProjectDrafts_.delete(rpbProjectId_);rpbFormEditVersion_++;rpbRevisionOf_='';rpbWorkspaceDocumentId_=window.UTP_PENDING_DOCUMENT_ID||'';$('rpbItemsTable').tBodies[0].replaceChildren();addRpbLine_();$('rpbRequestDate').value=todayJakarta_();$('rpbLpdMonth').value='';$('rpbLpdConfirmed').checked=false;rpbDirty_=true;$('rpbSubmit').textContent='Buat RPB / Kirim Pengajuan';
   return true;
 };
 
 function populateRpbForm_(data) {
+  if(data.projectId&&(data.projectId||'legacy')!==rpbProjectId_)return;
   rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(data.draftVersion) || 0);
   $('rpbRequestDate').value = data.requestDate || todayJakarta_();
   $('rpbLpdMonth').value = data.lpdReceivedMonth || '';
@@ -174,6 +205,8 @@ function populateRpbForm_(data) {
   (data.items || []).forEach((item) => addRpbLine_(item));
   if (!data.items || !data.items.length) addRpbLine_();
   rpbRevisionOf_ = data.revisionOf || '';
+  rpbWorkspaceDocumentId_=data.workspaceDocumentId||'';
+  $('rpbSubmit').textContent=rpbRevisionOf_?'Simpan Revisi RPB':'Buat RPB / Kirim Pengajuan';
 }
 
 function todayJakarta_() {
@@ -185,22 +218,30 @@ function todayJakarta_() {
 function scheduleRpbDraft_() {
   if (rpbSubmitting_) return;
   clearTimeout(rpbDraftTimer_);
-  rpbDraftTimer_ = setTimeout(saveRpbDraft_, 1000);
+  rpbDirty_=true;
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken;
+  if(!projectId||projectId==='all'||projectId!==activeRpbProject_())return;
+  rpbDraftTimer_ = setTimeout(()=>{if(rpbCurrentScope_(projectId,generation,token))saveRpbDraft_();}, 1000);
 }
 
 function saveRpbDraft_() {
   if (rpbSubmitting_) return;
+  if(!rpbProjectId_||rpbProjectId_==='all'||rpbProjectId_!==activeRpbProject_()){$('rpbDraftStatus').textContent='Pilih satu proyek untuk menyimpan draf RPB.';return;}
+  clearTimeout(rpbDraftTimer_);
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken,editVersion=rpbFormEditVersion_;
   const payload = collectRpbForm_();
+  rpbWorkspaceDocumentId_=payload.workspaceDocumentId;
   if (!payload.requestDate) payload.requestDate = todayJakarta_();
   rpbDraftVersion_ = Math.max(Date.now(), rpbDraftVersion_ + 1);
   payload.draftVersion = rpbDraftVersion_;
   $('rpbDraftStatus').textContent = 'Menyimpan draf...';
-  invokeServer('apiSaveRpbDraft', [payload, accessToken], (result) => {
-    if (payload.draftVersion !== rpbDraftVersion_) return;
+  invokeServer('apiSaveRpbDraft', [payload, token], (result) => {
+    if (!rpbCurrentScope_(projectId,generation,token)||payload.draftVersion !== rpbDraftVersion_) return;
     if (!result.saved) rpbDraftVersion_ = Math.max(rpbDraftVersion_, Number(result.draftVersion) || 0);
+    else {if(editVersion===rpbFormEditVersion_)rpbDirty_=false;if(payload.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===payload.workspaceDocumentId)window.UTP_PENDING_DOCUMENT_ID='';}
     $('rpbDraftStatus').textContent = result.saved ? 'Draf tersimpan otomatis.' : 'Draf tidak tersimpan karena ada perubahan dari sesi lain. Muat ulang sebelum melanjutkan.';
   }, (error) => {
-    if (payload.draftVersion === rpbDraftVersion_) $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`;
+    if (rpbCurrentScope_(projectId,generation,token)&&payload.draftVersion === rpbDraftVersion_) $('rpbDraftStatus').textContent = `Draf belum tersimpan: ${error.message}`;
   });
 }
 
@@ -210,6 +251,9 @@ function updateRpbTotal_() {
 }
 
 function submitRpb_() {
+  if(rpbSubmitting_)return;
+  if(!rpbProjectId_||rpbProjectId_==='all'||rpbProjectId_!==activeRpbProject_()){$('rpbFormError').textContent='Pilih satu proyek untuk membuat RPB.';return;}
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken;
   $('rpbFormError').textContent = '';
   const payload = collectRpbForm_();
   if (!payload.requestDate || !payload.items.length) { $('rpbFormError').textContent = 'Isi tanggal pengajuan dan pilih minimal satu barang.'; return; }
@@ -227,19 +271,24 @@ function submitRpb_() {
   rpbSubmitting_ = true;
   setRpbFormDisabled_(true);
   const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
-  invokeServer('apiCreateRpb', [payload, accessToken, rpbRevisionOf_], (result) => {
+  invokeServer('apiCreateRpb', [payload, token, rpbRevisionOf_], (result) => {
+    if(!rpbCurrentScope_(projectId,generation,token))return;
+    if(payload.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===payload.workspaceDocumentId)window.UTP_PENDING_DOCUMENT_ID='';
     rpbSubmitting_ = false;
     setRpbFormDisabled_(false);
     button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
     $('rpbResult').hidden = false; $('rpbResultNumber').textContent = `Nomor: ${result.number}${wasRevision ? ' (revisi baru; nomor versi sebelumnya tetap)' : ''}`;
     $('rpbExcelLink').href = result.excelUrl; $('rpbPdfLink').href = result.pdfUrl; $('rpbSheetLink').href = result.spreadsheetUrl; $('rpbFolderLink').href = result.folderUrl; $('rpbWaDraft').textContent = result.waDraft;
     rpbRevisionOf_ = '';
+    rpbWorkspaceDocumentId_='';
+    rpbDirty_=false;rpbProjectDrafts_.delete(projectId);
     $('rpbItemsTable').tBodies[0].replaceChildren();
     $('rpbLpdMonth').value = '';
     $('rpbLpdConfirmed').checked = false;
     $('rpbFormError').textContent = '';
     loadRpbData_();
   }, (error) => {
+    if(!rpbCurrentScope_(projectId,generation,token))return;
     rpbSubmitting_ = false;
     setRpbFormDisabled_(false);
     button.disabled = false; button.textContent = wasRevision ? 'Simpan Revisi RPB' : 'Buat RPB / Kirim Pengajuan';
@@ -342,9 +391,9 @@ function setRpbItemActive_(id, active) {
 
 function renderRpbHistory_() {
   const root = $('rpbHistoryList'); root.innerHTML = '';
-  if (!rpbState_.history.length) { root.textContent = 'Belum ada riwayat RPB.'; return; }
-  rpbState_.history.forEach((record) => {
-    if(window.ProjectWorkspace){const id=window.ProjectWorkspace.getActiveId();if(id!=='all'&&((record.data||{}).projectId||'legacy')!==id)return;}
+  const records=rpbScopeHistory_();
+  if (!records.length) { root.textContent = 'Belum ada riwayat RPB pada lingkup proyek yang dipilih.'; return; }
+  records.forEach((record) => {
     const card = document.createElement('article'); card.className = 'card rpb-history-card';
     const title = document.createElement('h3'); title.textContent = record.number; card.appendChild(title);
     const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);
@@ -370,10 +419,13 @@ function setRpbHistoryDeleteButtonsDisabled_(disabled) {
 
 function deleteRpbHistory_(id, deleteAll) {
   if (rpbDeletionInProgress_) return;
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken,targets=rpbScopeHistory_().filter(record=>deleteAll||record.id===id);
+  if(!projectId||projectId!==activeRpbProject_()||!targets.length)return;
+  const current=()=>rpbCurrentScope_(projectId,generation,token);
   rpbDeletionInProgress_ = true;
   setRpbHistoryDeleteButtonsDisabled_(true);
   const confirmation = deleteAll ? 'HAPUS SEMUA RPB' : 'HAPUS RPB';
-  const scope = deleteAll ? 'Semua RPB aktif, termasuk seluruh revisinya, akan dikeluarkan dari daftar aktif.' : 'RPB ini akan dikeluarkan dari daftar aktif.';
+  const scope = deleteAll ? `${targets.length} RPB aktif pada ${projectId==='all'?'SEMUA PROYEK':'proyek yang dipilih'}, termasuk revisinya, akan dikeluarkan dari daftar aktif.` : 'RPB ini akan dikeluarkan dari daftar aktif pada proyek asalnya.';
   let typed;
   try {
     typed = window.prompt(`${scope}\nSnapshot dan tracking tetap tersimpan. File di Google Drive tidak dihapus.\n\nKetik "${confirmation}" untuk melanjutkan:`);
@@ -383,6 +435,7 @@ function deleteRpbHistory_(id, deleteAll) {
     throw error;
   }
   const finish = () => {
+    if(!current())return;
     rpbDeletionInProgress_ = false;
     setRpbHistoryDeleteButtonsDisabled_(false);
   };
@@ -393,6 +446,7 @@ function deleteRpbHistory_(id, deleteAll) {
   }
   $('rpbHistoryStatus').textContent = 'Menunggu verifikasi PIN...';
   askDeletePin_('penghapusan riwayat RPB').then((pin) => {
+    if(!current())return;
     if (!pin) {
       $('rpbHistoryStatus').textContent = 'Penghapusan dibatalkan.';
       finish();
@@ -400,8 +454,9 @@ function deleteRpbHistory_(id, deleteAll) {
     }
     $('rpbHistoryStatus').textContent = 'Menghapus dari daftar aktif...';
     const functionName = deleteAll ? 'apiDeleteAllRpbHistory' : 'apiDeleteRpbHistory';
-    const args = deleteAll ? [confirmation, pin, accessToken] : [id, confirmation, pin, accessToken];
+    const args = deleteAll ? [confirmation, pin, token, projectId] : [id, confirmation, pin, token, projectId];
     invokeServer(functionName, args, (result) => {
+      if(!current())return;
       rpbState_.history = result.history;
       rpbState_.nextSequence = result.nextSequence;
       renderRpbHistory_();
@@ -409,35 +464,48 @@ function deleteRpbHistory_(id, deleteAll) {
       if (window.refreshHoSummary) window.refreshHoSummary();
       finish();
     }, (error) => {
+      if(!current())return;
       $('rpbHistoryStatus').textContent = `RPB tidak dihapus: ${error.message}`;
       finish();
     });
   }, (error) => {
+    if(!current())return;
     $('rpbHistoryStatus').textContent = `RPB tidak dihapus: ${error.message}`;
     finish();
   });
 }
 
 function saveRpbTracking_(id) {
+  const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken;
+  if(projectId!==activeRpbProject_()||!rpbScopeHistory_().some(record=>record.id===id))return;
   const status=document.querySelector(`[data-status="${CSS.escape(id)}"]`).value;
   const note=document.querySelector(`[data-note="${CSS.escape(id)}"]`).value;
   const evidence=document.querySelector(`[data-evidence="${CSS.escape(id)}"]`).value;
   askDeletePin_('perubahan status tracking RPB').then((pin)=>{
-    if(!pin)return;
-    invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,pin,accessToken],(result)=>{rpbState_.history=result.history;renderRpbHistory_();},(error)=>{alert(`Status belum disimpan: ${error.message}`);});
+    if(!pin||!rpbCurrentScope_(projectId,generation,token))return;
+    invokeServer('apiUpdateRpbTracking',[id,status,note,evidence,pin,token,projectId],(result)=>{if(!rpbCurrentScope_(projectId,generation,token))return;rpbState_.history=result.history;renderRpbHistory_();},(error)=>{if(rpbCurrentScope_(projectId,generation,token))alert(`Status belum disimpan: ${error.message}`);});
   });
 }
 
+function rpbDraftSource_(id){
+  if(rpbSubmitting_||rpbDeletionInProgress_)return null;
+  const record=rpbScopeHistory_().find(entry=>entry.id===id);if(!record)return null;
+  if(rpbProjectId_==='all'||((record.data||{}).projectId||'legacy')!==rpbProjectId_){$('rpbHistoryStatus').textContent='Pilih proyek asal RPB terlebih dahulu untuk membuat revisi atau salinan draf.';return null;}
+  if(rpbDirty_&&!confirm('Ganti isian RPB yang belum tersimpan dengan dokumen pilihan?'))return null;
+  clearTimeout(rpbDraftTimer_);rpbFormEditVersion_++;return record;
+}
+
 function beginRpbRevision_(id) {
-  const record=rpbState_.history.find((entry)=>entry.id===id);if(!record)return;
+  const record=rpbDraftSource_(id);if(!record)return;
   populateRpbForm_(record.data);rpbRevisionOf_=id;$('rpbResult').hidden=true;$('rpbFormError').textContent=`Mode revisi aktif: revisi lama tetap tersimpan. Nomor baru akan memakai urutan yang sama dengan Rev berikutnya.`;$('rpbSubmit').textContent='Simpan Revisi RPB';window.scrollTo({top:0,behavior:'instant'});
   scheduleRpbDraft_();
 }
 
 function copyRpbToDraft_(id) {
-  const record = rpbState_.history.find((entry) => entry.id === id);
+  const record = rpbDraftSource_(id);
   if (!record) return;
   populateRpbForm_(record.data);
+  rpbWorkspaceDocumentId_=window.UTP_PENDING_DOCUMENT_ID||'';
   rpbRevisionOf_ = '';
   const today = todayJakarta_();
   $('rpbRequestDate').value = today;
@@ -458,7 +526,7 @@ document.addEventListener('input', (event) => {
     renderRpbMaster_();
     return;
   }
-  if (event.target.closest('#blank-RPB')) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); }
+  if (event.target.closest('#rpbItemsTable')||['rpbRequestDate','rpbLpdMonth','rpbLpdConfirmed'].includes(event.target.id)) { rpbFormEditVersion_ += 1; updateRpbTotal_(); scheduleRpbDraft_(); }
 });
 document.addEventListener('change', (event) => {
   if (event.target.closest('#blank-RPB')) rpbFormEditVersion_ += 1;
@@ -468,7 +536,13 @@ document.addEventListener('change', (event) => {
     renderRpbMaster_();
     return;
   }
-  if (event.target.closest('#blank-RPB')) scheduleRpbDraft_();
+  if (event.target.closest('#rpbItemsTable')||['rpbRequestDate','rpbLpdMonth','rpbLpdConfirmed'].includes(event.target.id)) scheduleRpbDraft_();
 });
+
+document.addEventListener('utp-project-change',()=>{switchRpbScope_();if(!$('blank-RPB').hidden&&accessToken)loadRpbData_();});
+window.RpbWorkspace={isBusy:()=>rpbSubmitting_||rpbDeletionInProgress_,isDirty:()=>rpbDirty_,reset(){
+  clearTimeout(rpbDraftTimer_);rpbScopeGeneration_++;rpbLoadGeneration_++;rpbProjectId_='';rpbSessionToken_='';rpbProjectDrafts_.clear();rpbDraftVersion_=0;rpbRevisionOf_='';rpbWorkspaceDocumentId_='';rpbDirty_=false;rpbSubmitting_=false;rpbDeletionInProgress_=false;
+  rpbState_.history=[];$('rpbItemsTable').tBodies[0].replaceChildren();$('rpbLpdMonth').value='';$('rpbLpdConfirmed').checked=false;$('rpbResult').hidden=true;$('rpbSubmit').disabled=false;setRpbFormDisabled_(false);renderRpbHistory_();
+}};
 
 </script>

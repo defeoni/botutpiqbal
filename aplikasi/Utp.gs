@@ -145,7 +145,7 @@ function utpMutate_(action,p,ctx) {
     if(old && (old.archived || old.itemContractVersion!==1 || old.status!=='DRAFT' || old.initialSnapshot))throw new Error('Hanya draf Material per item aktif yang dapat diubah.');
     if(old && old.version!==source.version)return {conflict:true,record:old};
     if(!old && source.version!==0)throw new Error('Draf tidak ditemukan. Data tidak dibuat ulang.');
-    r=utpValidateMaterialDraft_(source,old,ctx);r.id=source.id;r.projectId=workspaceProjectId_(old&&old.projectId||source.projectId||'legacy',false);
+    r=utpValidateMaterialDraft_(source,old,ctx);r.id=source.id;r.projectId=workspaceProjectId_(old&&old.projectId||source.projectId||'legacy',false);r.workspaceDocumentId=old&&old.workspaceDocumentId||workspaceDocumentId_(source.workspaceDocumentId,r.projectId);
     r=utpRecordRequestSave_(r,old,ctx.now,p.actor||'Admin');
     try {return {record:utpWrite_('requests',r,source.version),warnings:[]};}
     catch(error) {
@@ -159,7 +159,7 @@ function utpMutate_(action,p,ctx) {
     entity=utpEntity_(p.entity);old=p.record.id?utpRequireRecord_(entity,p.record):null;
     if(entity==='requests' && (old && old.itemContractVersion===1 || p.record.itemContractVersion===1))throw new Error('Draf Material per item harus memakai penyimpanan khusus.');
     if(utpProtected_(entity,old))requireDeletePin_(p.pin);
-    r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();r.projectId=workspaceProjectId_(old&&old.projectId||p.record.projectId||'legacy',false);
+    r=utpValidateRecord_(entity,p.record,old,ctx); r.id=old?old.id:Utilities.getUuid();r.projectId=workspaceProjectId_(old&&old.projectId||p.record.projectId||'legacy',false);if(['requests','approvals'].indexOf(entity)>=0)r.workspaceDocumentId=old&&old.workspaceDocumentId||workspaceDocumentId_(p.record.workspaceDocumentId,r.projectId);
     if(entity==='approvals') {
       if(r.status==='APPROVED'&&(!old||old.status!=='APPROVED'))requireDeletePin_(p.pin);
       if(r.brochureId&&!utpDocument_(r.brochureId))throw new Error('Brosur harus diunggah melalui aplikasi.');

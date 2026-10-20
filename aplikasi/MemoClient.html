@@ -21,6 +21,7 @@ const SCHEMAS = {
 const TABLE_IDS = { PN: 'tablePN', PGOut: 'tablePGOut', PGIn: 'tablePGIn', SP: 'tableSP' };
 let accessToken = '';
 let pendingPayload = null;
+let memoDirty_ = false;
 let currentType = INITIAL_TYPE;
 let currentMainPage = 'MEMO';
 let resumeMainPage = '';
@@ -516,6 +517,7 @@ function buildPayload() {
   const payload = {
     typeKey,
     projectId: window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'legacy',
+    workspaceDocumentId: window.UTP_PENDING_DOCUMENT_ID || '',
     projectName: $('projectName').value.trim(),
     projectCode: $('projectCode').value.trim(),
     outputs: {
@@ -545,8 +547,13 @@ window.createBlankMemo_=function(type){
   if(!confirm('Buka lembar Memo baru? Isian formulir saat ini akan dikosongkan; arsip tersimpan tetap ada.'))return false;
   ['tablePN','tablePG','tableSP'].forEach(id=>{const table=$(id);if(table&&table.tBodies[0])table.tBodies[0].replaceChildren();});
   const p=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();if(p){$('projectName').value=p.name;$('projectCode').value=p.code;}
-  setDefaultDocumentDates();switchType(type||'PN');addRow(type||'PN');return true;
+  setDefaultDocumentDates();switchType(type||'PN');addRow(type||'PN');memoDirty_=true;return true;
 };
+
+document.addEventListener('input',event=>{if(event.target.closest('.memo-area'))memoDirty_=true;});
+document.addEventListener('change',event=>{if(event.target.closest('.memo-area'))memoDirty_=true;});
+document.addEventListener('utp-project-change',()=>{const project=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();pendingPayload=null;['tablePN','tablePG','tableSP'].forEach(id=>{const table=$(id);if(table&&table.tBodies[0])table.tBodies[0].replaceChildren();});$('projectName').value=project?project.name:'';$('projectCode').value=project?project.code:'';$('waRecipient').value=project&&project.pm?project.pm:'';memoDirty_=false;window.UTP_PENDING_DOCUMENT_ID='';if($('formError'))$('formError').textContent=project?'Proyek memo diganti ke '+project.name+'.':'Pilih satu proyek sebelum membuat memo.';});
+window.MemoWorkspace={isBusy:()=>uploadsInProgress>0||!!pendingPayload,isDirty:()=>memoDirty_,reset(){pendingPayload=null;memoDirty_=false;}};
 
 $('btnSubmit').addEventListener('click', () => {
   $('formError').textContent = '';
@@ -620,7 +627,7 @@ $('confirmSubmit').addEventListener('click', () => {
         pendingPayload.projectName,
         pendingPayload.perihal,
         pendingPayload.tanggalDoc,
-        pendingPayload.waRecipient || 'Pak Juwana (PM)',
+        pendingPayload.waRecipient || 'Project Manager',
         pendingPayload,
         response
       );
@@ -628,6 +635,8 @@ $('confirmSubmit').addEventListener('click', () => {
     $('result').hidden = false;
     $('result').scrollIntoView({ behavior: 'instant', block: 'start' });
     pendingPayload = null;
+    memoDirty_ = false;
+    window.UTP_PENDING_DOCUMENT_ID = '';
     loadCounters();
     loadHistory();
     loadManpower();
@@ -1040,7 +1049,7 @@ function getDriveIdFromUrlUi_(url) {
 }
 
 function buildHistoryWhatsAppDraft_(record) {
-  return `Yth. Pak Juwana (PM),\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal pengajuan: ${formatUiDate_(record.documentDate)}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.`;
+  return `Yth. Project Manager,\n\nBerikut kami sampaikan memo internal proyek:\n\nPT. UNICORN TOSAN PERKASA\nNo. Dokumen: ${record.number}\nProyek: ${record.project}\nPerihal: ${TYPE_LABEL[record.type] || record.type}\nTanggal pengajuan: ${formatUiDate_(record.documentDate)}\n\nMohon ditinjau dan ditindaklanjuti. Terima kasih.`;
 }
 
 function removeInternalArchiveLinks_(draft) {

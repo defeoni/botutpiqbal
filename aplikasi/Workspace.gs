@@ -48,7 +48,7 @@ function apiWorkspace(action,payload,token) {
     if(old?old.version!==version:version!==0)return {conflict:true,record:old};
     var record;
     if(action==='delete'){requireDeletePin_(p.pin);if(!old)throw new Error('Catatan tidak ditemukan.');record=JSON.parse(JSON.stringify(old));record.archived=true;record.deletedAt=new Date().toISOString();}
-    else {record=workspaceRecord_(module,input);record.projectId=workspaceProjectId_(input.projectId||old&&old.projectId||'legacy',false);if(old&&(old.projectId||'legacy')!==record.projectId)throw new Error('Proyek catatan berubah. Muat ulang.');if(old){['source','attachments','pendingReview'].forEach(function(k){if(old[k]!=null)record[k]=old[k];});}if(module==='rpd'&&(record.status==='SUBMITTED'||old&&old.status==='SUBMITTED'))requireDeletePin_(p.pin);}
+    else {record=workspaceRecord_(module,input);record.projectId=workspaceProjectId_(input.projectId||old&&old.projectId||'legacy',false);if(module==='rpd')record.workspaceDocumentId=old&&old.workspaceDocumentId||workspaceDocumentId_(input.workspaceDocumentId,record.projectId);if(old&&(old.projectId||'legacy')!==record.projectId)throw new Error('Proyek catatan berubah. Muat ulang.');if(old){['source','attachments','pendingReview'].forEach(function(k){if(old[k]!=null)record[k]=old[k];});}if(module==='rpd'&&(record.status==='SUBMITTED'||old&&old.status==='SUBMITTED'))requireDeletePin_(p.pin);}
     if(action==='save'){
       var attachments=input.attachments==null?old&&old.attachments||[]:input.attachments;
       if(!Array.isArray(attachments)||attachments.length>30)throw new Error('Maksimal 30 lampiran.');

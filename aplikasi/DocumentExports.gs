@@ -16,7 +16,8 @@ function apiDocumentExport(entity,id,version,kind,token,options) {
     var snapshot=entity!=='requests'?record:kind==='initial'?record.initialSnapshot:record.finalSnapshot;
     if(!snapshot)throw new Error(kind==='final'?'Tetapkan daftar final dahulu.':'Simpan dan ajukan permintaan dahulu.');
     if(entity==='requests'&&kind==='final'&&record.status!=='FINAL'&&!record.arrived)throw new Error('Daftar final sudah berubah. Tetapkan final kembali.');
-    var data=JSON.parse(JSON.stringify(snapshot)),meta=documentExportOptions_(entity,data,options||{});
+    var data=JSON.parse(JSON.stringify(snapshot));data.projectId=record.projectId||data.projectId||'legacy';
+    var meta=documentExportOptions_(entity,data,options||{});
     if(entity==='approvalRecap')data.date=meta.documentDate;
     if(entity==='approvals'){data.items=[{name:data.material}];data.title=data.material;data.date=meta.documentDate;}
     if(!Array.isArray(data.items)||!data.items.length)throw new Error(entity==='approvalRecap'?'Belum ada approval aktif untuk direkap.':'Dokumen tidak memiliki rincian.');
@@ -31,7 +32,7 @@ function apiDocumentExport(entity,id,version,kind,token,options) {
       var ids=[];data.items.forEach(function(item){if(item.finalFileId&&ids.indexOf(item.finalFileId)<0)ids.push(item.finalFileId);});
       ids.forEach(function(fileId){var evidence=utpFinalEvidence_(fileId);if(!evidence||evidence.recordId!==record.id)throw new Error('Bukti final tidak terkait dengan permintaan ini.');var sourceFile=DriveApp.getFileById(fileId);if(sourceFile.isTrashed()||sourceFile.getMimeType()!==evidence.mime)throw new Error('Bukti final tidak tersedia.');originals.push({name:sourceFile.getName(),url:sourceFile.getUrl(),mime:evidence.mime});});
     }
-    var folder=documentArchiveFolder_(entity,data.date,kind,meta.project),name=safeFileName_((entity==='rpd'?meta.number:data.number||data.title)+' - '+(entity==='approvalRecap'?'Rekap':entity==='rpd'?'RPD':entity==='approvals'?'Draf Approval Material':kind==='initial'?'Permintaan Awal':'Daftar Final')+' - v'+version);
+    var folder=documentArchiveFolder_(entity,data.date,kind,meta.project,meta.projectId||data.projectId),name=safeFileName_((entity==='rpd'?meta.number:data.number||data.title)+' - '+(entity==='approvalRecap'?'Rekap':entity==='rpd'?'RPD':entity==='approvals'?'Draf Approval Material':kind==='initial'?'Permintaan Awal':'Daftar Final')+' - v'+version);
     var created=[],files=[],count=Math.ceil(data.items.length/source.capacity),started=Date.now(),originalBlob=original.getBlob(),recapPages=entity==='approvalRecap'?buildApprovalRecapPages(data.items,meta.project):null;
     try {
       for(var part=0;part<count;part++){
@@ -45,7 +46,7 @@ function apiDocumentExport(entity,id,version,kind,token,options) {
       }
       var manifest=folder.createFile(Utilities.newBlob(JSON.stringify({entity:entity,recordId:id,recordVersion:record.version,kind:kind,snapshot:data,options:meta,templateId:source.id,parts:files},null,2),'application/json',name+' - Data versi.json'));created.push(manifest.getId());
       var outputs={excelUrl:files[0].excelUrl,downloadUrl:files[0].downloadUrl,files:files,partCount:count,itemCount:data.items.length,folderUrl:folder.getUrl(),templateUrl:original.getUrl(),templateName:source.name,pdfUrl:files[0].pdfUrl||'',editableUrl:files[0].editableUrl||files[0].excelUrl,originals:originals,warning:(count>1?'Seluruh '+data.items.length+' rincian dibagi '+count+' file sesuai kapasitas template asli. Nomor bisnis tetap sama. '+(entity==='rpd'?'Nominal RPD pada tiap bagian merupakan subtotal bagian tersebut. ':''):'')+(entity==='rpd'?'Logo asli dipertahankan; tanda tangan admin pada contoh dikosongkan untuk penandatanganan baru. ':'')+files.map(function(part){return (count>1?'Bagian '+part.part+': ':'')+part.warning;}).join(' ')};
-      var registration={id:key,entity:entity,recordId:id,recordVersion:record.version,kind:kind,snapshotDigest:key,snapshotFileId:manifest.getId(),templateId:source.id,fileIds:created.slice(),outputs:outputs};
+      var registration={id:key,entity:entity,recordId:id,recordVersion:record.version,projectId:data.projectId,kind:kind,snapshotDigest:key,snapshotFileId:manifest.getId(),templateId:source.id,fileIds:created.slice(),outputs:outputs};
       try{utpWrite_('documentExports',registration,null);}catch(error){if(!error.recordSaved)throw error;outputs.warning+=' '+error.message;}
       return outputs;
     } catch(error) {
@@ -79,7 +80,9 @@ function buildApprovalRecapPages(records, projectName) {
   return pages;
 }
 function documentExportOptions_(entity,data,input) {
-  var result={};
+  var projectId=data.projectId||'legacy',project=projectId==='legacy'?null:utpGet_('workspaceProjects',projectId);
+  if(projectId!=='legacy'&&(!project||project.archived))throw new Error('Proyek dokumen tidak tersedia. Periksa identitas proyek sebelum mengekspor.');
+  var result={projectId:projectId,project:project?project.name:data.projectName||'Data lama - belum dipetakan',projectCode:project?project.code:data.projectCode||'LEGACY'};
   if(entity==='approvalRecap')return {project:utpText_(input.project,'Nama proyek',200,true),documentDate:utpDate_(input.documentDate,'Tanggal arsip',true),items:data.items.map(function(){return {};})};
   if(entity==='approvals')return {project:utpText_(input.project,'Nama proyek',200,true),location:utpText_(input.location,'Lokasi pemasangan',200,true),documentDate:utpDate_(input.documentDate,'Tanggal dokumen',true),items:[{}]};
   if(entity==='requests'){result.items=data.items.map(function(item,index){var row=input.items&&input.items[index]||{};return {jo:utpText_(row.jo,'Kode JO',100,false),stage:utpText_(row.stage,'Tahap',80,false),line:utpText_(row.line,'Baris JO',80,false),spp:utpText_(row.spp,'SPP',120,false)};});return result;}
@@ -99,7 +102,7 @@ function documentMaterialCells_(data,meta,kind) {
   return cells;
 }
 function documentRpdCells_(data,meta) {
-  var dateText=documentDateText_(meta.documentDate),cells={N2:meta.number,N3:meta.revision,N4:dateText,N5:meta.transaction,D6:Math.round((Date.parse(meta.documentDate+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000),N6:RPB_CONFIG.projectName,I10:RPB_CONFIG.projectCode,B31:'Admin/ tanggal :'+meta.admin+' / '+dateText,G31:'Manager Dept/ tanggal:',I31:'Direksi/ tanggal :',L31:'Finance/ tanggal :'};
+  var dateText=documentDateText_(meta.documentDate),cells={N2:meta.number,N3:meta.revision,N4:dateText,N5:meta.transaction,D6:Math.round((Date.parse(meta.documentDate+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000),N6:meta.project,I10:meta.projectCode,B31:'Admin/ tanggal :'+meta.admin+' / '+dateText,G31:'Manager Dept/ tanggal:',I31:'Direksi/ tanggal :',L31:'Finance/ tanggal :'};
   var cash=0,transfer=0,accounts=Object.create(null);
   for(var row=10;row<=18;row++)['B','D','E','F','G','J','K','L','N'].forEach(function(col){cells[col+row]='';});
   for(var recap=22;recap<=25;recap++)['C','E','G','H','I','J'].forEach(function(col){cells[col+recap]='';});
@@ -109,11 +112,13 @@ function documentRpdCells_(data,meta) {
   cells.F19={cached:cash};cells.F20=transfer;cells.L19={cached:cash+transfer};cells.L22={cached:cash+transfer};
   return cells;
 }
-function documentArchiveFolder_(entity,date,kind,projectName) {
+function documentArchiveFolder_(entity,date,kind,projectName,projectId) {
   var props=PropertiesService.getScriptProperties(),rootId=props.getProperty('DRIVE_ROOT_FOLDER_ID');
   var root=rootId?DriveApp.getFolderById(rootId):getArchiveRootFolder_();
   if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length){var privateId=props.getProperty('DOCUMENT_PRIVATE_ROOT_ID');root=privateId?DriveApp.getFolderById(privateId):DriveApp.createFolder('Arsip UTP - Dokumen Privat');if(!privateId)props.setProperty('DOCUMENT_PRIVATE_ROOT_ID',root.getId());if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length)throw new Error('Folder arsip dokumen privat telah dibagikan. Atur folder privat dahulu.');}
-  var project=getOrCreateArchiveSubfolder_(root,'Project '+(projectName||RPB_CONFIG.projectName));
+  var record=projectId&&projectId!=='legacy'?utpGet_('workspaceProjects',projectId):null;
+  if(projectId&&projectId!=='legacy'&&(!record||record.archived))throw new Error('Proyek arsip tidak tersedia.');
+  var project=getOrCreateArchiveSubfolder_(root,record?'Project '+record.code+' - '+record.name:projectId==='legacy'?'Data lama - belum dipetakan':'Project '+(projectName||'Belum dipetakan'));
   var section=getOrCreateArchiveSubfolder_(project,entity==='rpd'?'RPD':'Material');
   var subtype=getOrCreateArchiveSubfolder_(section,entity==='approvalRecap'?'Rekap Approval':entity==='rpd'?'Rencana Pengeluaran Dana':entity==='approvals'?'Approval Material':kind==='initial'?'Permintaan Awal':'Daftar Final');
   var parts=utpDate_(date,'Tanggal arsip',true).split('-'),months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];

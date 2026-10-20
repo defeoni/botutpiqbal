@@ -83,9 +83,15 @@ function utpFindApproval_(item, approvals) {
   if (item.approvalId) candidates = candidates.filter(function (a) { return a.id === item.approvalId; });
   return candidates.find(function (a) { return utpApprovalMatches_(item, a); }) || null;
 }
+function utpProjectApprovalContext_(context, projectId) {
+  var ctx=Object.assign({},context||{}),id=projectId||ctx.projectId||'legacy';
+  ctx.projectId=id;
+  ctx.approvals=(ctx.approvals||[]).filter(function(approval){return (approval.projectId||'legacy')===id;});
+  return ctx;
+}
 function utpRequestItems_(items, context) {
   var seen = Object.create(null);
-  context = context || {};
+  context = utpProjectApprovalContext_(context);
   return utpArray_(items || [], 'Item permintaan', 150).map(function (source, index) {
     if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data item ' + (index + 1) + ' tidak valid.');
     var item = {};
@@ -116,7 +122,7 @@ function utpValidateMaterialDraft_(source, existing, context) {
   if (existing && (existing.itemContractVersion !== 1 || existing.status !== 'DRAFT' || existing.initialSnapshot != null)) throw new Error('Hanya draf kontrak item v1 yang dapat diperbarui.');
   if (source.itemContractVersion !== 1 || source.status !== 'DRAFT' || source.initialSnapshot != null || source.revision !== 1 || source.arrived !== false) throw new Error('Alur draf Material tidak valid.');
   if (!Array.isArray(source.revisions) || source.revisions.length || !Array.isArray(source.files) || source.files.length) throw new Error('Draf belum boleh memiliki revisi atau bukti final.');
-  var record = { itemContractVersion: 1, status: 'DRAFT', initialSnapshot: null, revision: 1, revisions: [], files: [], arrived: false };
+  var record = { itemContractVersion: 1, status: 'DRAFT', initialSnapshot: null, revision: 1, revisions: [], files: [], arrived: false, workspaceDocumentId: utpText_(source.workspaceDocumentId, 'Referensi Pusat Dokumen', 100, false) };
   record.title = utpText_(source.title, 'Judul permintaan', 300, true);
   record.number = utpText_(source.number, 'Nomor permintaan', 160, false);
   record.date = utpDate_(source.date, 'Tanggal permintaan', true);
@@ -160,11 +166,11 @@ function utpMaterialReady_(item, record, context) {
   if (['OWNER','OTHER'].indexOf(item.classification) >= 0) return item.supplyConfirmed === true;
   var parties = ['PM','MK','HO'], stop = parties.indexOf(item.requiredAuthority);
   if (stop < 0 || parties.slice(0, stop + 1).some(function(p){return !item.decisions[p] || item.decisions[p].status !== 'APPROVED';})) return false;
-  if (!utpFindApproval_(item, context.approvals || []) && !item.exceptionReason) return false;
+  if (!utpFindApproval_(item, utpProjectApprovalContext_(context,record.projectId||'legacy').approvals) && !item.exceptionReason) return false;
   return item.requiredAuthority !== 'HO' || (record.files || []).some(function(file){return file.id === item.finalFileId && file.coveredItemIds.indexOf(item.id) >= 0;});
 }
 function utpMaterialCommand_(operation, source, existing, context) {
-  var ctx=context||{}, parties=['PM','MK','HO'], now=ctx.now||new Date().toISOString();
+  var ctx=utpProjectApprovalContext_(context,existing&&existing.projectId||'legacy'), parties=['PM','MK','HO'], now=ctx.now||new Date().toISOString();
   if (!existing || existing.itemContractVersion!==1 || existing.archived) throw new Error('Permintaan Material per item tidak ditemukan.');
   if (existing.arrived) throw new Error('Permintaan sudah dicatat datang; riwayat tetap terlindungi.');
   var next=utpClone_(existing), party=utpText_(ctx.party,'Pihak instruksi',20,false), reason=utpText_(ctx.reason,'Alasan instruksi',2000,false), changes=[];
@@ -241,7 +247,7 @@ function utpMaterialCommand_(operation, source, existing, context) {
 function utpValidateRecord_(entity, source, existing, context) {
   utpEntity_(entity);
   if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Data rekaman tidak valid.');
-  var record = {}, ctx = context || {};
+  var record = {}, ctx = utpProjectApprovalContext_(context,existing&&existing.projectId||source.projectId||'legacy');
   function text(key, label, max, required) { record[key] = utpText_(source[key], label, max, required); }
   function date(key, label, required) { record[key] = utpDate_(source[key], label, required); }
   text('note', 'Catatan', 5000, false);
@@ -336,7 +342,7 @@ function utpItemChanges_(before, after) {
   return changes;
 }
 function utpRequestSnapshot_(record) {
-  return { number: record.number, date: record.date, title: record.title, note: record.note || '', revision: record.revision, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), files: utpClone_(record.files || []), finalFileId: record.finalFileId || '' };
+  return { projectId:record.projectId||'legacy', number: record.number, date: record.date, title: record.title, note: record.note || '', revision: record.revision, authority: record.authority, requiredAuthority: record.requiredAuthority || record.authority, status: record.status, items: utpClone_(record.items || []), files: utpClone_(record.files || []), finalFileId: record.finalFileId || '' };
 }
 function utpRequestReachedHo_(record) {
   return !!record && (record.status === 'HO' || (record.history || []).some(function (event) {
@@ -354,7 +360,7 @@ function utpRecordRequestSave_(record, previous, now, actor) {
   return record;
 }
 function utpTransitionRequest_(record, status, context) {
-  var next = utpClone_(record), ctx = context || {};
+  var next = utpClone_(record), ctx = utpProjectApprovalContext_(context,record.projectId||'legacy');
   var target = utpEnum_(status, UTP_REQUEST_STATUSES, 'Status permintaan', 'DRAFT');
   var allowed = { DRAFT: ['PM', 'MK', 'HO', 'CANCELLED'], PM: ['DRAFT', 'MK', 'HO', 'FINAL', 'CANCELLED'], MK: ['PM', 'HO', 'FINAL', 'CANCELLED'], HO: ['PM', 'MK', 'FINAL', 'CANCELLED'], FINAL: ['PM', 'MK', 'HO', 'ARRIVED', 'CANCELLED'], ARRIVED: ['PM', 'MK', 'HO'], CANCELLED: ['DRAFT'] };
   if ((allowed[record.status] || []).indexOf(target) < 0) throw new Error('Perubahan status ' + record.status + ' ke ' + target + ' tidak diperbolehkan.');
@@ -364,6 +370,7 @@ function utpTransitionRequest_(record, status, context) {
     var required = record.requiredAuthority || record.authority || 'PM';
     if (['PM', 'MK', 'HO'].indexOf(record.status) < ['PM', 'MK', 'HO'].indexOf(required)) throw new Error('Permintaan masih memerlukan review ' + required + ' sebelum final.');
     if (!next.items.some(function (item) { return item.status === 'APPROVED' || item.status === 'OWNER'; })) throw new Error('Final memerlukan minimal satu item disetujui atau disediakan owner. Item lain boleh ditolak/ditunda.');
+    next.items.forEach(function(item){if(item.status==='APPROVED'&&!item.exceptionReason&&!utpFindApproval_(item,ctx.approvals))throw new Error('Approval aktif untuk item '+item.name+' tidak tersedia pada proyek permintaan. Tinjau ulang atau catat alasan pengecualian.');});
   }
   if (!next.initialSnapshot && record.status === 'DRAFT' && ['PM', 'MK', 'HO'].indexOf(target) >= 0) {
     next.initialSnapshot = utpRequestSnapshot_(record);

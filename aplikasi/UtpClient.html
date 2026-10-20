@@ -324,7 +324,7 @@
     },preview?'Konfirmasi simulasi':'Konfirmasi penyediaan');
   }
   function createEditor() {
-    const record = { id: uid(), projectId:newProjectId(), version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
+    const record = { id: uid(), projectId:newProjectId(), workspaceDocumentId:window.UTP_PENDING_DOCUMENT_ID||'', version: 0, itemContractVersion: 1, title: '', number: '', date: today(), status: 'DRAFT', revision: 1, items: [], files: [], revisions: [], history: [], note: '', initialSnapshot: null, arrived: false };
     state.editor = { record, base: null, dirty: true, error: '', party: '', reason: '', pendingHistory: [], failNext: false, busy: false };
   }
   function renderEditor() {
@@ -385,6 +385,7 @@
       }
       if (!editableDraft(result.record) || result.record.id !== e.record.id) throw new Error('Kontrak respons simpan tidak valid. Isian tetap dipertahankan.');
       e.record = clone(result.record); e.base = clone(result.record); e.dirty = false; e.pendingHistory = []; e.error = '';
+      if(result.record.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===result.record.workspaceDocumentId)window.UTP_PENDING_DOCUMENT_ID='';
       e.party='';e.reason='';toast('Permintaan tersimpan di server.' + ((result.warnings || []).length ? ' ' + result.warnings.join(' ') : ''));
       return true;
     } catch (error) {
@@ -555,7 +556,7 @@
   }
   function editApproval(id) {
     const original = (state.data.approvals || []).find(row => row.id === id);
-    const a = clone(original || { id: uid(), projectId:newProjectId(), version: 0, material: '', brand: '', types: [], itemCodes: [], generic: false, authority: 'PM', status: 'COMPARE', note: '' });
+    const a = clone(original || { id: uid(), projectId:newProjectId(), workspaceDocumentId:window.UTP_PENDING_DOCUMENT_ID||'', version: 0, material: '', brand: '', types: [], itemCodes: [], generic: false, authority: 'PM', status: 'COMPARE', note: '' });
     dialog(original ? 'Edit persetujuan' : 'Tambah persetujuan', '<div class="utp-grid">' + input('material', 'Material', a.material, 'text', 'required maxlength="300"') + select('classification', 'Jenis approval', a.generic ? 'GENERIC' : 'BRANDED', { BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi' }) + input('brand', 'Merek (pisahkan beberapa merek dengan koma)', a.brand, 'text', 'maxlength="160"') + input('types', 'Tipe yang diizinkan (pisahkan dengan koma)', (a.types||[]).join(', '), 'text', 'maxlength="2000"') + input('itemCodes', 'Kode item terkait (pisahkan dengan koma)', (a.itemCodes||[]).join(', '), 'text', 'maxlength="2000"') + select('authority', 'Otoritas sesuai bukti', a.authority, { PM: 'PM', MK: 'MK', HO: 'HO' }, 'required') + select('status', 'Status persetujuan', a.status, { COMPARE: 'Compare · belum disetujui', APPROVED: 'Disetujui', REJECTED: 'Ditolak' }) + input('brochure', preview?'Brosur (metadata simulasi)':'Brosur PDF/Word (opsional)', '', 'file', 'accept=".pdf,.doc,.docx"') + '</div>' + textArea('note', 'Catatan / alasan perubahan', a.note, 'required maxlength="2000"'), async form => {
       const changed = clone(a); ['material', 'brand', 'authority', 'status', 'note'].forEach(key => { changed[key] = formValue(form, key); });
       changed.generic = formValue(form, 'classification') === 'GENERIC';
@@ -571,6 +572,7 @@
         const result=await window.utpRpc('save',{entity:'approvals',record:Object.assign(changed,{id:original?a.id:'',version:original?a.version:0}),pin:changed.status==='APPROVED'||original&&original.status==='APPROVED'?askPin():''});
         if(generation!==epoch)return;
         const index=state.data.approvals.findIndex(row=>row.id===result.record.id);if(index<0)state.data.approvals.push(result.record);else state.data.approvals[index]=result.record;
+        if(result.record.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===result.record.workspaceDocumentId)window.UTP_PENDING_DOCUMENT_ID='';
         closeDialog();renderApprovals();toast('Persetujuan tersimpan di server.');return;
       }
       if (file) changed.brochure = { name: file.name, simulated: true };
@@ -607,7 +609,7 @@
     const document=record.status==='FINAL'&&record.finalSnapshot?record.finalSnapshot:record.initialSnapshot;
     if(!document)throw new Error('Ajukan permintaan untuk membuat salinan awal resmi.');
     const popup=window.open('','_blank');if(!popup)throw new Error('Izinkan popup untuk mencetak dokumen.');
-    popup.document.write('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>'+esc(record.number||record.title)+'</title><style>body{font:12px Arial;margin:24px;color:#111}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:7px;text-align:left}h1{font-size:20px}</style></head><body><h1>PT.UTP · '+(record.status==='FINAL'?'Daftar Final':'Permintaan Awal')+'</h1><p>Terrasentra Bandung · REV '+String(record.revision).padStart(3,'0')+'</p>'+snapshotBody(document)+'<p>'+esc(document.note||record.note||'')+'</p><p>Admin mencatat instruksi luring. Dokumen ini tidak menggantikan tanda tangan atau scan resmi perusahaan.</p></body></html>');popup.document.close();popup.focus();popup.print();
+    const project=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();popup.document.write('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>'+esc(record.number||record.title)+'</title><style>body{font:12px Arial;margin:24px;color:#111}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:7px;text-align:left}h1{font-size:20px}</style></head><body><h1>PT.UTP · '+(record.status==='FINAL'?'Daftar Final':'Permintaan Awal')+'</h1><p>'+esc(project?project.name:'Data proyek')+' · REV '+String(record.revision).padStart(3,'0')+'</p>'+snapshotBody(document)+'<p>'+esc(document.note||record.note||'')+'</p><p>Admin mencatat instruksi luring. Dokumen ini tidak menggantikan tanda tangan atau scan resmi perusahaan.</p></body></html>');popup.document.close();popup.focus();popup.print();
   }
   function publishRevision() {
     const e = state.editor;

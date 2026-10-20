@@ -68,7 +68,7 @@
 <main class="app-main">
   <header class="header">
     <div class="workspace-breadcrumb"><span id="workspaceLabel">Administrasi Proyek</span><span>/</span><span id="pageCrumb">Beranda</span></div><h1>Beranda Proyek</h1>
-    <div class="header-project">Terrasentra Bandung <span>TRSM-51D26-D-M</span></div>
+    <div class="header-project"><span data-project-name>Semua proyek</span> <span data-project-code>Rekap lintas proyek</span></div>
     <div class="app-status-row">
       <p id="appStatus" class="muted" role="status" aria-live="polite">Menghubungkan aplikasi...</p>
       <div class="actions"><span class="identity" id="userIdentity"></span><button class="btn" type="button" id="btnReconnect">Masuk ulang</button></div>
@@ -90,8 +90,8 @@
       <button type="button" class="tab" data-type="SP">Memo Surplus</button>
     </nav>
     <div class="grid" id="projectFields">
-      <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value="TerraSentra Soreang, Bandung"></div>
-      <div class="field"><label for="projectCode">Kode Proyek</label><input id="projectCode" value="TS"></div>
+      <div class="field"><label for="projectName">Nama Proyek</label><input id="projectName" value=""></div>
+      <div class="field"><label for="projectCode">Kode Proyek</label><input id="projectCode" value=""></div>
     </div>
   </section>
 
@@ -195,7 +195,7 @@
       <label class="output-choice" for="createSpreadsheet"><input id="createSpreadsheet" type="checkbox" checked> <span>Buat Google Sheets</span></label>
       <label class="output-choice" for="createPdf"><input id="createPdf" type="checkbox" checked> <span>Buat PDF berwarna</span></label>
       <label class="output-choice" for="createWhatsApp"><input id="createWhatsApp" type="checkbox" checked> <span>Buat draf WhatsApp</span></label>
-      <div class="field output-recipient"><label for="waRecipient">Penerima draf WhatsApp</label><input id="waRecipient" value="Pak Juwana (PM)"></div>
+      <div class="field output-recipient"><label for="waRecipient">Penerima draf WhatsApp</label><input id="waRecipient" value=""></div>
     </div>
     <button type="button" class="btn primary" id="btnSubmit">Buat Memo dan Arsipkan</button>
     <div id="loading" hidden class="notice">Sedang memproses dokumen. Jangan tutup halaman ini.</div>
