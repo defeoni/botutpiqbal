@@ -19,36 +19,12 @@ Ada dua lingkungan kerja:
 
 ### Ketika pengguna menulis tepat: `finishing`
 
-1. Periksa status repository lebih dahulu.
-   - Jalankan fetch terhadap `origin`.
-   - Periksa branch aktif, HEAD lokal, `origin/main`, dan perubahan lokal.
-   - Jangan melakukan hard reset, force push, checkout destruktif, stash otomatis, atau menghapus perubahan pengguna.
+Jalankan **Finishing Hemat Token**. Jangan melakukan orientasi ulang, membaca README/riwayat/memory, memakai Graphify/Caveman/Ponytail, audit repository, review diff, atau pencarian luas.
 
-2. Sinkronkan commit Chat Codex dengan aman.
-   - Bila worktree bersih dan `origin/main` lebih baru, fast-forward/pull `origin/main`.
-   - Bila HEAD sudah sama dengan `origin/main`, lanjutkan.
-   - Bila ada perubahan lokal milik pengguna atau konflik, jangan menimpa. Laporkan blocker yang spesifik dan jangan deploy source yang belum jelas statusnya.
-   - Pastikan commit terbaru dari `origin/main` benar-benar menjadi source yang akan dibangun dan dideploy.
-
-3. Lakukan finishing pada source terbaru.
-   - Tentukan pemeriksaan berdasarkan file/perubahan yang ada.
-   - Jalankan generator source clasp/preview yang diwajibkan repository.
-   - Jalankan test relevan, perbaiki kegagalan, dan ulangi sampai hijau.
-   - Jalankan `git diff --check`.
-   - Untuk perubahan UI, jalankan pemeriksaan browser/navigasi yang tersedia.
-   - Jangan mengklaim fungsi live terbukti bila belum diverifikasi.
-
-4. Rilis.
-   - Bila perbaikan finishing menghasilkan perubahan baru, commit dengan Conventional Commit dan push ke `origin/main`.
-   - Deploy Apps Script dari source final menggunakan `clasp.cmd` di PowerShell Windows dan deployment web app yang sudah ada.
-   - Jangan membuat URL web app baru bila deployment lama dapat diperbarui.
-   - Verifikasi nomor versi dan URL deployment.
-
-5. Laporan akhir wajib berisi:
-   - Commit yang diambil dari `origin/main`.
-   - Commit baru bila ada.
-   - Hasil test/pemeriksaan.
-   - Versi deployment dan URL.
-   - Blocker atau keterbatasan yang nyata.
+1. Sinkronisasi minimum: `git fetch origin`, lalu fast-forward `main` ke `origin/main`. Jika tidak dapat fast-forward atau ada perubahan lokal, berhenti dan tampilkan blocker singkat.
+2. Jalankan generator source clasp yang sudah dikenal proyek, lalu hanya test relevan yang sudah dikenal untuk source rilis.
+3. Bila seluruh perintah lulus, deploy Apps Script memakai `clasp.cmd` ke deployment web app yang ada dan verifikasi versi/URL.
+4. Jangan memperbaiki kode, refactor, commit, push, atau menjalankan pemeriksaan tambahan. Bila generator, test, atau deploy gagal, berhenti dan tampilkan error singkat.
+5. Laporan akhir hanya: commit rilis, hasil test, versi deployment, URL; atau error pemblokir.
 
 Di luar perintah `finishing`, jangan menjalankan test, commit, push, pull, atau deploy kecuali pengguna memintanya secara eksplisit.
