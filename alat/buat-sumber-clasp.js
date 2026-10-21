@@ -10,7 +10,7 @@ const sourceFiles = [
   ["aplikasi/Workspace.gs", "Workspace.gs"],
   ["aplikasi/Projects.gs", "Projects.gs"],
   ["aplikasi/ProjectsClient.html", "ProjectsClient.html"],
-  ["aplikasi/PeopleProfiles.html", "PeopleProfiles.html"],
+  ["aplikasi/PeopleProfiles.html", "PeopleProfilesClient.html"],
   ["aplikasi/PeopleProfiles.gs", "PeopleProfiles.gs"],
   ["aplikasi/UtpDomain.gs", "UtpDomain.gs"],
   ["aplikasi/Utp.gs", "Utp.gs"],
@@ -41,8 +41,9 @@ const sourceFiles = [
 async function main() {
   await fs.mkdir(stagingDir, { recursive: true });
   const expectedFiles = new Set(sourceFiles.map(([, target]) => target));
+  const staleFiles = new Set(["PeopleProfiles.html"]);
   const existingFiles = await fs.readdir(stagingDir);
-  const unexpectedFiles = existingFiles.filter((name) => !expectedFiles.has(name));
+  const unexpectedFiles = existingFiles.filter((name) => !expectedFiles.has(name) && !staleFiles.has(name));
 
   if (unexpectedFiles.length > 0) {
     throw new Error(
@@ -50,6 +51,8 @@ async function main() {
         "Review them before removing or moving them.",
     );
   }
+
+  await Promise.all(existingFiles.filter((name) => staleFiles.has(name)).map((name) => fs.unlink(path.join(stagingDir, name))));
 
   for (const [source, target] of sourceFiles) {
     const sourcePath = path.join(projectRoot, source);
