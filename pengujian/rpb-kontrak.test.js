@@ -6,6 +6,8 @@ const vm = require('node:vm');
 
 const workspace = path.resolve(__dirname, '..');
 const backendSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'RPB.gs'), 'utf8');
+const workspaceSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'Workspace.gs'), 'utf8');
+const projectsSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'Projects.gs'), 'utf8');
 const clientSource = fs.readFileSync(path.join(workspace, 'aplikasi', 'RPBClient.html'), 'utf8');
 
 function dateFromIso(value) {
@@ -65,7 +67,7 @@ function createBackendContext() {
     properties
   };
   vm.createContext(context);
-  vm.runInContext(backendSource, context);
+  vm.runInContext(backendSource, context);vm.runInContext(workspaceSource, context);vm.runInContext(projectsSource, context);
   return context;
 }
 

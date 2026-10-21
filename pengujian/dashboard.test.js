@@ -9,10 +9,11 @@ function env(){
   const c={Date,requireAuthorized_:token=>{if(token!=='owner')throw Error('Unauthorized');},requireDeletePin_:pin=>{if(pin!=='valid')throw Error('PIN');},
     UTP_PROJECT:{name:'Test'},getMemoHistorySheet_:()=>null,getRpbHistory_:()=>[],
     utpRead_:entity=>(rows[entity]||[]).filter(r=>!r.archived),
+    utpGet_:(entity,id)=>(rows[entity]||[]).find(r=>r.id===id)||null,
     utpWrite_:(entity,r)=>{assert.equal(locked,true);writes.push([entity,r.id]);return r;},
     apiWorkspace:()=>({counts:{tasks:1,rpd:0},activities:[]}),
     LockService:{getScriptLock:()=>({waitLock:()=>{locked=true;},releaseLock:()=>{locked=false;}})}};
-  vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi/Dashboard.gs'),'utf8'),c);
+  vm.createContext(c);for(const name of ['Workspace.gs','Projects.gs','Dashboard.gs'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi',name),'utf8'),c);
   return {c,rows,writes};
 }
 test('dashboard is authenticated and distinguishes waiting from arrivals',()=>{const{c}=env();assert.throws(()=>c.apiDashboard('bad'),/Unauthorized/);const d=c.apiDashboard('owner');assert.equal(d.material.waiting,1);assert.equal(d.material.arrived,0);assert.equal(d.workspace.counts.tasks,1);});
