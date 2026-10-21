@@ -5,7 +5,7 @@
 - Fokus PC; mobile ditunda sampai diminta. Tampilan ringan tanpa animasi/transisi tambahan. FE/BE sesuai tugas pengguna. Jangan commit, push, upload, atau deploy tanpa permintaan pengguna.
 - Hemat konteks: rg lalu file/fungsi terkait. Kerjakan kebutuhan dan logika dulu; jangan jalankan tes apa pun sampai pengguna meminta. Jangan rebuild peta kode.
 - Burst hanya saat diminta, maksimal 3 penulis termasuk Codex bila mengedit; satu file satu pemilik. AI luar tanpa akses GitHub, harus mengirim patch nyata.
-- Codex integrasi; tes, commit, push, dan deployment hanya saat diminta. Jangan aktifkan workflow Google belum teruji.
+- Freebuff menjalankan test untuk perubahan yang dibangunnya. Codex Chat hanya menganalisis hasil Freebuff, mengintegrasikan patch yang diterima, lalu commit/push ke GitHub. Codex VS Code menjalankan finishing dan deployment. Jangan menjalankan pemeriksaan ulang yang tidak diperlukan.
 - Selesai satu pekerjaan: lapor hasil lokal, berhenti, tunggu konfirmasi.
 - Jika pengguna memberi batch bernomor, tuntaskan seluruh batch berurutan tanpa menunggu konfirmasi per nomor; larangan tes/commit/push/upload/deploy tetap berlaku sampai diminta khusus.
 - Izin eksplisit terbaru mengesampingkan default di atas. Jika pengguna menentukan urutan deploy → commit → tes → perbaiki, ikuti urutan itu; hasil koreksi perlu diterbitkan kembali agar deployment sesuai kode akhir.
