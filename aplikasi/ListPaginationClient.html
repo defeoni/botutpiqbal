@@ -22,8 +22,17 @@
       const total=document.createElement('span');total.textContent='dari '+pages;s.nav.appendChild(total);
       button('Berikutnya',s.page+1,s.page===pages-1);button('Terakhir',pages-1,s.page===pages-1);
     }
+    s.render=render;
     render();
   }
+  document.addEventListener('utp-list-reveal',event=>{
+    const item=event.target,root=item.parentElement;
+    if(!root||!root.matches(selectors))return;
+    update(root);
+    const s=states.get(root),index=s.items.indexOf(item);
+    if(index<0)return;
+    s.page=Math.floor(index/12);s.render();
+  });
   const refresh=()=>{queued=false;document.querySelectorAll(selectors).forEach(update);};
   new MutationObserver(()=>{if(!queued){queued=true;queueMicrotask(refresh);}}).observe(document.getElementById('applicationShell'),{childList:true,subtree:true});
   refresh();

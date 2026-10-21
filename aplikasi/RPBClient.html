@@ -61,7 +61,7 @@ document.addEventListener('click', (event) => {
   } catch (error) { showApplicationError_('Tombol RPB gagal dijalankan', error); }
 });
 
-function loadRpbData_() {
+function loadRpbData_(recordId) {
   switchRpbScope_();
   const projectId=rpbProjectId_,generation=rpbScopeGeneration_,token=accessToken,loadId=++rpbLoadGeneration_;
   const current=()=>rpbCurrentScope_(projectId,generation,token)&&loadId===rpbLoadGeneration_;
@@ -91,6 +91,15 @@ function loadRpbData_() {
     });
     renderRpbMaster_();
     renderRpbHistory_();
+    if (recordId) {
+      const card = Array.from($('rpbHistoryList').children).find(entry => entry.dataset.rpbRecordId === recordId);
+      if (card) {
+        card.dispatchEvent(new CustomEvent('utp-list-reveal', {bubbles:true}));
+        card.focus({preventScroll:true});
+        card.scrollIntoView({block:'start',behavior:'instant'});
+        $('rpbHistoryStatus').textContent = 'RPB dipilih: ' + card.querySelector('h3').textContent;
+      } else $('rpbHistoryStatus').textContent = 'RPB tidak ditemukan pada lingkup proyek yang dipilih. Muat ulang ringkasan untuk memperbarui kartu.';
+    }
     const local=rpbProjectDrafts_.get(projectId);
     if(local&&!$('rpbItemsTable').tBodies[0].rows.length){populateRpbForm_(local.data);rpbDirty_=local.dirty;rpbProjectDrafts_.delete(projectId);if(local.dirty)$('rpbDraftStatus').textContent='Isian proyek ini dipulihkan. Simpan draf untuk menyimpan ke server.';}
     if (!$('rpbItemsTable').tBodies[0].rows.length) {
@@ -394,7 +403,7 @@ function renderRpbHistory_() {
   const records=rpbScopeHistory_();
   if (!records.length) { root.textContent = 'Belum ada riwayat RPB pada lingkup proyek yang dipilih.'; return; }
   records.forEach((record) => {
-    const card = document.createElement('article'); card.className = 'card rpb-history-card';
+    const card = document.createElement('article'); card.className = 'card rpb-history-card'; card.dataset.rpbRecordId = record.id; card.tabIndex = -1;
     const title = document.createElement('h3'); title.textContent = record.number; card.appendChild(title);
     const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);
     const actions = document.createElement('div'); actions.className = 'actions';

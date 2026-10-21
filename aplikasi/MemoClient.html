@@ -60,7 +60,7 @@ document.addEventListener('click', (event) => {
     if (button.id === 'btnReconnect') {
       returnToLogin_();
     } else if (button.matches('.main-nav-button')) {
-      switchMainPage(button.dataset.main);
+      switchMainPage(button.dataset.main, button.dataset.homeRpb);
     } else if (button.matches('.subnav [data-type]')) {
       switchType(button.dataset.type);
     } else if (button.matches('[data-add]')) {
@@ -284,7 +284,7 @@ function formatUiDate_(value) {
   }).format(date);
 }
 
-function switchMainPage(page) {
+function switchMainPage(page, rpbRecordId) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
   if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
   if (!accessToken && ['MEMO', 'RPD', 'RPB', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
@@ -316,7 +316,7 @@ function switchMainPage(page) {
   if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
   if (page === 'MANPOWER' && accessToken) loadManpower();
   if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
-  if (page === 'RPB' && accessToken) loadRpbData_();
+  if (page === 'RPB' && accessToken) loadRpbData_(rpbRecordId);
   if (page === 'DOCUMENTS' && window.DocumentCenter) window.DocumentCenter.open();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
   if (materialPages.includes(page) && window.UTPFrontend) window.UTPFrontend.open(page);
