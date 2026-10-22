@@ -403,24 +403,27 @@ function utpSearchItems_(items, filters, approvals) {
   var limit = Math.max(1, Math.min(50, Number(options.limit) || 50));
   var offset = options.offset == null ? 0 : Number(options.offset);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Posisi halaman pencarian tidak valid.');
+  // Index approval candidates once; preserve their original order and exact matcher.
+  var byBrand=Object.create(null),generic=[];
+  (approvals||[]).forEach(function(a){if(a.archived||a.status!=='APPROVED')return;if(a.generic){generic.push(a);return;}var seen=Object.create(null);String(a.brand||'').split(/[,;\n]/).forEach(function(b){var key=utpNorm_(b);if(key&&!seen[key]){seen[key]=true;(byBrand[key]||(byBrand[key]=[])).push(a);}});});
   var matches = (items || []).filter(function (item) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
     if (brandClass !== 'ALL' && utpItemClassification_(item) !== brandClass) return false;
     if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
     if (typeQuery && utpNorm_(item.model).indexOf(typeQuery) < 0) return false;
     if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
+    if(!terms.length)return true;
     var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).concat(item.note || '').join(' '));
     return terms.every(function (term) { return text.indexOf(term) >= 0; });
   }).map(function (item) {
-    var copy = utpClone_(item), approval = utpFindApproval_(copy, approvals);
-    copy.approved = !!approval; copy.approvalId = approval ? approval.id : ''; copy.approvalAuthority = approval ? approval.authority : '';
-    return copy;
-  }).filter(function (item) { return !options.approvedOnly || item.approved; });
+    var classification=utpItemClassification_(item),candidates=classification==='GENERIC'?generic:classification==='BRANDED'?byBrand[utpNorm_(item.brand)]||[]:[];
+    return {item:item,approval:utpFindApproval_(item,candidates)};
+  }).filter(function (row) { return !options.approvedOnly || row.approval; });
   var sortBy=String(options.sortBy||''),direction=options.sortDirection==='desc'?-1:1;
   if(sortBy&&['code','name','brand','model','group','unit','approved'].indexOf(sortBy)<0)throw new Error('Kolom pengurutan tidak valid.');
-  matches.sort(function (a, b) {return sortBy?direction*(sortBy==='approved'?Number(a.approved)-Number(b.approved):String(a[sortBy]||'').localeCompare(String(b[sortBy]||''),'id',{numeric:true}))||String(a.code).localeCompare(String(b.code)):Number(b.approved) - Number(a.approved) || Number(!!b.favorite) - Number(!!a.favorite) || String(a.name).localeCompare(String(b.name), 'id') || String(a.code).localeCompare(String(b.code)); });
+  matches.sort(function (x, y) {var a=x.item,b=y.item;return sortBy?direction*(sortBy==='approved'?Number(!!x.approval)-Number(!!y.approval):String(a[sortBy]||'').localeCompare(String(b[sortBy]||''),'id',{numeric:true}))||String(a.code).localeCompare(String(b.code)):Number(!!y.approval)-Number(!!x.approval)||Number(!!b.favorite)-Number(!!a.favorite)||String(a.name).localeCompare(String(b.name),'id')||String(a.code).localeCompare(String(b.code));});
   offset = matches.length ? Math.min(offset, Math.floor((matches.length - 1) / limit) * limit) : 0;
-  return { items: matches.slice(offset, offset + limit), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length,brands:Array.from(new Set((items||[]).filter(function(r){return !r.archived&&r.brand;}).map(function(r){return r.brand;}))).sort() };
+  return { items: matches.slice(offset, offset + limit).map(function(row){var copy=utpClone_(row.item),a=row.approval;copy.approved=!!a;copy.approvalId=a?a.id:'';copy.approvalAuthority=a?a.authority:'';return copy;}), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length,brands:Array.from(new Set((items||[]).filter(function(r){return !r.archived&&r.brand;}).map(function(r){return r.brand;}))).sort() };
 }
 function utpParseCsv_(source) {
   var csv = String(source || '').replace(/^\uFEFF/, ''), rows = [], row = [], value = '', quoted = false, afterQuote = false;

@@ -75,9 +75,33 @@ function utpMasterSheet_() {
 function utpMaster_() {
   var sheet = utpMasterSheet_(); if (!sheet || sheet.getLastRow()<2) return [];
   var favorites = (utpGet_('config','settings') || {}).favorites || [];
-  return sheet.getRange(2,1,sheet.getLastRow()-1,UTP_MASTER_FIELDS.length).getDisplayValues().map(function(row){
+  return utpMasterRows_(sheet).map(function(row){
     var r={}; UTP_MASTER_FIELDS.forEach(function(k,i){r[k]=row[i];}); r.favorite=favorites.indexOf(r.code)>=0; return r;
   });
+}
+function utpMasterRows_(sheet){
+  // Cache only shared catalog text. Favorites and project approvals remain live.
+  var cache,key,count=sheet.getLastRow()-1;
+  try{
+    cache=CacheService.getScriptCache();
+    var fileId=sheet.getParent().getId(),modified=DriveApp.getFileById(fileId).getLastUpdated().getTime();
+    var epoch=PropertiesService.getScriptProperties().getProperty('UTP_MASTER_CACHE_REVISION')||'0';
+    key='utp.master.v1.'+fileId+'.'+sheet.getSheetId()+'.'+modified+'.'+count+'.'+epoch;
+    var manifest=JSON.parse(cache.get(key)||'null');
+    if(manifest&&manifest.chunks>0&&manifest.chunks<=24){
+      var keys=Array.from({length:manifest.chunks},function(_,i){return key+'.'+i;}),parts=cache.getAll(keys);
+      if(keys.every(function(k){return typeof parts[k]==='string';})){
+        var rows=JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(keys.map(function(k){return parts[k];}).join('')),'application/gzip')).getDataAsString());
+        if(Array.isArray(rows)&&rows.length===count&&rows.every(function(r){return Array.isArray(r)&&r.length===UTP_MASTER_FIELDS.length;}))return rows;
+      }
+    }
+  }catch(ignored){/* Missing/evicted cache must never block material entry. */}
+  var rows=sheet.getRange(2,1,count,UTP_MASTER_FIELDS.length).getDisplayValues();
+  if(cache&&key)try{
+    var packed=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(rows))).getBytes()),chunks=Math.ceil(packed.length/80000);
+    if(chunks>0&&chunks<=24){var data={};for(var i=0;i<chunks;i++)data[key+'.'+i]=packed.slice(i*80000,(i+1)*80000);cache.putAll(data,120);cache.put(key,JSON.stringify({chunks:chunks}),120);}
+  }catch(ignored){/* Sheets remains the authoritative fallback. */}
+  return rows;
 }
 function utpDocument_(id) { return utpRead_('documents').find(function(d){return d.fileId===id && d.uploadedByUtp;}); }
 function utpFinalEvidence_(id) {
@@ -230,6 +254,7 @@ function utpMutate_(action,p,ctx) {
     var values=[UTP_MASTER_FIELDS].concat(all.map(function(x){return UTP_MASTER_FIELDS.map(function(k){var v=String(x[k]||'');return /^[=+\-@]/.test(v)?"'"+v:v;});}));
     if(sheet.getMaxRows()<values.length)sheet.insertRowsAfter(sheet.getMaxRows(),values.length-sheet.getMaxRows());
     sheet.getRange(1,1,values.length,UTP_MASTER_FIELDS.length).setNumberFormat('@').setValues(values);
+    PropertiesService.getScriptProperties().setProperty('UTP_MASTER_CACHE_REVISION',Utilities.getUuid());
     utpWrite_('imports',{id:Utilities.getUuid(),added:plan.added,updated:plan.updated,total:all.length},null);
     return {imported:all.length,added:plan.added,updated:plan.updated};
   }

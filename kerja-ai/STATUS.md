@@ -1,5 +1,9 @@
 # Status integrasi
 
+## Pembaruan kinerja katalog setelah d07ebba
+
+Optimasi pencarian Spek/Approval: cache master 120 detik dengan invalidasi sumber/impor, approval terindeks, penyalinan hanya hasil halaman. Benchmark CPU sintetis 30.000 barang menunjukkan 13,8x lebih cepat; bukan latency produksi. Enam label merek kosong pada master referensi Drive diperbarui dari bukti nama barang dan diverifikasi, bukan pelabelan seluruh master. Serahan dan audit perubahan: `KATALOG-KINERJA.md`. Deployment tetap menunggu finishing VSCode.
+
 ## Pembaruan workspace dokumen setelah 251f911
 
 Pusat Dokumen dipisah menjadi Dokumen Aktif (Kanban default), Template & Form, dan Arsip. Template owner hanya untuk proyek terpilih dan dapat diunggah berkelompok, diklasifikasi manual, serta disalin ulang. Ekspor/revisi/balasan/scan melekat pada satu kartu. Monitoring nomor/tanggal, penerima, tindakan dan follow-up tersambung ke Telegram. Pengelompokan AI belum diaktifkan karena layanan/kredensial belum dipilih; ini tidak menghambat alur manual. Serahan rinci: `DOKUMEN.md`. Perubahan dipush setelah pemeriksaan sesuai instruksi tetap pengguna, tanpa deployment Apps Script.
