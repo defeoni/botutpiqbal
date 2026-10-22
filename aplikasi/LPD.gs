@@ -42,7 +42,7 @@ function lpdDeadlineState_(record) {
     due = lpdDeadlineDefault_(record.month, record.period);
     if (!original) original = due;
   }
-  var basis = record.firstSentAt ? String(record.firstSentAt).slice(0, 10) : (record.status === 'DRAFT' ? lpdTodayJakarta_() : '');
+  var basis = record.firstSentAt ? Utilities.formatDate(new Date(record.firstSentAt), 'Asia/Jakarta', 'yyyy-MM-dd') : (record.status === 'DRAFT' ? lpdTodayJakarta_() : '');
   return {
     due: due,
     original: original,
@@ -775,7 +775,9 @@ function lpdSaveDraft_(p) {
   try { reservation = lpdReserveRpds_(saved.record, actor); }
   catch (error) {
     var released = lpdReleaseRpds_(error.reserved || [], saved.record.id, actor);
-    throw new Error('Draf LPD tersimpan, tetapi RPD gagal dikunci: ' + error.message + (released.length ? ' ' + released.join(' ') : '') + ' Simpan ulang draf.');
+    warnings = warnings.concat(error.reservationWarnings || [], released);
+    warnings.push('Draf LPD tersimpan, tetapi RPD gagal dikunci: ' + error.message + ' Simpan ulang draf yang sama sebelum mengirim.');
+    return { record: saved.record, calculation: null, reservationPending: true, warnings: warnings };
   }
   warnings = warnings.concat(reservation.warnings || []);
   if (existing) warnings = warnings.concat(lpdReleaseRpds_((existing.rpdIds || []).filter(function (id) { return saved.record.rpdIds.indexOf(id) < 0; }), saved.record.id, actor));

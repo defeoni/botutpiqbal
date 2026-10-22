@@ -1172,6 +1172,12 @@
         get('lpdMonth').value = result.record.month;
         get('lpdPeriod').value = result.record.period;
         applyRecord(result.record, result.calculation, state.audit);
+        if (result.reservationPending) {
+          state.dirty = true;
+          renderActionState();
+          setStatus(result.warnings.join(' '), 'error');
+          return;
+        }
         return Promise.all([loadList(scope), loadCatalogs(scope), loadDetail(result.record.id, scope)]).then(function () {
           if (scope === state.scopeTicket) setStatus((result.warnings && result.warnings.length ? 'Draf tersimpan dengan peringatan: ' + result.warnings.join(' ') : 'Draf LPD tersimpan.'), result.warnings && result.warnings.length ? 'error' : 'ok');
         });

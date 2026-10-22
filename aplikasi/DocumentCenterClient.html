@@ -22,7 +22,7 @@
   const driveSourceId=url=>(String(url||'').match(/\/d\/([a-zA-Z0-9_-]{10,})/)||[])[1]||'';
   templates.forEach(t=>{t.templateSourceId=t.page?'':driveSourceId(t.driveUrl);});
   let docs=[],editing=null,drag='',epoch=0,projectEpoch=0,loadedAt=0,loading=false;
-  const state={view:'list',query:'',quick:'all',stage:'',page:1,board:'status',filters:{cluster:new Set(),kind:new Set(),system:new Set(),frequency:new Set(),pic:new Set()}};
+  const state={view:'board',query:'',quick:'all',stage:'',page:1,board:'status',filters:{cluster:new Set(),kind:new Set(),system:new Set(),frequency:new Set(),pic:new Set()}};
   const rpc=(name,args)=>new Promise((resolve,reject)=>invokeServer(name,args,resolve,reject));
   const projectId=()=>window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';
   const scopeNow=()=>({projectId:projectId(),epoch:projectEpoch,token:accessToken});

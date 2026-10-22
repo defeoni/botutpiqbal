@@ -143,6 +143,79 @@ function send(env, projectId, record) {
   }, 'owner');
 }
 
+test('deadline pengiriman LPD menggunakan tanggal Asia/Jakarta pada batas tengah malam', () => {
+  const { c } = fixture();
+  c.Utilities.formatDate = (date, zone, format) => {
+    assert.equal(zone, 'Asia/Jakarta');
+    assert.equal(format, 'yyyy-MM-dd');
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    return ['year', 'month', 'day'].map(key => parts.find(part => part.type === key).value).join('-');
+  };
+  const base = { status: 'SENT', month: MONTH, period: 'M1-M2' };
+  for (const [timestamp, expectedDate, late] of [
+    ['2026-10-15T16:59:59.000Z', '2026-10-15', false],
+    ['2026-10-15T17:00:00.000Z', '2026-10-16', true],
+    ['2026-10-15T18:00:00.000Z', '2026-10-16', true]
+  ]) {
+    const state = c.lpdDeadlineState_(Object.assign({}, base, { firstSentAt: timestamp }));
+    assert.equal(state.basis, expectedDate);
+    assert.equal(state.late, late);
+  }
+});
+
+test('draf tersimpan saat reservasi RPD gagal mengembalikan identitas dan dapat disimpan ulang', () => {
+  const env = fixture();
+  addRpd(env, 'rpd-retry-0001', P1, 100, 'Nota uji');
+  enroll(env, P1, 'rpd-retry-0001');
+  const write = env.c.utpWrite_;
+  let fail = true;
+  env.c.utpWrite_ = (entity, record, version) => {
+    if (fail && entity === 'workspaceRpdFinance' && record.lpdId) throw new Error('Storage unavailable');
+    return write(entity, record, version);
+  };
+  const partial = draft(env, P1, { rpdIds: ['rpd-retry-0001'] });
+  assert.equal(partial.reservationPending, true);
+  assert.equal(partial.record.version, 1);
+  assert.match(partial.warnings.join(' '), /Storage unavailable/);
+  assert.equal(env.rows.workspaceLpd.length, 1);
+  fail = false;
+  const retry = draft(env, P1, partial.record);
+  assert.equal(retry.record.id, partial.record.id);
+  assert.equal(retry.record.version, 2);
+  assert.equal(retry.reservationPending, undefined);
+  assert.equal(finance(env, 'rpd-retry-0001').lpdId, partial.record.id);
+  assert.equal(env.rows.workspaceLpd.length, 1);
+});
+
+test('klien mempertahankan ID draf gagal parsial dan retry mengirim ID serta versi yang tersimpan', async () => {
+  const text = source('LPDClient.html');
+  const saveSource = text.slice(text.indexOf('  function saveDraft()'), text.indexOf('  function sendLpd()'));
+  assert.ok(saveSource.includes('reservationPending'));
+  const calls = [], messages = [];
+  const record = { id: 'saved-lpd-001', version: 1, month: MONTH, period: 'M1-M2', rpbId: 'rpb-001' };
+  const values = { lpdRpbSelect: 'rpb-001', lpdEditorMonth: MONTH, lpdEditorPeriod: 'M1-M2', lpdNote: '', lpdDeadline: '', lpdDeadlineReason: '' };
+  let pending;
+  const c = {
+    state: { busy: false, projectId: P1, notas: [{}], scopeTicket: 1, selectedRpdIds: [], record: null },
+    get: id => ({ value: values[id] || '' }), notePayload: () => [],
+    run: (label, task) => { pending = task(); },
+    rpc: (action, payload) => { calls.push(clone(payload)); return Promise.resolve({ record, calculation: null, reservationPending: true, warnings: ['Reservasi belum berhasil'] }); },
+    applyRecord: saved => { c.state.record = saved; c.state.dirty = false; },
+    renderActionState: () => {},
+    setStatus: (message, kind) => messages.push({ message, kind }),
+    loadList: () => { throw new Error('Partial save must not be presented as a fully completed save'); }
+  };
+  vm.createContext(c);
+  vm.runInContext(saveSource, c);
+  c.saveDraft(); await pending;
+  assert.equal(c.state.record.id, record.id);
+  assert.equal(c.state.dirty, true);
+  assert.equal(messages[0].kind, 'error');
+  c.saveDraft(); await pending;
+  assert.equal(calls[1].record.id, record.id);
+  assert.equal(calls[1].record.version, 1);
+});
+
 test('LPD backend dan skrip halaman LPD dapat diparse tanpa error sintaks', () => {
   assert.doesNotThrow(() => new vm.Script(source('LPD.gs'), { filename: 'LPD.gs' }));
   const script = source('LPDClient.html').match(/<script>([\s\S]*?)<\/script>/);

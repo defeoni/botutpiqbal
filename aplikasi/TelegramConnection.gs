@@ -1,5 +1,5 @@
 // Webhook persists in Telegram; hourly maintenance repairs removed or outdated registration.
-const TELEGRAM_DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycbwm47vlQG89aLRfH8aBN9yGPx0kBFheK74JuUQa25M27bYIIs4Tt-MdTK6rTy4clO2b/exec';
+const TELEGRAM_DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycbx3kZ7z49hBHtZPud98NLd3VFqUvdLWYtp9il7pcr6NLBQieAQkMSFuY9xJyfPwCHZr/exec';
 
 function telegramDeploymentUrl_() {
   const configured = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');

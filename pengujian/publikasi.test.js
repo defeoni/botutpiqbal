@@ -38,6 +38,17 @@ test('export endpoints reject unauthorized callers before cloud reads',()=>{
   const env=vm.createContext({requireAuthorized_(){throw new Error('Unauthorized');}});vm.runInContext(source('DocumentExports.gs'),env);
   assert.throws(()=>env.apiDocumentExport('requests','id',1,'initial','bad',{}),/Unauthorized/);assert.throws(()=>env.apiDocumentExportHistory('requests','id','bad'),/Unauthorized/);
 });
+test('Telegram memakai deployment terbaru sebagai fallback dan mempertahankan override WEB_APP_URL yang valid',()=>{
+  let configured=null;
+  const env=vm.createContext({PropertiesService:{getScriptProperties:()=>({getProperty:()=>configured})}});
+  vm.runInContext(source('TelegramConnection.gs'),env);
+  const current='https://script.google.com/macros/s/AKfycbx3kZ7z49hBHtZPud98NLd3VFqUvdLWYtp9il7pcr6NLBQieAQkMSFuY9xJyfPwCHZr/exec';
+  assert.equal(env.telegramDeploymentUrl_(),current);
+  configured='https://script.google.com/macros/s/test-override/exec';
+  assert.equal(env.telegramDeploymentUrl_(),configured);
+  configured='https://example.com/exec';
+  assert.equal(env.telegramDeploymentUrl_(),current);
+});
 test('Telegram maintenance deduplicates triggers, registers automatically and never claims a failed registration',()=>{
   const props=new Map([['TELEGRAM_BOT_TOKEN','secret'],['OWNER_TELEGRAM_ID','owner']]),triggers=[],lock={tryLock:()=>true,releaseLock(){}};
   let registered=false,attempts=0;

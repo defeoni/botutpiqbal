@@ -12,6 +12,7 @@ assert.ok(prelude.length>1000,'Storage service fixture must exist');
 const environment=new Function('require','__dirname',prelude+'\nreturn environment;')(require,path.join(root,'pengujian'));
 (async()=>{
  const env=environment();
+ env.sandbox.utpWrite_('workspaceProjects',{id:'browser-project-001',name:'Proyek uji browser',code:'BROWSER'},0);
  assert.equal(env.call('bootstrap').capabilities.materialDrafts,true);
  env.state.props.set('UTP_MATERIAL_DRAFTS_ENABLED','false');
  assert.equal(env.call('bootstrap').capabilities.materialDrafts,false);
@@ -25,7 +26,15 @@ const environment=new Function('require','__dirname',prelude+'\nreturn environme
  const errors=[];
  async function connect(page){
   await page.goto(url);
-  await page.evaluate(()=>{window.utpRpc=(action,payload)=>window.__draftBridge(action,payload);switchMainPage('REQUESTS');});
+  await page.evaluate(async ()=>{
+    accessToken='session';
+    invokeServer=(name,args,resolve,reject)=>name==='apiProjects'&&args[0]==='list'
+      ? resolve({projects:[{id:'browser-project-001',name:'Proyek uji browser',code:'BROWSER'}]})
+      : reject(new Error('Unexpected RPC in draft fixture: '+name));
+    await ProjectWorkspace.ready();
+    ProjectWorkspace.select('browser-project-001');
+    window.utpRpc=(action,payload)=>window.__draftBridge(action,payload);switchMainPage('REQUESTS');
+  });
   await page.waitForFunction(()=>UTPFrontend.getState().data?.capabilities?.materialDrafts===true);
  }
  async function newPage(){

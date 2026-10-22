@@ -13,9 +13,10 @@ const environment=new Function('require','__dirname',source.slice(0,source.index
     page.on('pageerror',e=>errors.push(e.message));
     await page.exposeFunction('__workspaceBridge',(action,payload)=>env.plain(env.sandbox.apiWorkspace(action,payload,'session')));
     await page.goto(process.env.UTP_PREVIEW_URL||pathToFileURL(path.join(root,'.local/aplikasi.html')).href);
-    await page.evaluate(()=>{accessToken='session';window.workspaceRpc=(action,payload)=>window.__workspaceBridge(action,payload);});
+    await page.evaluate(()=>{accessToken='session';window.workspaceRpc=(action,payload)=>window.__workspaceBridge(action,payload);ProjectWorkspace.select('legacy');});
     await page.locator('.sidebar-nav [data-project-tool="Tugas"]').click();
     await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('dimuat'));
+    await page.locator('.project-tool-editor > summary').click();
     await page.locator('#projectToolName').fill('Periksa ruang pompa');await page.locator('#projectToolDate').fill('2026-10-19');await page.locator('#tool-assignee').fill('Admin');
     await page.locator('#projectToolForm button[type="submit"], #projectToolForm button:not([type])').first().click();
     await page.waitForFunction(()=>document.getElementById('projectToolMessage').textContent.includes('Tersimpan'));

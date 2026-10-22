@@ -187,4 +187,22 @@
 .utp-board-blocker{background:#fffbeb;color:#92400e;padding:8px;border-radius:6px}
 .utp-board-column.is-drop-target{outline:2px solid #0f766e;outline-offset:-2px;background:#ecfdf5}
 .utp-board-card .utp-actions{flex-direction:column;align-items:stretch}.utp-board-card .utp-button{white-space:normal}
+/* Compact desktop controls; keep labels readable and the board as the default. */
+.utp .utp-content{gap:10px;padding-block:0 10px}
+:is(.utp,.utp-dialog) h2{font-size:22px;letter-spacing:-.4px}
+.utp .utp-page-head{gap:8px 12px;padding-bottom:0}
+.utp .utp-page-head h2+p{margin-top:4px}
+:is(.utp,.utp-dialog) .utp-toolbar{padding:8px;gap:6px;border-radius:8px}
+:is(.utp,.utp-dialog) .utp-card{padding:12px;border-radius:8px}
+:is(.utp,.utp-dialog) :is(input,select,textarea){min-height:34px;padding:7px 9px;font-size:14px}
+:is(.utp,.utp-dialog) input:is([type=checkbox],[type=radio]){width:18px;height:18px;min-height:18px;padding:0}
+:is(.utp,.utp-dialog) .utp-button{min-height:34px;padding:6px 10px;font-size:13px}
+:is(.utp,.utp-dialog) .utp-button.small{min-height:30px;padding:5px 8px;font-size:12px}
+:is(.utp,.utp-dialog) .utp-empty{padding:12px}
+:is(.utp,.utp-dialog) .utp-grid{gap:10px}
+:is(.utp,.utp-dialog) .utp-stat-grid{gap:8px}
+:is(.utp,.utp-dialog) .utp-stat{padding:10px 12px}
+:is(.utp,.utp-dialog) .utp-stat>strong{font-size:24px;margin-block:4px}
+.utp-board-column{flex-basis:210px;padding:8px;border-radius:8px}
+.utp-board-column>h3{font-size:14px;margin-bottom:7px}
 </style>

@@ -33,7 +33,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
       if(key==='HOME') assert.equal(await page.locator('#blank-HOME').isVisible(),true);
       pass('Navigation '+key);
     }
-    await page.locator('#blank-HOME .workspace-hero [data-main="REQUESTS"]').click();
+    await page.locator('#blank-HOME .home-board-panel [data-main="REQUESTS"]').click();
     assert.equal(await page.locator('#utpApp').isVisible(),true);
     pass('Home material action opens workspace');
     for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
@@ -49,6 +49,7 @@ const {chromium} = require(process.argv[2] || 'playwright');
       pass('Material layouts contained at '+viewport.width+'px');
     }
     await page.setViewportSize({width:1440,height:900});
+    await page.evaluate(()=>ProjectWorkspace.select('legacy'));
     await page.evaluate(()=>switchMainPage('REQUESTS'));
     await page.locator('[data-action=new-request]').click();
     await page.locator('#utpRequestFields [name=title]').fill('Permintaan uji frontend');
