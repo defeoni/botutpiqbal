@@ -12,6 +12,7 @@ PARTIALS = {
     "HoHomeView": PROJECT_ROOT / "aplikasi" / "HoHomeView.html",
     "KanbanView": PROJECT_ROOT / "aplikasi" / "KanbanView.html",
     "NotifikasiView": PROJECT_ROOT / "aplikasi" / "NotifikasiView.html",
+    "SpekView": PROJECT_ROOT / "aplikasi" / "SpekView.html",
     "DocumentCenter": PROJECT_ROOT / "aplikasi" / "DocumentCenter.html",
     "ProjectTools": PROJECT_ROOT / "aplikasi" / "ProjectTools.html",
     "WorkspaceClient": PROJECT_ROOT / "aplikasi" / "WorkspaceClient.html",

@@ -17,6 +17,7 @@ const pages = [
   { page: 'RPB', file: 'RPBView.html', marker: 'id="blank-RPB"' },
   { page: 'RPD', file: 'RPD.html', marker: 'id="blank-RPD"' },
   { page: 'LPD', file: 'LPDView.html', marker: 'id="blank-LPD"' },
+  { page: 'SPEC', file: 'SpekView.html', marker: 'id="blank-SPEC"' },
   { page: 'TOOLS', file: 'ProjectTools.html', marker: 'id="blank-TOOLS"' },
   { page: 'MANPOWER', file: 'Index.html', marker: 'id="section-DIRECTORY"' },
   { page: 'PROJECT_SETTINGS', file: 'Index.html', marker: 'id="projectSettingsPage"' },
@@ -57,6 +58,24 @@ test('seluruh menu utama memiliki tujuan yang valid', () => {
   });
   assert.ok(index.includes("include('KanbanView')"), 'Index memuat wadah Kanban Global');
   assert.ok(index.includes("include('NotifikasiView')"), 'Index memuat wadah Notifikasi');
+});
+
+test('struktur menu Material dan Head Office sesuai spesifikasi', () => {
+  const index = read('Index.html');
+  const navigation = index.slice(index.indexOf('<nav class="sidebar-nav"'), index.indexOf('</nav>'));
+  const projectSection = navigation.slice(navigation.indexOf('data-workspace-scope="project"'), navigation.indexOf('data-workspace-scope="ho"'));
+  const hoSection = navigation.slice(navigation.indexOf('data-workspace-scope="ho"'));
+  const folder = projectSection.match(/<details class="nav-folder"[^>]*>([\s\S]*?)<\/details>/);
+  assert.match(projectSection, /<h2 id="menuProject">PROYEK<\/h2>/, 'heading tingkat satu grup proyek tertulis PROYEK');
+  assert.ok(folder, 'grup Material memakai details.nav-folder');
+  assert.match(folder[0], /<summary>[\s\S]*?<span>Material<\/span>/, 'level dua grup bernama Material');
+  assert.deepEqual(
+    [...folder[1].matchAll(/data-main="([A-Z_]+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2]]),
+    [['CATALOG', 'Katalog Semua Material'], ['SPEC', 'Spek'], ['APPROVALS', 'Approval'], ['REQUESTS', 'Permintaan'], ['ARRIVAL', 'Penerimaan']],
+    'level tiga Material berurutan sesuai spesifikasi'
+  );
+  assert.ok(!/data-main="LPD"/.test(projectSection), 'LPD bukan menu ruang proyek');
+  assert.ok(/data-main="LPD"[^>]*>LPD</.test(hoSection), 'menu LPD berada di bawah HEAD OFFICE');
 });
 
 test('wadah baru terdaftar pada generator clasp dan pratinjau', () => {

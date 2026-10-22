@@ -1,0 +1,3077 @@
+<style>
+#blank-SPEC.spek-root {
+  --spek-border: #d8dee8;
+  --spek-text: #1f2937;
+  --spek-muted: #667085;
+  --spek-primary: #2558a5;
+  --spek-primary-soft: #eef4ff;
+  --spek-warning: #875200;
+  --spek-warning-soft: #fff7e8;
+  --spek-error: #b42318;
+  --spek-error-soft: #fff1f0;
+  --spek-success: #217a4b;
+  --spek-success-soft: #edf9f2;
+  color: var(--spek-text);
+  font-size: 14px;
+}
+
+#blank-SPEC .spek-toolbar,
+#blank-SPEC .spek-panel,
+#blank-SPEC .spek-status {
+  border: 1px solid var(--spek-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+#blank-SPEC .spek-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+#blank-SPEC .spek-toolbar h3,
+#blank-SPEC .spek-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #101828;
+}
+
+#blank-SPEC .spek-toolbar p,
+#blank-SPEC .spek-help,
+#blank-SPEC .spek-muted {
+  margin: 0;
+  color: var(--spek-muted);
+  font-size: 12px;
+}
+
+#blank-SPEC .spek-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+#blank-SPEC .spek-field > label,
+#blank-SPEC .spek-label {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#blank-SPEC .spek-input,
+#blank-SPEC .spek-textarea {
+  width: 100%;
+  border: 1px solid #bcc5d2;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--spek-text);
+  font: inherit;
+}
+
+#blank-SPEC .spek-input {
+  min-height: 36px;
+  padding: 7px 9px;
+}
+
+#blank-SPEC .spek-textarea {
+  min-height: 68px;
+  padding: 8px 9px;
+  resize: vertical;
+}
+
+#blank-SPEC .spek-btn {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #bcc5d2;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--spek-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#blank-SPEC .spek-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+#blank-SPEC .spek-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+#blank-SPEC .spek-btn-primary {
+  border-color: var(--spek-primary);
+  background: var(--spek-primary);
+  color: #fff;
+}
+
+#blank-SPEC .spek-btn-danger {
+  border-color: #efb1ad;
+  color: var(--spek-error);
+}
+
+#blank-SPEC .spek-btn-small {
+  min-height: 29px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+#blank-SPEC :focus-visible {
+  outline: 3px solid #7fa2d8;
+  outline-offset: 2px;
+}
+
+#blank-SPEC .spek-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  color: var(--spek-muted);
+  font-size: 12px;
+}
+
+#blank-SPEC .spek-status[data-tone="warning"] {
+  border-color: #e6c37a;
+  background: var(--spek-warning-soft);
+  color: var(--spek-warning);
+}
+
+#blank-SPEC .spek-status[data-tone="error"] {
+  border-color: #efb1ad;
+  background: var(--spek-error-soft);
+  color: var(--spek-error);
+}
+
+#blank-SPEC .spek-status[data-tone="success"] {
+  border-color: #a8d7bc;
+  background: var(--spek-success-soft);
+  color: var(--spek-success);
+}
+
+#blank-SPEC .spek-panel {
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+#blank-SPEC .spek-state {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 145px;
+  padding: 22px;
+  color: var(--spek-muted);
+  text-align: center;
+}
+
+#blank-SPEC .spek-state strong {
+  color: var(--spek-text);
+}
+
+#blank-SPEC .spek-table-wrap {
+  overflow-x: auto;
+}
+
+#blank-SPEC .spek-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#blank-SPEC .spek-table th,
+#blank-SPEC .spek-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e7eaf0;
+  text-align: left;
+  vertical-align: top;
+}
+
+#blank-SPEC .spek-table th {
+  background: #f8fafc;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#blank-SPEC .spek-col-doc {
+  width: 24%;
+}
+
+#blank-SPEC .spek-col-version {
+  width: 12%;
+}
+
+#blank-SPEC .spek-col-count {
+  width: 12%;
+}
+
+#blank-SPEC .spek-col-summary {
+  width: 36%;
+}
+
+#blank-SPEC .spek-col-actions {
+  width: 16%;
+}
+
+#blank-SPEC .spek-main {
+  display: block;
+  color: #101828;
+  font-weight: 700;
+}
+
+#blank-SPEC .spek-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--spek-muted);
+  font-size: 12px;
+}
+
+#blank-SPEC .spek-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+#blank-SPEC .spek-detail-row td {
+  padding: 10px 18px 12px 28px;
+  background: #fafbfd;
+}
+
+#blank-SPEC .spek-detail-list {
+  display: grid;
+  gap: 8px;
+}
+
+#blank-SPEC .spek-detail-item {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, .8fr)
+    minmax(220px, 1.2fr)
+    minmax(160px, .8fr)
+    minmax(150px, .7fr);
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e7eaf0;
+}
+
+#blank-SPEC .spek-detail-item:last-child {
+  border-bottom: 0;
+}
+
+#blank-SPEC .spek-money {
+  font-variant-numeric: tabular-nums;
+}
+
+#blank-SPEC .spek-dialog {
+  width: min(980px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid #bcc5d2;
+  border-radius: 12px;
+  color: var(--spek-text);
+  background: #fff;
+}
+
+#blank-SPEC .spek-dialog::backdrop {
+  background: #10182875;
+}
+
+#blank-SPEC .spek-form {
+  display: grid;
+  max-height: calc(100vh - 50px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+#blank-SPEC .spek-dialog-head,
+#blank-SPEC .spek-dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+#blank-SPEC .spek-dialog-head {
+  border-bottom: 1px solid var(--spek-border);
+}
+
+#blank-SPEC .spek-dialog-foot {
+  justify-content: flex-end;
+  border-top: 1px solid var(--spek-border);
+}
+
+#blank-SPEC .spek-dialog-body {
+  overflow: auto;
+  padding: 14px;
+}
+
+#blank-SPEC .spek-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #344054;
+  font: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+#blank-SPEC .spek-close:hover {
+  background: #f2f4f7;
+}
+
+#blank-SPEC .spek-doc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+#blank-SPEC .spek-wide {
+  grid-column: 1 / -1;
+}
+
+#blank-SPEC .spek-items-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+#blank-SPEC .spek-items-head h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+#blank-SPEC .spek-item-editor {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid var(--spek-border);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+#blank-SPEC .spek-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#blank-SPEC .spek-item-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, .8fr)
+    minmax(240px, 1.2fr)
+    minmax(130px, .55fr)
+    minmax(140px, .65fr);
+  gap: 10px;
+}
+
+#blank-SPEC .spek-item-note,
+#blank-SPEC .spek-item-brands {
+  grid-column: span 2;
+}
+
+#blank-SPEC .spek-catalog-picked {
+  padding: 8px 9px;
+  border: 1px solid #bfd0ea;
+  border-radius: 7px;
+  background: var(--spek-primary-soft);
+}
+
+#blank-SPEC .spek-error {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #efb1ad;
+  border-radius: 7px;
+  background: var(--spek-error-soft);
+  color: var(--spek-error);
+  font-size: 12px;
+}
+
+#blank-SPEC .spek-catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+#blank-SPEC .spek-catalog-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+#blank-SPEC .spek-catalog-result {
+  display: grid;
+  grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 9px;
+  border: 1px solid var(--spek-border);
+  border-radius: 7px;
+  background: #fff;
+}
+
+#blank-SPEC .spek-catalog-meta {
+  overflow: hidden;
+  color: var(--spek-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#blank-SPEC .spek-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#blank-SPEC [hidden] {
+  display: none !important;
+}
+
+@media (max-width: 1100px) {
+  #blank-SPEC .spek-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 360px) auto;
+  }
+
+  #blank-SPEC .spek-item-grid,
+  #blank-SPEC .spek-detail-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>
+
+<section
+  id="blank-SPEC"
+  class="settings-page spek-root"
+  data-main-page="SPEC"
+  hidden
+>
+  <div class="page-intro">
+    <p class="home-eyebrow">PROYEK · MATERIAL</p>
+    <h2>Spek</h2>
+    <p>
+      Spesifikasi material per proyek. Katalog dipakai sebagai referensi
+      bersama; approval proyek lain tidak ikut terbawa.
+    </p>
+  </div>
+
+  <div class="spek-toolbar">
+    <div>
+      <h3>Dokumen Spek</h3>
+      <p data-spek-project>Belum ada proyek aktif.</p>
+    </div>
+
+    <div class="spek-field">
+      <label for="spek-search">Cari Spek</label>
+      <input
+        id="spek-search"
+        class="spek-input"
+        type="search"
+        autocomplete="off"
+        placeholder="Cari judul, barang, spesifikasi, atau merek"
+        data-spek-search
+      >
+    </div>
+
+    <button
+      class="spek-btn spek-btn-primary"
+      type="button"
+      data-spek-action="add"
+    >
+      Tambah Spek
+    </button>
+  </div>
+
+  <div
+    class="spek-status"
+    data-spek-status
+    role="status"
+  >
+    Spek belum dibuka.
+  </div>
+
+  <section
+    class="spek-panel"
+    aria-labelledby="spek-list-title"
+  >
+    <h3
+      id="spek-list-title"
+      class="spek-muted"
+      hidden
+    >
+      Daftar Spek
+    </h3>
+
+    <div
+      class="spek-state"
+      data-spek-state
+    >
+      <strong>Spek belum dibuka</strong>
+      <span>Buka halaman Spek untuk memuat data proyek aktif.</span>
+    </div>
+
+    <div
+      class="spek-table-wrap"
+      data-spek-table-wrap
+      hidden
+    >
+      <table class="spek-table">
+        <thead>
+          <tr>
+            <th class="spek-col-doc">Dokumen</th>
+            <th class="spek-col-version">Versi</th>
+            <th class="spek-col-count">Jumlah Item</th>
+            <th class="spek-col-summary">Ringkasan Barang</th>
+            <th class="spek-col-actions">Aksi</th>
+          </tr>
+        </thead>
+        <tbody data-spek-body></tbody>
+      </table>
+    </div>
+  </section>
+
+  <dialog
+    class="spek-dialog"
+    data-spek-editor
+  >
+    <form
+      class="spek-form"
+      data-spek-form
+    >
+      <header class="spek-dialog-head">
+        <div>
+          <h3 data-spek-editor-title>Tambah Spek</h3>
+          <p
+            class="spek-help"
+            data-spek-editor-meta
+          >
+            Dokumen baru.
+          </p>
+        </div>
+
+        <button
+          class="spek-close"
+          type="button"
+          aria-label="Tutup dialog Spek"
+          data-spek-action="close-editor"
+        >
+          ×
+        </button>
+      </header>
+
+      <div class="spek-dialog-body">
+        <div class="spek-doc-grid">
+          <div class="spek-field spek-wide">
+            <label for="spek-title">Judul Spek</label>
+            <input
+              id="spek-title"
+              class="spek-input"
+              type="text"
+              maxlength="200"
+              required
+              data-spek-title
+            >
+          </div>
+
+          <div class="spek-field spek-wide">
+            <label for="spek-note">Catatan Spek</label>
+            <textarea
+              id="spek-note"
+              class="spek-textarea"
+              maxlength="2000"
+              data-spek-note
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="spek-items-head">
+          <div>
+            <h4>Item Material</h4>
+            <p class="spek-help">
+              Satu dokumen dapat memuat beberapa barang. Tidak ada jumlah RAP
+              atau kebutuhan total proyek.
+            </p>
+          </div>
+
+          <button
+            class="spek-btn spek-btn-small"
+            type="button"
+            data-spek-action="add-item"
+          >
+            Tambah Item
+          </button>
+        </div>
+
+        <div data-spek-items></div>
+
+        <div
+          class="spek-error"
+          data-spek-error
+          hidden
+          role="alert"
+        ></div>
+      </div>
+
+      <footer class="spek-dialog-foot">
+        <button
+          class="spek-btn"
+          type="button"
+          data-spek-action="close-editor"
+        >
+          Batal
+        </button>
+
+        <button
+          class="spek-btn spek-btn-primary"
+          type="submit"
+          data-spek-submit
+        >
+          Simpan
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog
+    class="spek-dialog"
+    data-spek-catalog-dialog
+  >
+    <div class="spek-form">
+      <header class="spek-dialog-head">
+        <div>
+          <h3>Pilih Barang dari Katalog</h3>
+          <p class="spek-help">
+            Pencarian memakai katalog bersama. Kode katalog dipakai sebagai
+            referensi Spek.
+          </p>
+        </div>
+
+        <button
+          class="spek-close"
+          type="button"
+          aria-label="Tutup pencarian katalog"
+          data-spek-action="close-catalog"
+        >
+          ×
+        </button>
+      </header>
+
+      <div class="spek-dialog-body">
+        <div class="spek-catalog-toolbar">
+          <div class="spek-field">
+            <label for="spek-catalog-search">Cari katalog</label>
+            <input
+              id="spek-catalog-search"
+              class="spek-input"
+              type="search"
+              autocomplete="off"
+              placeholder="Ketik kode atau nama barang"
+              data-spek-catalog-search
+            >
+          </div>
+
+          <button
+            class="spek-btn"
+            type="button"
+            data-spek-action="catalog-search"
+          >
+            Cari
+          </button>
+        </div>
+
+        <div
+          class="spek-status"
+          data-spek-catalog-status
+          role="status"
+        >
+          Ketik pencarian katalog.
+        </div>
+
+        <div
+          class="spek-catalog-results"
+          data-spek-catalog-results
+        ></div>
+
+        <div
+          class="spek-pager"
+          data-spek-catalog-pager
+          hidden
+        >
+          <button
+            class="spek-btn spek-btn-small"
+            type="button"
+            data-spek-action="catalog-prev"
+          >
+            Sebelumnya
+          </button>
+
+          <span
+            class="spek-muted"
+            data-spek-catalog-page
+          ></span>
+
+          <button
+            class="spek-btn spek-btn-small"
+            type="button"
+            data-spek-action="catalog-next"
+          >
+            Berikutnya
+          </button>
+        </div>
+      </div>
+
+      <footer class="spek-dialog-foot">
+        <button
+          class="spek-btn"
+          type="button"
+          data-spek-action="close-catalog"
+        >
+          Tutup
+        </button>
+      </footer>
+    </div>
+  </dialog>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  const root = document.getElementById('blank-SPEC');
+  if (!root) return;
+
+  const $ = (selector) => root.querySelector(selector);
+  const $$ = (selector) => Array.from(root.querySelectorAll(selector));
+
+  const refs = {
+    project: $('[data-spek-project]'),
+    search: $('[data-spek-search]'),
+    status: $('[data-spek-status]'),
+    state: $('[data-spek-state]'),
+    tableWrap: $('[data-spek-table-wrap]'),
+    body: $('[data-spek-body]'),
+    addButton: $('[data-spek-action="add"]'),
+
+    editor: $('[data-spek-editor]'),
+    form: $('[data-spek-form]'),
+    editorTitle: $('[data-spek-editor-title]'),
+    editorMeta: $('[data-spek-editor-meta]'),
+    title: $('[data-spek-title]'),
+    note: $('[data-spek-note]'),
+    items: $('[data-spek-items]'),
+    error: $('[data-spek-error]'),
+    submit: $('[data-spek-submit]'),
+
+    catalogDialog: $('[data-spek-catalog-dialog]'),
+    catalogSearch: $('[data-spek-catalog-search]'),
+    catalogStatus: $('[data-spek-catalog-status]'),
+    catalogResults: $('[data-spek-catalog-results]'),
+    catalogPager: $('[data-spek-catalog-pager]'),
+    catalogPage: $('[data-spek-catalog-page]'),
+    catalogPrev: $('[data-spek-action="catalog-prev"]'),
+    catalogNext: $('[data-spek-action="catalog-next"]')
+  };
+
+  const state = {
+    generation: 0,
+    listTicket: 0,
+    catalogTicket: 0,
+    searchTimer: null,
+    catalogTimer: null,
+
+    projectId: '',
+    project: null,
+
+    records: [],
+    expandedId: '',
+
+    editingRecord: null,
+    createId: '',
+    draftItems: [],
+
+    catalogTarget: -1,
+    catalogOffset: 0,
+    catalogLimit: 8,
+    catalogHasMore: false,
+    catalogTotal: 0,
+    catalogResultItems: [],
+
+    dirty: false,
+    ownsScopeDirty: false,
+    busy: false,
+    opened: false
+  };
+
+  function text(value) {
+    return value == null ? '' : String(value);
+  }
+
+  function make(tag, className, value) {
+    const node = document.createElement(tag);
+
+    if (className) {
+      node.className = className;
+    }
+
+    if (value !== undefined) {
+      node.textContent = text(value);
+    }
+
+    return node;
+  }
+
+  function formatMoney(value) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ''
+    ) {
+      return '—';
+    }
+
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+      return text(value);
+    }
+
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0
+    }).format(number);
+  }
+
+  function errorMessage(error) {
+    return error && error.message
+      ? error.message
+      : text(error || 'Terjadi kesalahan.');
+  }
+
+  function setStatus(message, tone) {
+    refs.status.textContent = message;
+
+    if (tone) {
+      refs.status.dataset.tone = tone;
+    } else {
+      delete refs.status.dataset.tone;
+    }
+  }
+
+  function setCatalogStatus(message, tone) {
+    refs.catalogStatus.textContent = message;
+
+    if (tone) {
+      refs.catalogStatus.dataset.tone = tone;
+    } else {
+      delete refs.catalogStatus.dataset.tone;
+    }
+  }
+
+  function showEditorError(message) {
+    refs.error.textContent = message;
+    refs.error.hidden = false;
+  }
+
+  function clearEditorError() {
+    refs.error.textContent = '';
+    refs.error.hidden = true;
+  }
+
+  function setListState(title, message) {
+    refs.state.replaceChildren(
+      make('strong', null, title),
+      make('span', null, message)
+    );
+
+    refs.state.hidden = false;
+    refs.tableWrap.hidden = true;
+  }
+
+  function setDirty(value) {
+    state.dirty = value === true;
+
+    if (state.dirty) {
+      if (!window.UTP_SCOPE_DIRTY) {
+        window.UTP_SCOPE_DIRTY = true;
+        state.ownsScopeDirty = true;
+      }
+    } else if (state.ownsScopeDirty) {
+      window.UTP_SCOPE_DIRTY = false;
+      state.ownsScopeDirty = false;
+    }
+  }
+
+  function activeTokenAvailable() {
+    return (
+      typeof accessToken !== 'undefined' &&
+      !!accessToken && window.UTP_FRONTEND_PREVIEW !== true
+    );
+  }
+
+  function callMaterialSpec(action, payload) {
+    return new Promise((resolve, reject) => {
+      if (!activeTokenAvailable()) {
+        reject(
+          new Error(
+            'Masuk data server untuk membaca atau menyimpan Spek.'
+          )
+        );
+        return;
+      }
+
+      if (typeof invokeServer !== 'function') {
+        reject(
+          new Error(
+            'Transport aplikasi belum tersedia.'
+          )
+        );
+        return;
+      }
+
+      invokeServer(
+        'apiMaterialSpec',
+        [action, payload, accessToken],
+        resolve,
+        reject
+      );
+    });
+  }
+
+  function makeCreateId() {
+    if (
+      window.crypto &&
+      typeof window.crypto.randomUUID === 'function'
+    ) {
+      return 'spek-' + window.crypto.randomUUID();
+    }
+
+    return (
+      'spek-' +
+      Date.now().toString(36) +
+      '-' +
+      Math.random().toString(36).slice(2, 12)
+    );
+  }
+
+  function blankItem() {
+    return {
+      catalogCode: '',
+      name: '',
+      specification: '',
+      unit: '',
+      brandsText: '',
+      priceText: '',
+      note: ''
+    };
+  }
+
+  function itemFromRecord(item) {
+    return {
+      catalogCode: text(item && item.catalogCode),
+      name: text(item && item.name),
+      specification: text(item && item.specification),
+      unit: text(item && item.unit),
+
+      brandsText:
+        Array.isArray(item && item.brands)
+          ? item.brands.join('\n')
+          : '',
+
+      priceText:
+        item &&
+        item.price !== null &&
+        item.price !== undefined
+          ? text(item.price)
+          : '',
+
+      note: text(item && item.note)
+    };
+  }
+
+  function uniqueBrands(value) {
+    const seen = new Set();
+
+    return text(value)
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .filter((entry) => {
+        if (!entry || seen.has(entry)) {
+          return false;
+        }
+
+        seen.add(entry);
+        return true;
+      });
+  }
+
+  function syncDraftFromItemEditors() {
+    const editors =
+      $$('[data-spek-item-index]');
+
+    editors.forEach((editor) => {
+      const index =
+        Number(
+          editor.dataset.spekItemIndex
+        );
+
+      const item =
+        state.draftItems[index];
+
+      if (!item) return;
+
+      item.name =
+        $(
+          '[data-spek-item-name="' +
+          index +
+          '"]'
+        ).value;
+
+      item.specification =
+        $(
+          '[data-spek-item-spec="' +
+          index +
+          '"]'
+        ).value;
+
+      item.unit =
+        $(
+          '[data-spek-item-unit="' +
+          index +
+          '"]'
+        ).value;
+
+      item.brandsText =
+        $(
+          '[data-spek-item-brands="' +
+          index +
+          '"]'
+        ).value;
+
+      item.priceText =
+        $(
+          '[data-spek-item-price="' +
+          index +
+          '"]'
+        ).value;
+
+      item.note =
+        $(
+          '[data-spek-item-note="' +
+          index +
+          '"]'
+        ).value;
+    });
+  }
+
+  function renderItems() {
+    refs.items.replaceChildren();
+
+    state.draftItems.forEach(
+      (item, index) => {
+        const editor =
+          make(
+            'section',
+            'spek-item-editor'
+          );
+
+        editor.dataset.spekItemIndex =
+          String(index);
+
+        const head =
+          make(
+            'div',
+            'spek-item-head'
+          );
+
+        const heading =
+          make('div');
+
+        heading.append(
+          make(
+            'span',
+            'spek-main',
+            'Item ' + (index + 1)
+          ),
+
+          make(
+            'span',
+            'spek-sub',
+            item.catalogCode
+              ? 'Kode katalog: ' +
+                item.catalogCode
+              : 'Belum memilih kode katalog'
+          )
+        );
+
+        const headActions =
+          make(
+            'div',
+            'spek-actions'
+          );
+
+        const pick =
+          make(
+            'button',
+            'spek-btn spek-btn-small',
+            item.catalogCode
+              ? 'Ganti katalog'
+              : 'Pilih katalog'
+          );
+
+        pick.type = 'button';
+        pick.dataset.spekAction =
+          'pick-catalog';
+        pick.dataset.index =
+          String(index);
+
+        headActions.append(pick);
+
+        if (
+          state.draftItems.length > 1
+        ) {
+          const remove =
+            make(
+              'button',
+              'spek-btn spek-btn-small spek-btn-danger',
+              'Hapus'
+            );
+
+          remove.type = 'button';
+
+          remove.dataset.spekAction =
+            'remove-item';
+
+          remove.dataset.index =
+            String(index);
+
+          headActions.append(remove);
+        }
+
+        head.append(
+          heading,
+          headActions
+        );
+
+        const picked =
+          make(
+            'div',
+            'spek-catalog-picked'
+          );
+
+        picked.append(
+          make(
+            'span',
+            'spek-main',
+            item.catalogCode ||
+              'Kode katalog belum dipilih'
+          ),
+
+          make(
+            'span',
+            'spek-sub',
+            item.catalogCode
+              ? 'Referensi katalog dipilih. Nama dan satuan tetap dicatat eksplisit pada Spek.'
+              : 'Gunakan pencarian katalog untuk memilih referensi.'
+          )
+        );
+
+        const grid =
+          make(
+            'div',
+            'spek-item-grid'
+          );
+
+        const nameField =
+          make(
+            'div',
+            'spek-field'
+          );
+
+        const nameLabel =
+          make(
+            'label',
+            null,
+            'Nama barang'
+          );
+
+        const nameInput =
+          make(
+            'input',
+            'spek-input'
+          );
+
+        nameInput.type = 'text';
+        nameInput.maxLength = 200;
+        nameInput.required = true;
+        nameInput.value = item.name;
+
+        nameInput.dataset.spekItemName =
+          String(index);
+
+        nameLabel.append(nameInput);
+        nameField.append(nameLabel);
+
+        const specField =
+          make(
+            'div',
+            'spek-field'
+          );
+
+        const specLabel =
+          make(
+            'label',
+            null,
+            'Bahan / Spesifikasi / Ukuran'
+          );
+
+        const specInput =
+          make(
+            'input',
+            'spek-input'
+          );
+
+        specInput.type = 'text';
+        specInput.maxLength = 500;
+        specInput.required = true;
+        specInput.value =
+          item.specification;
+
+        specInput.dataset.spekItemSpec =
+          String(index);
+
+        specLabel.append(specInput);
+        specField.append(specLabel);
+
+        const unitField =
+          make(
+            'div',
+            'spek-field'
+          );
+
+        const unitLabel =
+          make(
+            'label',
+            null,
+            'Satuan'
+          );
+
+        const unitInput =
+          make(
+            'input',
+            'spek-input'
+          );
+
+        unitInput.type = 'text';
+        unitInput.maxLength = 40;
+        unitInput.required = true;
+        unitInput.value = item.unit;
+
+        unitInput.dataset.spekItemUnit =
+          String(index);
+
+        unitLabel.append(unitInput);
+        unitField.append(unitLabel);
+
+        const priceField =
+          make(
+            'div',
+            'spek-field'
+          );
+
+        const priceLabel =
+          make(
+            'label',
+            null,
+            'Harga opsional'
+          );
+
+        const priceInput =
+          make(
+            'input',
+            'spek-input spek-money'
+          );
+
+        priceInput.type = 'number';
+        priceInput.min = '0';
+        priceInput.max =
+          '1000000000000';
+        priceInput.step = '1';
+        priceInput.placeholder =
+          'Boleh kosong';
+        priceInput.value =
+          item.priceText;
+
+        priceInput.dataset.spekItemPrice =
+          String(index);
+
+        priceLabel.append(priceInput);
+        priceField.append(priceLabel);
+
+        const brandsField =
+          make(
+            'div',
+            'spek-field spek-item-brands'
+          );
+
+        const brandsLabel =
+          make(
+            'label',
+            null,
+            'Kandidat merek'
+          );
+
+        const brandsInput =
+          make(
+            'textarea',
+            'spek-textarea'
+          );
+
+        brandsInput.maxLength = 1000;
+
+        brandsInput.placeholder =
+          'Satu merek per baris; maksimal 10 kandidat';
+
+        brandsInput.value =
+          item.brandsText;
+
+        brandsInput.dataset.spekItemBrands =
+          String(index);
+
+        brandsLabel.append(
+          brandsInput
+        );
+
+        brandsField.append(
+          brandsLabel
+        );
+
+        const noteField =
+          make(
+            'div',
+            'spek-field spek-item-note'
+          );
+
+        const noteLabel =
+          make(
+            'label',
+            null,
+            'Catatan item'
+          );
+
+        const noteInput =
+          make(
+            'textarea',
+            'spek-textarea'
+          );
+
+        noteInput.maxLength = 1000;
+        noteInput.value = item.note;
+
+        noteInput.dataset.spekItemNote =
+          String(index);
+
+        noteLabel.append(noteInput);
+        noteField.append(noteLabel);
+
+        grid.append(
+          nameField,
+          specField,
+          unitField,
+          priceField,
+          brandsField,
+          noteField
+        );
+
+        editor.append(
+          head,
+          picked,
+          grid
+        );
+
+        refs.items.append(editor);
+      }
+    );
+  }
+
+  function summaryItems(record) {
+    const items =
+      Array.isArray(record.items)
+        ? record.items
+        : [];
+
+    if (!items.length) {
+      return 'Belum ada item';
+    }
+
+    const labels =
+      items
+        .slice(0, 3)
+        .map((item) => {
+          const name =
+            text(item.name) ||
+            text(item.catalogCode) ||
+            'Barang';
+
+          const specification =
+            text(item.specification);
+
+          return specification
+            ? name +
+                ' · ' +
+                specification
+            : name;
+        });
+
+    if (items.length > 3) {
+      labels.push(
+        '+' +
+        (items.length - 3) +
+        ' item'
+      );
+    }
+
+    return labels.join('; ');
+  }
+
+  function renderList() {
+    refs.body.replaceChildren();
+
+    if (!state.records.length) {
+      setListState(
+        'Belum ada Spek',
+        refs.search.value.trim()
+          ? 'Tidak ada dokumen yang cocok dengan pencarian.'
+          : 'Buat dokumen Spek pertama untuk proyek ini.'
+      );
+
+      return;
+    }
+
+    refs.state.hidden = true;
+    refs.tableWrap.hidden = false;
+
+    state.records.forEach(
+      (record) => {
+        const row =
+          document.createElement('tr');
+
+        const titleCell =
+          document.createElement('td');
+
+        titleCell.append(
+          make(
+            'span',
+            'spek-main',
+            record.title ||
+              'Spek tanpa judul'
+          ),
+
+          make(
+            'span',
+            'spek-sub',
+            record.note ||
+              'Tanpa catatan'
+          )
+        );
+
+        const versionCell =
+          make(
+            'td',
+            null,
+            record.version == null
+              ? '—'
+              : record.version
+          );
+
+        const countCell =
+          make(
+            'td',
+            null,
+            Array.isArray(record.items)
+              ? record.items.length
+              : 0
+          );
+
+        const itemCell =
+          make(
+            'td',
+            null,
+            summaryItems(record)
+          );
+
+        const actionCell =
+          document.createElement('td');
+
+        const actions =
+          make(
+            'div',
+            'spek-actions'
+          );
+
+        const detail =
+          make(
+            'button',
+            'spek-btn spek-btn-small',
+            state.expandedId ===
+              String(record.id)
+              ? 'Tutup'
+              : 'Detail'
+          );
+
+        detail.type = 'button';
+
+        detail.dataset.spekAction =
+          'detail';
+
+        detail.dataset.id =
+          text(record.id);
+
+        const edit =
+          make(
+            'button',
+            'spek-btn spek-btn-small',
+            'Edit'
+          );
+
+        edit.type = 'button';
+
+        edit.dataset.spekAction =
+          'edit';
+
+        edit.dataset.id =
+          text(record.id);
+
+        actions.append(
+          detail,
+          edit
+        );
+
+        actionCell.append(actions);
+
+        row.append(
+          titleCell,
+          versionCell,
+          countCell,
+          itemCell,
+          actionCell
+        );
+
+        refs.body.append(row);
+
+        if (
+          state.expandedId ===
+          String(record.id)
+        ) {
+          const detailRow =
+            make(
+              'tr',
+              'spek-detail-row'
+            );
+
+          const detailCell =
+            document.createElement(
+              'td'
+            );
+
+          detailCell.colSpan = 5;
+
+          const list =
+            make(
+              'div',
+              'spek-detail-list'
+            );
+
+          (
+            Array.isArray(record.items)
+              ? record.items
+              : []
+          ).forEach((item) => {
+            const itemRow =
+              make(
+                'div',
+                'spek-detail-item'
+              );
+
+            const first =
+              make('div');
+
+            first.append(
+              make(
+                'span',
+                'spek-main',
+                item.name ||
+                  item.catalogCode ||
+                  'Barang'
+              ),
+
+              make(
+                'span',
+                'spek-sub',
+                item.catalogCode
+                  ? 'Kode: ' +
+                    item.catalogCode
+                  : 'Kode katalog belum dicatat'
+              )
+            );
+
+            const second =
+              make('div');
+
+            second.append(
+              make(
+                'span',
+                'spek-main',
+                item.specification ||
+                  'Spesifikasi belum dicatat'
+              ),
+
+              make(
+                'span',
+                'spek-sub',
+                item.unit
+                  ? 'Satuan: ' +
+                    item.unit
+                  : 'Satuan belum dicatat'
+              )
+            );
+
+            const third =
+              make('div');
+
+            third.append(
+              make(
+                'span',
+                'spek-main',
+                Array.isArray(
+                  item.brands
+                ) &&
+                item.brands.length
+                  ? item.brands.join(', ')
+                  : 'Merek belum dicatat'
+              ),
+
+              make(
+                'span',
+                'spek-sub',
+                item.note ||
+                  'Tanpa catatan item'
+              )
+            );
+
+            const fourth =
+              make('div');
+
+            fourth.append(
+              make(
+                'span',
+                'spek-main spek-money',
+                formatMoney(
+                  item.price
+                )
+              ),
+
+              make(
+                'span',
+                'spek-sub',
+                'Harga referensi opsional'
+              )
+            );
+
+            itemRow.append(
+              first,
+              second,
+              third,
+              fourth
+            );
+
+            list.append(itemRow);
+          });
+
+          if (
+            !Array.isArray(
+              record.items
+            ) ||
+            !record.items.length
+          ) {
+            list.append(
+              make(
+                'p',
+                'spek-muted',
+                'Dokumen ini belum memiliki item.'
+              )
+            );
+          }
+
+          detailCell.append(list);
+          detailRow.append(detailCell);
+          refs.body.append(detailRow);
+        }
+      }
+    );
+  }
+
+  async function resolveProject() {
+    if (!window.ProjectWorkspace) {
+      throw new Error(
+        'Konteks proyek belum tersedia.'
+      );
+    }
+
+    await window.ProjectWorkspace.ready();
+
+    const projectId =
+      window.ProjectWorkspace
+        .getActiveId();
+
+    const project =
+      window.ProjectWorkspace
+        .getActive();
+
+    if (
+      !projectId ||
+      projectId === 'all' ||
+      projectId === 'legacy' ||
+      !project
+    ) {
+      state.projectId = '';
+      state.project = null;
+
+      refs.project.textContent =
+        'Pilih satu proyek aktif untuk membuka Spek.';
+
+      refs.addButton.disabled = true;
+
+      setListState(
+        'Pilih proyek',
+        'Spek hanya dapat dibuka untuk satu proyek aktif.'
+      );
+
+      setStatus(
+        'Pilih satu proyek pada pemilih proyek sebelum membaca atau menyimpan Spek.',
+        'warning'
+      );
+
+      return false;
+    }
+
+    state.projectId =
+      String(projectId);
+
+    state.project =
+      project;
+
+    refs.project.textContent =
+      project.name
+        ? 'Proyek: ' +
+          project.name
+        : 'Proyek aktif: ' +
+          state.projectId;
+
+    refs.addButton.disabled =
+      !activeTokenAvailable();
+
+    return true;
+  }
+
+  async function loadSpecs() {
+    const projectId =
+      state.projectId;
+
+    if (!projectId) {
+      return;
+    }
+
+    const generation =
+      state.generation;
+
+    const ticket =
+      ++state.listTicket;
+
+    const query =
+      refs.search.value.trim();
+
+    setListState(
+      'Memuat Spek…',
+      'Mengambil dokumen dari proyek aktif.'
+    );
+
+    try {
+      const result =
+        await callMaterialSpec(
+          'listSpecs',
+          {
+            projectId,
+            query,
+            limit: 100,
+            offset: 0
+          }
+        );
+
+      if (
+        generation !==
+          state.generation ||
+        ticket !==
+          state.listTicket ||
+        projectId !==
+          state.projectId
+      ) {
+        return;
+      }
+
+      state.records =
+        Array.isArray(
+          result &&
+          result.records
+        )
+          ? result.records
+          : [];
+
+      renderList();
+
+      setStatus(
+        'Menampilkan ' +
+        state.records.length +
+        ' dari ' +
+        Number(
+          result &&
+          result.total ||
+          state.records.length
+        ) +
+        ' dokumen Spek.'
+      );
+    } catch (error) {
+      if (
+        generation !==
+          state.generation ||
+        ticket !==
+          state.listTicket ||
+        projectId !==
+          state.projectId
+      ) {
+        return;
+      }
+
+      state.records = [];
+
+      setListState(
+        'Spek tidak dapat dimuat',
+        errorMessage(error)
+      );
+
+      setStatus(
+        'Gagal memuat Spek: ' +
+        errorMessage(error),
+        'error'
+      );
+    }
+  }
+
+  function openEditor(record) {
+    clearEditorError();
+
+    state.editingRecord =
+      record || null;
+
+    state.createId =
+      record
+        ? ''
+        : makeCreateId();
+
+    state.draftItems =
+      record &&
+      Array.isArray(record.items) &&
+      record.items.length
+        ? record.items.map(
+            itemFromRecord
+          )
+        : [blankItem()];
+
+    refs.editorTitle.textContent =
+      record
+        ? 'Edit Spek'
+        : 'Tambah Spek';
+
+    refs.editorMeta.textContent =
+      record
+        ? 'ID: ' +
+          text(record.id) +
+          ' · versi ' +
+          text(record.version)
+        : 'ID create stabil: ' +
+          state.createId;
+
+    refs.title.value =
+      record
+        ? text(record.title)
+        : '';
+
+    refs.note.value =
+      record
+        ? text(record.note)
+        : '';
+
+    renderItems();
+    setDirty(false);
+
+    refs.editor.showModal();
+
+    setTimeout(
+      () => refs.title.focus(),
+      0
+    );
+  }
+
+  function closeEditor() {
+    if (state.busy) {
+      return false;
+    }
+
+    if (
+      state.dirty &&
+      !window.confirm(
+        'Tutup formulir dan buang perubahan Spek yang belum disimpan?'
+      )
+    ) {
+      return false;
+    }
+
+    refs.editor.close();
+
+    state.editingRecord = null;
+    state.createId = '';
+    state.draftItems = [];
+
+    clearEditorError();
+    setDirty(false);
+
+    return true;
+  }
+
+  function catalogSummary(item) {
+    if (
+      !item ||
+      typeof item !== 'object'
+    ) {
+      return '';
+    }
+
+    const values = [];
+
+    Object.keys(item)
+      .forEach((key) => {
+        if (key === 'code') {
+          return;
+        }
+
+        const value = item[key];
+
+        if (
+          value == null ||
+          typeof value === 'object'
+        ) {
+          return;
+        }
+
+        const stringValue =
+          String(value).trim();
+
+        if (
+          stringValue &&
+          values.indexOf(
+            stringValue
+          ) < 0
+        ) {
+          values.push(
+            stringValue
+          );
+        }
+      });
+
+    return values
+      .slice(0, 4)
+      .join(' · ');
+  }
+
+  function renderCatalog(result) {
+    refs.catalogResults
+      .replaceChildren();
+
+    const items =
+      Array.isArray(
+        result &&
+        result.items
+      )
+        ? result.items
+        : [];
+
+    items.forEach(
+      (item, index) => {
+        const row =
+          make(
+            'div',
+            'spek-catalog-result'
+          );
+
+        const code =
+          make(
+            'span',
+            'spek-main',
+            item &&
+            item.code
+              ? item.code
+              : 'Kode tidak tersedia'
+          );
+
+        const meta =
+          make(
+            'span',
+            'spek-catalog-meta',
+            catalogSummary(item) ||
+              'Referensi katalog'
+          );
+
+        const choose =
+          make(
+            'button',
+            'spek-btn spek-btn-small',
+            'Pilih'
+          );
+
+        choose.type = 'button';
+
+        choose.dataset.spekAction =
+          'catalog-choose';
+
+        choose.dataset.index =
+          String(index);
+
+        row.append(
+          code,
+          meta,
+          choose
+        );
+
+        refs.catalogResults
+          .append(row);
+      }
+    );
+
+    state.catalogResultItems =
+      items;
+
+    state.catalogHasMore =
+      result &&
+      result.hasMore === true;
+
+    state.catalogTotal =
+      Number(
+        result &&
+        result.total ||
+        items.length
+      );
+
+    refs.catalogPrev.disabled =
+      state.catalogOffset <= 0;
+
+    refs.catalogNext.disabled =
+      !state.catalogHasMore;
+
+    refs.catalogPager.hidden =
+      !state.catalogTotal;
+
+    const start =
+      state.catalogTotal
+        ? state.catalogOffset + 1
+        : 0;
+
+    const end =
+      state.catalogOffset +
+      items.length;
+
+    refs.catalogPage.textContent =
+      start +
+      '–' +
+      end +
+      ' dari ' +
+      state.catalogTotal;
+
+    setCatalogStatus(
+      items.length
+        ? 'Pilih satu kode katalog untuk item ini.'
+        : 'Tidak ada hasil katalog untuk pencarian tersebut.'
+    );
+  }
+
+  async function searchCatalog(
+    resetOffset
+  ) {
+    const query =
+      refs.catalogSearch
+        .value
+        .trim();
+
+    if (resetOffset) {
+      state.catalogOffset = 0;
+    }
+
+    if (!query) {
+      refs.catalogResults
+        .replaceChildren();
+
+      refs.catalogPager.hidden =
+        true;
+
+      setCatalogStatus(
+        'Ketik kode atau nama barang untuk mencari katalog.'
+      );
+
+      return;
+    }
+
+    if (!state.projectId) {
+      setCatalogStatus(
+        'Pilih proyek aktif terlebih dahulu.',
+        'warning'
+      );
+
+      return;
+    }
+
+    const generation =
+      state.generation;
+
+    const ticket =
+      ++state.catalogTicket;
+
+    const projectId =
+      state.projectId;
+
+    const offset =
+      state.catalogOffset;
+
+    setCatalogStatus(
+      'Mencari katalog…'
+    );
+
+    try {
+      const result =
+        await callMaterialSpec(
+          'searchCatalog',
+          {
+            projectId,
+            query,
+            limit:
+              state.catalogLimit,
+            offset
+          }
+        );
+
+      if (
+        generation !==
+          state.generation ||
+        ticket !==
+          state.catalogTicket ||
+        projectId !==
+          state.projectId ||
+        offset !==
+          state.catalogOffset
+      ) {
+        return;
+      }
+
+      renderCatalog(
+        result || {}
+      );
+    } catch (error) {
+      if (
+        generation !==
+          state.generation ||
+        ticket !==
+          state.catalogTicket ||
+        projectId !==
+          state.projectId ||
+        offset !==
+          state.catalogOffset
+      ) {
+        return;
+      }
+
+      refs.catalogResults
+        .replaceChildren();
+
+      refs.catalogPager.hidden =
+        true;
+
+      setCatalogStatus(
+        'Gagal mencari katalog: ' +
+        errorMessage(error),
+        'error'
+      );
+    }
+  }
+
+  function openCatalog(index) {
+    syncDraftFromItemEditors();
+
+    state.catalogTarget =
+      index;
+
+    state.catalogOffset = 0;
+
+    refs.catalogSearch.value =
+      '';
+
+    refs.catalogResults
+      .replaceChildren();
+
+    refs.catalogPager.hidden =
+      true;
+
+    setCatalogStatus(
+      'Ketik kode atau nama barang untuk mencari katalog.'
+    );
+
+    refs.catalogDialog
+      .showModal();
+
+    setTimeout(
+      () =>
+        refs.catalogSearch
+          .focus(),
+      0
+    );
+  }
+
+  function chooseCatalog(index) {
+    const catalogItem =
+      state.catalogResultItems &&
+      state.catalogResultItems[
+        index
+      ];
+
+    const target =
+      state.draftItems[
+        state.catalogTarget
+      ];
+
+    if (
+      !catalogItem ||
+      !target
+    ) {
+      return;
+    }
+
+    if (!catalogItem.code) {
+      setCatalogStatus(
+        'Hasil katalog tidak memiliki kode yang dapat dipakai.',
+        'error'
+      );
+
+      return;
+    }
+
+    target.catalogCode =
+      String(
+        catalogItem.code
+      );
+
+    refs.catalogDialog.close();
+
+    renderItems();
+    setDirty(true);
+  }
+
+  function buildRecord() {
+    syncDraftFromItemEditors();
+
+    const title =
+      refs.title.value.trim();
+
+    if (!title) {
+      throw new Error(
+        'Judul Spek wajib diisi.'
+      );
+    }
+
+    if (!state.draftItems.length) {
+      throw new Error(
+        'Spek membutuhkan minimal satu item.'
+      );
+    }
+
+    const items =
+      state.draftItems.map(
+        (item, index) => {
+          if (!item.catalogCode) {
+            throw new Error(
+              'Item ' +
+              (index + 1) +
+              ': pilih kode katalog.'
+            );
+          }
+
+          const name =
+            item.name.trim();
+
+          const specification =
+            item.specification
+              .trim();
+
+          const unit =
+            item.unit.trim();
+
+          if (!name) {
+            throw new Error(
+              'Item ' +
+              (index + 1) +
+              ': nama barang wajib diisi.'
+            );
+          }
+
+          if (!specification) {
+            throw new Error(
+              'Item ' +
+              (index + 1) +
+              ': spesifikasi/ukuran wajib diisi.'
+            );
+          }
+
+          if (!unit) {
+            throw new Error(
+              'Item ' +
+              (index + 1) +
+              ': satuan wajib diisi.'
+            );
+          }
+
+          const brands =
+            uniqueBrands(
+              item.brandsText
+            );
+
+          if (
+            brands.length > 10
+          ) {
+            throw new Error(
+              'Item ' +
+              (index + 1) +
+              ': kandidat merek maksimal 10.'
+            );
+          }
+
+          const priceText =
+            item.priceText.trim();
+
+          let price = null;
+
+          if (priceText !== '') {
+            price =
+              Number(priceText);
+
+            if (
+              !Number.isFinite(
+                price
+              ) ||
+              price < 0 ||
+              price >
+                1000000000000
+            ) {
+              throw new Error(
+                'Item ' +
+                (index + 1) +
+                ': harga harus angka 0 sampai 1 triliun atau dikosongkan.'
+              );
+            }
+          }
+
+          return {
+            catalogCode:
+              item.catalogCode,
+
+            name,
+            specification,
+            unit,
+            brands,
+            price,
+
+            note:
+              item.note.trim()
+          };
+        }
+      );
+
+    return {
+      id:
+        state.editingRecord
+          ? state.editingRecord.id
+          : state.createId,
+
+      title,
+
+      note:
+        refs.note.value.trim(),
+
+      items
+    };
+  }
+
+  async function save(event) {
+    event.preventDefault();
+
+    if (state.busy) {
+      return;
+    }
+
+    clearEditorError();
+
+    if (!activeTokenAvailable()) {
+      showEditorError(
+        'Mode preview/tanpa sesi server tidak dapat menyimpan Spek.'
+      );
+
+      return;
+    }
+
+    if (!state.projectId) {
+      showEditorError(
+        'Pilih satu proyek aktif sebelum menyimpan Spek.'
+      );
+
+      return;
+    }
+
+    if (
+      !refs.form.reportValidity()
+    ) {
+      return;
+    }
+
+    let record;
+
+    try {
+      record = buildRecord();
+    } catch (error) {
+      showEditorError(
+        errorMessage(error)
+      );
+
+      return;
+    }
+
+    const payload = {
+      projectId:
+        state.projectId,
+
+      record
+    };
+
+    if (state.editingRecord) {
+      payload.expectedVersion =
+        state.editingRecord.version;
+    }
+
+    const generation =
+      state.generation;
+
+    const projectId =
+      state.projectId;
+
+    state.busy = true;
+
+    refs.submit.disabled = true;
+
+    const oldLabel =
+      refs.submit.textContent;
+
+    refs.submit.textContent =
+      'Menyimpan…';
+
+    try {
+      const result =
+        await callMaterialSpec(
+          'saveSpec',
+          payload
+        );
+
+      if (
+        generation !==
+          state.generation ||
+        projectId !==
+          state.projectId
+      ) {
+        return;
+      }
+
+      if (
+        result &&
+        result.conflict === true
+      ) {
+        const latest =
+          result.record &&
+          result.record.version != null
+            ? ' Versi server saat ini: ' +
+              result.record.version +
+              '.'
+            : '';
+
+        showEditorError(
+          'Konflik versi: Spek berubah di sesi lain.' +
+          latest +
+          ' Isian lokal tidak ditimpa. Muat ulang daftar sebelum mencoba edit ulang.'
+        );
+
+        return;
+      }
+
+      setDirty(false);
+
+      refs.editor.close();
+
+      state.editingRecord = null;
+      state.createId = '';
+      state.draftItems = [];
+
+      if (
+        result &&
+        result.warning
+      ) {
+        setStatus(
+          'Spek tersimpan, tetapi server memberi peringatan: ' +
+          result.warning,
+          'warning'
+        );
+      } else if (
+        result &&
+        result.deduplicated
+      ) {
+        setStatus(
+          'Spek sudah tersimpan sebelumnya; server mengembalikan record yang sama.',
+          'success'
+        );
+      } else {
+        setStatus(
+          'Spek tersimpan.',
+          'success'
+        );
+      }
+
+      await loadSpecs();
+
+      if (
+        result &&
+        result.warning
+      ) {
+        setStatus(
+          'Spek tersimpan, tetapi server memberi peringatan: ' +
+          result.warning,
+          'warning'
+        );
+      }
+    } catch (error) {
+      if (
+        generation !==
+          state.generation ||
+        projectId !==
+          state.projectId
+      ) {
+        return;
+      }
+
+      showEditorError(
+        'Simpan gagal: ' +
+        errorMessage(error) +
+        ' Isian lokal dan ID create tetap dipertahankan.'
+      );
+    } finally {
+      if (
+        generation ===
+          state.generation &&
+        projectId ===
+          state.projectId
+      ) {
+        state.busy = false;
+
+        refs.submit.disabled =
+          false;
+
+        refs.submit.textContent =
+          oldLabel;
+      }
+    }
+  }
+
+  function clearLocalState(
+    options
+  ) {
+    const keepOpenFlag =
+      options &&
+      options.keepOpenFlag === true;
+
+    state.generation += 1;
+    state.listTicket += 1;
+    state.catalogTicket += 1;
+
+    if (state.searchTimer) {
+      clearTimeout(
+        state.searchTimer
+      );
+    }
+
+    if (state.catalogTimer) {
+      clearTimeout(
+        state.catalogTimer
+      );
+    }
+
+    state.searchTimer = null;
+    state.catalogTimer = null;
+
+    state.projectId = '';
+    state.project = null;
+    state.records = [];
+    state.expandedId = '';
+
+    state.editingRecord = null;
+    state.createId = '';
+    state.draftItems = [];
+
+    state.catalogTarget = -1;
+    state.catalogOffset = 0;
+    state.catalogHasMore = false;
+    state.catalogTotal = 0;
+    state.catalogResultItems = [];
+
+    state.busy = false;
+
+    if (!keepOpenFlag) {
+      state.opened = false;
+    }
+
+    refs.search.value = '';
+
+    refs.project.textContent =
+      'Belum ada proyek aktif.';
+
+    refs.addButton.disabled =
+      true;
+
+    refs.body.replaceChildren();
+
+    refs.tableWrap.hidden =
+      true;
+
+    setListState(
+      'Spek belum dibuka',
+      'Buka halaman Spek untuk memuat data proyek aktif.'
+    );
+
+    setStatus(
+      'Sesi Spek dibersihkan.'
+    );
+
+    clearEditorError();
+
+    if (refs.editor.open) {
+      refs.editor.close();
+    }
+
+    if (
+      refs.catalogDialog.open
+    ) {
+      refs.catalogDialog.close();
+    }
+
+    setDirty(false);
+  }
+
+  async function open() {
+    state.opened = true;
+
+    const generation =
+      state.generation;
+
+    try {
+      const valid =
+        await resolveProject();
+
+      if (
+        generation !==
+        state.generation
+      ) {
+        return;
+      }
+
+      if (!valid) {
+        return;
+      }
+
+      if (!activeTokenAvailable()) {
+        refs.addButton.disabled =
+          true;
+
+        setListState(
+          'Data server belum aktif',
+          'Masuk data server untuk membaca dan menyimpan Spek.'
+        );
+
+        setStatus(
+          'Mode preview tidak mengirim mutasi Spek.',
+          'warning'
+        );
+
+        return;
+      }
+
+      await loadSpecs();
+    } catch (error) {
+      if (
+        generation !==
+        state.generation
+      ) {
+        return;
+      }
+
+      refs.addButton.disabled =
+        true;
+
+      setListState(
+        'Spek tidak dapat dibuka',
+        errorMessage(error)
+      );
+
+      setStatus(
+        'Gagal membuka Spek: ' +
+        errorMessage(error),
+        'error'
+      );
+    }
+  }
+
+  function reset() {
+    clearLocalState({
+      keepOpenFlag: false
+    });
+  }
+
+  root.addEventListener(
+    'click',
+    (event) => {
+      const button =
+        event.target.closest(
+          '[data-spek-action]'
+        );
+
+      if (!button) {
+        return;
+      }
+
+      const action =
+        button.dataset.spekAction;
+
+      if (action === 'add') {
+        if (!state.projectId) {
+          setStatus(
+            'Pilih satu proyek aktif sebelum membuat Spek.',
+            'warning'
+          );
+
+          return;
+        }
+
+        if (
+          !activeTokenAvailable()
+        ) {
+          setStatus(
+            'Mode preview tidak dapat membuat Spek.',
+            'warning'
+          );
+
+          return;
+        }
+
+        openEditor(null);
+        return;
+      }
+
+      if (
+        action === 'detail'
+      ) {
+        const id =
+          String(
+            button.dataset.id ||
+            ''
+          );
+
+        state.expandedId =
+          state.expandedId === id
+            ? ''
+            : id;
+
+        renderList();
+        return;
+      }
+
+      if (action === 'edit') {
+        const record =
+          state.records.find(
+            (entry) =>
+              String(entry.id) ===
+              String(
+                button.dataset.id
+              )
+          );
+
+        if (record) {
+          openEditor(record);
+        }
+
+        return;
+      }
+
+      if (
+        action === 'add-item'
+      ) {
+        syncDraftFromItemEditors();
+
+        state.draftItems.push(
+          blankItem()
+        );
+
+        renderItems();
+        setDirty(true);
+        return;
+      }
+
+      if (
+        action === 'remove-item'
+      ) {
+        syncDraftFromItemEditors();
+
+        state.draftItems.splice(
+          Number(
+            button.dataset.index
+          ),
+          1
+        );
+
+        if (
+          !state.draftItems.length
+        ) {
+          state.draftItems.push(
+            blankItem()
+          );
+        }
+
+        renderItems();
+        setDirty(true);
+        return;
+      }
+
+      if (
+        action ===
+        'pick-catalog'
+      ) {
+        openCatalog(
+          Number(
+            button.dataset.index
+          )
+        );
+
+        return;
+      }
+
+      if (
+        action ===
+        'catalog-search'
+      ) {
+        searchCatalog(true);
+        return;
+      }
+
+      if (
+        action ===
+        'catalog-prev'
+      ) {
+        state.catalogOffset =
+          Math.max(
+            0,
+            state.catalogOffset -
+            state.catalogLimit
+          );
+
+        searchCatalog(false);
+        return;
+      }
+
+      if (
+        action ===
+        'catalog-next'
+      ) {
+        if (
+          !state.catalogHasMore
+        ) {
+          return;
+        }
+
+        state.catalogOffset +=
+          state.catalogLimit;
+
+        searchCatalog(false);
+        return;
+      }
+
+      if (
+        action ===
+        'catalog-choose'
+      ) {
+        chooseCatalog(
+          Number(
+            button.dataset.index
+          )
+        );
+
+        return;
+      }
+
+      if (
+        action ===
+        'close-catalog'
+      ) {
+        refs.catalogDialog.close();
+        return;
+      }
+
+      if (
+        action ===
+        'close-editor'
+      ) {
+        closeEditor();
+      }
+    }
+  );
+
+  root.addEventListener(
+    'input',
+    (event) => {
+      if (
+        event.target ===
+        refs.search
+      ) {
+        if (state.searchTimer) {
+          clearTimeout(
+            state.searchTimer
+          );
+        }
+
+        state.searchTimer =
+          setTimeout(
+            () => {
+              state.searchTimer =
+                null;
+
+              if (
+                state.projectId
+              ) {
+                loadSpecs();
+              }
+            },
+            280
+          );
+
+        return;
+      }
+
+      if (
+        event.target ===
+        refs.catalogSearch
+      ) {
+        if (
+          state.catalogTimer
+        ) {
+          clearTimeout(
+            state.catalogTimer
+          );
+        }
+
+        state.catalogTimer =
+          setTimeout(
+            () => {
+              state.catalogTimer =
+                null;
+
+              searchCatalog(true);
+            },
+            300
+          );
+
+        return;
+      }
+
+      if (
+        event.target.closest(
+          '[data-spek-editor]'
+        )
+      ) {
+        setDirty(true);
+      }
+    }
+  );
+
+  refs.form.addEventListener(
+    'submit',
+    save
+  );
+
+  refs.editor.addEventListener(
+    'cancel',
+    (event) => {
+      event.preventDefault();
+      closeEditor();
+    }
+  );
+
+  refs.catalogDialog.addEventListener(
+    'cancel',
+    (event) => {
+      event.preventDefault();
+      refs.catalogDialog.close();
+    }
+  );
+
+  document.addEventListener(
+    'utp-project-change',
+    () => {
+      const wasOpen =
+        state.opened ||
+        !root.hidden;
+
+      clearLocalState({
+        keepOpenFlag: wasOpen
+      });
+
+      if (wasOpen) {
+        open();
+      }
+    }
+  );
+
+  window.SpekWorkspace = {
+    open,
+    reset,
+    isDirty: () => state.dirty,
+    isBusy: () => state.busy
+  };
+})();
+</script>

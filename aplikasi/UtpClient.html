@@ -5,13 +5,13 @@
   const parties = ['PM', 'MK', 'HO'];
   const classes = { BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi', UNKNOWN: 'Merek belum diketahui', OWNER: 'By Owner', OTHER: 'By Other' };
   const decisions = { PENDING: 'Belum diinput', APPROVED: 'Disetujui', REJECTED: 'Ditolak', DEFERRED: 'Ditunda' };
-  const pages = { CATALOG: 'Katalog Material', APPROVALS: 'Persetujuan Material', REQUESTS: 'Permintaan & Review', ARRIVAL: 'Barang Datang' };
+  const pages = { CATALOG: 'Katalog Semua Material', APPROVALS: 'Approval Material', REQUESTS: 'Permintaan Material', ARRIVAL: 'Penerimaan' };
   const contractNotice = 'Workflow Material dinonaktifkan atau data ini memakai kontrak lama. Data tetap dapat dibaca.';
   let epoch = 0, sequence = 0, timer, toastTimer, modal = null, pendingDashboardRecord = '';
   let state = freshState();
   function freshState() {
     return { page: 'CATALOG', data: null, loading: false, error: '', editor: null,
-      catalog: { query: '', brandClass: 'ALL', brand: '', typeQuery: '', group: '', approvedOnly: false, favoriteOnly: false, sortBy: '', sortDirection: 'asc', brands: [], items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '', requestView: 'board', boardPages: {}, boardBusy: false };
+      catalog: { query: '', brandClass: 'ALL', brand: '', group: '', approvedOnly: false, favoriteOnly: false, sortBy: '', sortDirection: 'asc', brands: [], items: [], total: 0, offset: 0, loading: false, error: '' }, approvalQuery: '', requestQuery: '', requestView: 'board', boardPages: {}, boardBusy: false };
   }
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -56,7 +56,6 @@
     const attr = key => 'data-' + scope + '-filter="' + key + '"';
     return select('brandClass', 'Jenis merek', filters.brandClass || 'ALL', { ALL: 'Semua jenis merek', BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi', UNKNOWN: 'Merek belum diketahui' }, attr('brandClass')) +
       input('brand', 'Merek tersimpan / merek persis', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>' +
-      input('typeQuery', 'Tipe / spesifikasi mengandung kata', filters.typeQuery, 'search', attr('typeQuery')) +
       input('group', 'Kelompok persis', filters.group, 'text', attr('group')) +
       check('approvedOnly', 'Sesuai approval aktif', filters.approvedOnly, attr('approvedOnly'));
   }
@@ -225,13 +224,11 @@
   }
   function previewSearch(filters) {
     const terms = norm(filters.query).split(' ').filter(Boolean);
-    const typeQuery = norm(filters.typeQuery);
     const items = state.data.catalog.filter(item => {
       const classification = itemClassification(item);
       return (!filters.favoriteOnly || item.favorite) &&
         (!filters.brandClass || filters.brandClass === 'ALL' || classification === filters.brandClass) &&
         (!filters.brand || norm(item.brand) === norm(filters.brand)) &&
-        (!typeQuery || norm(item.model).includes(typeQuery)) &&
         (!filters.group || norm(item.group) === norm(filters.group)) &&
         terms.every(term => norm([item.code, item.name, item.brand, item.brandCandidate, item.brandStatus, item.model, item.unit, item.group, item.family, item.note].join(' ')).includes(term));
     }).map(item => {
@@ -246,7 +243,7 @@
     if (!state.data) return;
     clearTimeout(timer); const generation = epoch, requestId = ++sequence, c = state.catalog;
     c.requestId = requestId; c.loading = true; c.error = ''; renderCatalogResults();
-    const filters = { query: c.query, brandClass: c.brandClass, brand: c.brand, typeQuery: c.typeQuery, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
+    const filters = { query: c.query, brandClass: c.brandClass, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
     try {
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || c.requestId !== requestId) return;
@@ -507,7 +504,7 @@
     const decision = form.elements.decision; if (decision) decision.disabled = owned || !state.editor.record.items.some(item => item.id === modal.item.id);
   }
   function masterLookup() {
-    const filters = { brandClass: 'ALL', brand: '', typeQuery: '', group: '', approvedOnly: false, favoriteOnly: false };
+    const filters = { brandClass: 'ALL', brand: '', group: '', approvedOnly: false, favoriteOnly: false };
     dialog('Cari material', input('lookup', 'Cari kode, nama, merek, tipe, satuan, atau keterangan', '', 'search', 'id="utpLookupQuery" autocomplete="off" placeholder="Kode pendek dapat dicari"') +
       '<div class="utp-toolbar">' + materialFilterMarkup(filters, 'lookup') + '</div><div id="utpLookupResults" aria-live="polite"></div>', null);
     modal.filters = filters;
@@ -524,7 +521,7 @@
       context.items = result.items.slice(0, 50);
       if(Array.isArray(result.brands))state.catalog.brands=result.brands;
       refreshBrandOptions();
-      box.innerHTML = context.items.length ? '<div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Kelompok / satuan</th><th>Approval aktif</th><th>Pilih</th></tr></thead><tbody>' + context.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br>' + esc(item.model || '—') + '</td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + esc(item.approved ? 'Sesuai · ' + (item.approvalAuthority || 'approval aktif') : 'Belum sesuai') + '</td><td>' + button('Pilih', 'lookup-select', 'data-code="' + esc(item.code) + '"') + '</td></tr>').join('') + '</tbody></table></div>' : empty('Tidak ditemukan', 'Ubah filter pencarian atau tambah item sementara.');
+      box.innerHTML = context.items.length ? '<div class="utp-tablewrap"><table><thead><tr><th>Kode / material</th><th>Merek / tipe</th><th>Approval aktif</th><th>Pilih</th></tr></thead><tbody>' + context.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br>' + esc(item.model || '—') + '</td><td>' + esc(item.approved ? 'Sesuai · ' + (item.approvalAuthority || 'approval aktif') : 'Belum sesuai') + '</td><td>' + button('Pilih', 'lookup-select', 'data-code="' + esc(item.code) + '"') + '</td></tr>').join('') + '</tbody></table></div>' : empty('Tidak ditemukan', 'Ubah filter pencarian atau tambah item sementara.');
       const range = context.items.length ? (Number(result.offset || 0) + 1) + '–' + (Number(result.offset || 0) + context.items.length) : '0';
       box.insertAdjacentHTML('beforeend', '<p class="utp-muted">' + range + ' dari ' + result.total + ' hasil · 50 per halaman.</p>' + pageControls(Number(result.offset || 0), result.total, 'lookup-page'));
     } catch (error) { if (context === modal && id === context.searchId) box.innerHTML = errorBox(error.message + ' Kata pencarian tetap ada.', 'retry-lookup'); }

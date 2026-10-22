@@ -114,8 +114,10 @@
     get('dcNewDraftTitle').value=title;get('dcNewDraftDue').value=due;
   };
   function openRecord(doc){
-    const scope=scopeNow();
-    if(!scopeAlive(scope)||!doc||(doc.projectId||'legacy')!==scope.projectId){showStatus('Dokumen bukan milik proyek aktif.');return;}
+    let scope=scopeNow();
+    if(!doc){showStatus('Dokumen tidak tersedia.');return;}
+    if(scope.projectId==='all'&&window.ProjectWorkspace){window.ProjectWorkspace.select(doc.projectId||'legacy');scope=scopeNow();}
+    if(!scopeAlive(scope)||(doc.projectId||'legacy')!==scope.projectId){showStatus('Dokumen bukan milik proyek aktif.');return;}
     editing=doc;state.recordScope=scope;
     const form=get('dcRecordForm');get('dcRecordHeading').textContent=doc.title;form.elements.title.value=doc.title;form.elements.due.value=doc.due||'';form.elements.note.value=doc.note||'';
     const select=form.elements.status;select.replaceChildren();Object.entries(statuses).forEach(([value,label])=>select.add(new Option(label,value)));select.value=doc.status;
@@ -143,9 +145,9 @@
     if(!d||!scopeAlive(scope)||(d.projectId||'legacy')!==scope.projectId){showStatus('Dokumen bukan milik proyek aktif.');get('dcRecordDialog').close();return;}
     get('dcRecordDialog').close();
     if(d.source==='document')route(t,d,false,scope);
-    else if(d.source==='rpb')switchMainPage('RPB');
+    else if(d.source==='rpb')switchMainPage('RPB',d.sourceId);
     else if(d.source==='rpd'){switchMainPage('RPD');window.RpdWorkspace.openRecord(d.sourceId);}
-    else if(d.source==='memo')switchMainPage('MEMO');
+    else if(d.source==='memo'){if(window.MemoHistory)window.MemoHistory.open(d.sourceId);else switchMainPage('HO');}
     else if(d.source==='requests'){switchMainPage('REQUESTS');window.UTPFrontend.openRecord(d.sourceId);}
     else if(d.source==='approvals'){switchMainPage('APPROVALS');}
     else{const tool={finance:'Nota/Keuangan',archives:'Arsip Proyek',tasks:'Tugas'}[d.source];if(tool){switchMainPage('TOOLS');if(window.WorkspaceTools&&window.WorkspaceTools.openRecord)window.WorkspaceTools.openRecord(tool,d.sourceId);}else openLink(d.url);}
@@ -211,6 +213,7 @@
   document.addEventListener('click',e=>{if(e.target.closest('[data-dc-close]'))['dcTransitionDialog','dcNewDraftDialog','dcTemplateDialog'].forEach(id=>get(id).close());});
   function closeForProject(){projectEpoch++;epoch++;loading=false;window.UTP_PENDING_DOCUMENT_ID='';['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog','dcTemplateDialog'].forEach(id=>{const dialog=get(id);if(dialog&&dialog.open)dialog.close();});editing=null;drag='';state.pending=null;state.draftScope=null;state.draftRequestId=null;state.recordScope=null;loadedAt=0;docs=[];}
   document.addEventListener('utp-project-change',()=>{closeForProject();reload();});
+  document.addEventListener('utp-record-change',()=>{loadedAt=0;if(accessToken)reload();});
   window.DocumentCenter={open(){render();reload(false);},reload(){epoch++;loading=false;reload();},isBusy:()=>loading||['dcRecordSave','dcRecordDelete'].some(id=>get(id).disabled),isDirty:()=>['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog'].some(id=>get(id).open),resetSession(){projectEpoch++;epoch++;loading=false;closeForProject();render();},reset(){state.query='';state.stage='';state.quick='all';Object.values(state.filters).forEach(s=>s.clear());state.page=1;render();}};render();
 })();
 </script>

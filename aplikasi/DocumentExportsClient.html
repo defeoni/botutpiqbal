@@ -6,7 +6,23 @@
   function field(form,label,name,value,required,type){const wrap=node('label',label),input=node('input');input.name=name;input.type=type||'text';input.value=value||'';input.required=!!required;input.maxLength=500;wrap.appendChild(input);form.appendChild(wrap);return input;}
   function link(box,text,url){if(!/^https:\/\/(?:drive|docs)\.google\.com\//.test(String(url||'')))return;const a=node('a',text,'btn');a.href=url;a.target='_blank';a.rel='noopener noreferrer';box.appendChild(a);}
   function links(box,result){const files=result.files||[{excelUrl:result.excelUrl,downloadUrl:result.downloadUrl,pdfUrl:result.pdfUrl,editableUrl:result.editableUrl}];files.forEach((file,index)=>{const suffix=files.length>1?' · bagian '+(index+1)+' / '+files.length:'';link(box,'Buka Excel'+suffix,file.excelUrl);link(box,'Unduh Excel'+suffix,file.downloadUrl);if(file.editableUrl)link(box,'Google Sheets'+suffix,file.editableUrl);if(file.pdfUrl)link(box,'PDF'+suffix,file.pdfUrl);});link(box,'Folder arsip',result.folderUrl);(result.originals||[]).forEach(r=>link(box,'Bukti asli: '+r.name,r.url));if(result.warning)box.appendChild(node('p',result.warning,'notice'));box.appendChild(node('p','Sumber: '+result.templateName,'muted'));link(box,'Lihat sumber template',result.templateUrl);}
-  function dialog(title){const d=node('dialog'),form=node('form');d.className='document-export-dialog';d.style.cssText='max-width:1000px;width:90vw;max-height:90vh;overflow:auto';form.appendChild(node('h2',title));d.appendChild(form);document.body.appendChild(d);const close=node('button','Tutup','btn');close.type='button';close.onclick=()=>d.close();form.appendChild(close);d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();return {d,form,close};}
+  function dialog(title){
+    const d=node('dialog'),form=node('form'),head=node('div',null,'document-export-head');
+    d.className='document-export-dialog';
+    d.style.cssText='max-width:1000px;width:90vw;max-height:90vh;overflow:auto';
+    const cross=node('button','×','document-export-close');
+    cross.type='button';cross.setAttribute('aria-label','Tutup dialog');
+    const close=node('button','Tutup','btn');close.type='button';
+    function requestClose(){
+      const event=new Event('cancel',{cancelable:true});
+      if(d.dispatchEvent(event))d.close();
+    }
+    cross.onclick=requestClose;close.onclick=requestClose;
+    head.append(node('h2',title),cross);form.appendChild(close);d.append(head,form);
+    document.body.appendChild(d);
+    d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();
+    return {d,form,close};
+  }
   async function history(entity,record){
     const token=accessToken,{d,form}=dialog('Arsip ekspor dokumen'),status=node('p','Memuat arsip…'),list=node('div'),nav=node('nav',null,'list-pagination'),retry=node('button','Coba lagi','btn');
     retry.type='button';retry.hidden=true;form.append(status,retry,list,nav);let page=0;

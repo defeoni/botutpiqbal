@@ -162,6 +162,7 @@ function returnToLogin_() {
   const token = accessToken;
   accessToken = '';manpowerRecords=[];manpowerLoaded=false;
   if (window.UTPFrontend) window.UTPFrontend.resetSession();
+  if (window.SpekWorkspace) window.SpekWorkspace.reset();
   if (window.resetWorkspaceSession) window.resetWorkspaceSession();
   showLoginPanel_('Masuk kembali dengan kata sandi Anda.');
   if (token) {
@@ -286,18 +287,18 @@ function formatUiDate_(value) {
 
 function switchMainPage(page, rpbRecordId) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
-  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', 'SPEC', ...materialPages].includes(page)) page = 'HOME';
+  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', 'SPEC', ...materialPages].includes(page)) {
     resumeMainPage = page;
     showLoginPanel_('Masuk data server untuk membuka formulir dan menyimpan dokumen.');
     return;
   }
   currentMainPage = page;
-  if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','NOTIFIKASI','SETTINGS'].includes(page)?'ho':'project');
+  if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','LPD','MEMO','RPB','RPD','MANPOWER','NOTIFIKASI','SETTINGS'].includes(page)?'ho':'project');
   if(page==='DOCUMENTS'&&$('workspaceLabel'))$('workspaceLabel').textContent='Operasional Bersama';
   if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
-  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',LPD:'Laporan Penggunaan Dana',KANBAN:'Kanban Global',NOTIFIKASI:'Notifikasi',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
+  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Semua Material',APPROVALS:'Approval Material',REQUESTS:'Permintaan Material',ARRIVAL:'Penerimaan',SPEC:'Spek',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',LPD:'Laporan Penggunaan Dana',KANBAN:'Kanban Global',NOTIFIKASI:'Notifikasi',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
   document.title=(titles[page]||'Operasional Proyek')+' · UTP Workspace';
@@ -317,6 +318,7 @@ function switchMainPage(page, rpbRecordId) {
   if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
   if (page === 'LPD' && window.LPDWorkspace) window.LPDWorkspace.open();
   if (page === 'MANPOWER' && accessToken) loadManpower();
+  if (page === 'SPEC' && window.SpekWorkspace) window.SpekWorkspace.open();
   if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_(rpbRecordId);
   if (page === 'DOCUMENTS' && window.DocumentCenter) window.DocumentCenter.open();
@@ -642,6 +644,7 @@ $('confirmSubmit').addEventListener('click', () => {
     pendingPayload = null;
     memoDirty_ = false;
     if (window.UtpPendingDocument) window.UtpPendingDocument.clear(); else window.UTP_PENDING_DOCUMENT_ID = '';
+    document.dispatchEvent(new CustomEvent('utp-record-change'));
     loadCounters();
     loadHistory();
     loadManpower();
@@ -725,6 +728,24 @@ $('btnClearHistory').addEventListener('click', async () => {
     $('clearHistoryStatus').textContent = `Gagal menghapus riwayat: ${error.message}`;
   });
 });
+
+window.MemoHistory = {
+  open(number) {
+    switchMainPage('HO');
+    const search = $('historySearch');
+    if (search) search.value = number || '';
+    historyPage = 0;
+    renderHistory();
+    const list = $('historyList');
+    if (!list) return;
+    const cards = Array.from(list.querySelectorAll('article'));
+    const match = cards.find((card) => card.dataset && card.dataset.memoNumber === number) || cards[0];
+    if (!match) return;
+    match.tabIndex = -1;
+    if (match.focus) match.focus();
+    if (match.scrollIntoView) match.scrollIntoView({ block: 'center' });
+  }
+};
 
 function loadHistory() {
   window.hoMemoLoadState = 'loading';
@@ -951,6 +972,7 @@ function renderHistory() {
       : [];
     const card = document.createElement('article');
     card.className = 'memo-history-card';
+    card.dataset.memoNumber = record.number || '';
     const previewLink = document.createElement('a');
     previewLink.className = 'memo-history-preview';
     previewLink.href = record.pdfUrl || record.sheetUrl || record.folderUrl || '#';

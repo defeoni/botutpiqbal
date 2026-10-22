@@ -41,20 +41,21 @@
       </section>
       <div class="workspace-picker" aria-label="Ruang kerja"><button type="button" data-workspace="project" class="active">Proyek</button><button type="button" data-workspace="ho">Head Office</button></div>
       <section class="sidebar-menu-group" data-workspace-scope="project" aria-labelledby="menuProject">
-        <h2 id="menuProject">PROJECT WORKSPACE</h2>
+        <h2 id="menuProject">PROYEK</h2>
         <button type="button" class="tab main-nav-button active" data-main="HOME" data-icon="home">Beranda Proyek</button>
-        <details class="nav-folder" open><summary><span data-icon="layers"></span><span>Material &amp; logistik</span><span class="nav-chevron">⌄</span></summary><div class="nav-children">
-          <button type="button" class="tab main-nav-button" data-main="REQUESTS" data-icon="board">Permintaan &amp; Review</button>
-          <button type="button" class="tab main-nav-button" data-main="CATALOG" data-icon="box">Katalog Material</button>
-          <button type="button" class="tab main-nav-button" data-main="APPROVALS" data-icon="check">Persetujuan Material</button>
-          <button type="button" class="tab main-nav-button" data-main="ARRIVAL" data-icon="truck">Penerimaan Barang</button>
+        <details class="nav-folder" open><summary><span data-icon="layers"></span><span>Material</span><span class="nav-chevron">⌄</span></summary><div class="nav-children">
+          <button type="button" class="tab main-nav-button" data-main="CATALOG" data-icon="box">Katalog Semua Material</button>
+          <button type="button" class="tab main-nav-button" data-main="SPEC" data-icon="file">Spek</button>
+          <button type="button" class="tab main-nav-button" data-main="APPROVALS" data-icon="check">Approval</button>
+          <button type="button" class="tab main-nav-button" data-main="REQUESTS" data-icon="board">Permintaan</button>
+          <button type="button" class="tab main-nav-button" data-main="ARRIVAL" data-icon="truck">Penerimaan</button>
         </div></details>
-        <button type="button" class="tab main-nav-button" data-main="LPD" data-icon="wallet">Laporan Penggunaan Dana</button>
         <div class="nav-divider"></div><button type="button" class="tab main-nav-button" data-main="PROJECT_SETTINGS" data-icon="settings">Pengaturan Proyek</button>
       </section>
       <section class="sidebar-menu-group" data-workspace-scope="ho" aria-labelledby="menuHo" hidden>
         <h2 id="menuHo">HEAD OFFICE</h2>
         <button type="button" class="tab main-nav-button" data-main="HO" data-icon="home">Beranda HO</button>
+        <button type="button" class="tab main-nav-button" data-main="LPD" data-icon="wallet">LPD</button>
         <h2>DOKUMEN &amp; PERSONEL</h2>
         <button type="button" class="tab main-nav-button" data-main="MEMO" data-icon="file">Memo Internal</button>
         <button type="button" class="tab main-nav-button" data-main="RPB" data-icon="chart">Pengeluaran Bulanan</button>
@@ -87,6 +88,7 @@
   <?!= include('DocumentCenter'); ?>
   <?!= include('ProjectTools'); ?>
   <?!= include('UtpView'); ?>
+  <?!= include('SpekView'); ?>
 
   <section id="memoPageHeader" class="home-card memo-area" aria-labelledby="memoPageTitle">
     <div class="home-section-heading"><div><p class="home-eyebrow">HEAD OFFICE · DOKUMEN</p><h2 id="memoPageTitle">Memo Internal</h2><p>Penambahan, penggantian, dan surplus manpower. Nomor baru dipakai setelah arsip berhasil dibuat.</p></div><span id="memoScopeLabel" class="subtle-tag">Proyek aktif</span></div>

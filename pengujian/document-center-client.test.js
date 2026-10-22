@@ -109,8 +109,9 @@ function fixture(options) {
     crypto: { randomUUID: (() => { let id = 0; return () => 'request-' + (++id); })() },
     confirm: () => true,
     showLoginPanel_() { throw new Error('login panel should not open'); },
-    switchMainPage(page) { context.pages.push(page); },
+    switchMainPage(page, recordId) { context.pages.push(page); if (recordId) context.revealed.push(recordId); },
     pages: [],
+    revealed: [],
     invokeServer(name, args, resolve, reject) { calls.push({ name, args, resolve, reject }); }
   };
   vm.createContext(context);
@@ -167,6 +168,48 @@ test('Tambah Dokumen memakai satu tombol toolbar, tahan klik berulang, dan menut
   env.get('dcNewDraftDialog').close();
   assert.equal(env.get('dcToolbar').children.length, 0, 'tidak ada tombol toolbar ganda');
   assert.equal(env.rootListeners.click.length, 1, 'listener klik tetap tunggal setelah reload dan ganti proyek');
+});
+
+test('kartu pada Semua proyek memilih proyek dokumen lalu membuka record sumber yang sama', async () => {
+  const env = fixture();
+  env.project.active = 'all';
+  const opened = [];
+  env.window.DocumentCenter.open();
+  await tick();
+  const first = env.calls.findIndex((row) => row.name === 'apiProjects');
+  env.calls[first].resolve({ documents: [{ id: 'memo:PN/1', source: 'memo', sourceId: 'PN/1', projectId: P2, title: 'Memo PN/1', status: 'SELESAI', date: '2026-10-01' }], warnings: [] });
+  await tick();
+  const card = env.get('dcBoard').children.flatMap((section) => section.children).find((item) => item.className === 'dc-board-card');
+  assert.ok(card, 'kartu dokumen tampil');
+  card.onclick({ target: { closest: () => null } });
+  assert.equal(env.project.active, P2, 'proyek dokumen menjadi aktif');
+  assert.equal(env.get('dcRecordDialog').open, true);
+  env.window.MemoHistory = { open(number) { opened.push(number); } };
+  env.get('dcRecordOpen').onclick();
+  assert.deepEqual(opened, ['PN/1'], 'record memo yang sama dibuka');
+});
+
+test('kartu RPB membuka RPB dengan ID record sumber tanpa memanggil halaman dua kali', async () => {
+  const env = fixture();
+  env.window.DocumentCenter.open();
+  await tick();
+  const first = env.calls.findIndex((row) => row.name === 'apiProjects');
+  env.calls[first].resolve({ documents: [{ id: 'rpb:R1', source: 'rpb', sourceId: 'R1', projectId: P1, title: 'RPB-1', status: 'DIAJUKAN', date: '2026-10-01' }], warnings: [] });
+  await tick();
+  const card = env.get('dcBoard').children.flatMap((section) => section.children).find((item) => item.className === 'dc-board-card');
+  card.onclick({ target: { closest: () => null } });
+  env.get('dcRecordOpen').onclick();
+  assert.equal(env.c.pages.filter((page) => page === 'RPB').length, 1, 'halaman RPB dibuka sekali');
+  assert.deepEqual(env.c.revealed, ['R1'], 'ID record RPB diteruskan');
+});
+
+test('event record berubah memuat ulang dokumen tanpa refresh manual', async () => {
+  const env = fixture();
+  await openCenter(env);
+  const before = env.calls.filter((row) => row.name === 'apiProjects').length;
+  env.document.dispatchEvent(new CustomEvent('utp-record-change'));
+  await tick();
+  assert.equal(env.calls.filter((row) => row.name === 'apiProjects').length, before + 1);
 });
 
 async function createDraft(env, templateId, title) {
