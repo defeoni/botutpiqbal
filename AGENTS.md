@@ -28,3 +28,11 @@ Jalankan **Finishing Hemat Token**. Jangan melakukan orientasi ulang, membaca RE
 5. Laporan akhir hanya: commit rilis, hasil test Freebuff, versi deployment, URL; atau error pemblokir.
 
 Di luar perintah `finishing`, jangan menjalankan test, commit, push, pull, atau deploy kecuali pengguna memintanya secara eksplisit.
+
+## Kebijakan plugin dan skill
+
+- Figma adalah plugin desain utama. Gunakan untuk rancangan lintas halaman, design system, wireframe, dan review visual sebelum perubahan frontend besar. Source aplikasi tetap berada di GitHub; Figma bukan sumber kode produksi.
+- GitHub Actions dan Playwright adalah alat verifikasi utama. Jangan menambah agen atau plugin hanya untuk menggantikan test otomatis yang dapat dijalankan repository.
+- Pilih skill sesuai pekerjaan: `investigate-first` untuk diagnosis, `surgical-patch` untuk bug sempit, `lean-build` untuk fitur kecil, `migration` untuk perpindahan data/Drive, `verify-and-stop` untuk bukti akhir, dan `ponytail` untuk menjaga solusi sederhana.
+- Gunakan Graphify hanya untuk perubahan lintas banyak modul. Gunakan security scan dan threat model sebelum membuka role/akses multi-pengguna.
+- Jangan menambah plugin komunikasi, penyimpanan, atau manajemen kerja tanpa kebutuhan nyata. GitHub tetap menjadi source, backlog, dan riwayat utama.
