@@ -79,7 +79,8 @@ function fixture(options) {
     getActiveId() { return this.active; },
     getActive() { return { id: this.active, name: 'Proyek', code: 'P' }; },
     getProjects() { return [{ id: P1, name: 'Alpha' }, { id: P2, name: 'Beta' }]; },
-    ready() { return Promise.resolve(); }
+    ready() { return Promise.resolve(); },
+    select(id) { this.active=id; document.dispatchEvent({type:'utp-project-change'}); }
   };
   const window = {
     ProjectWorkspace: project,
@@ -135,16 +136,15 @@ function click(env, id) {
   for (const handler of env.rootListeners.click || []) handler(event);
 }
 
-test('Tambah Dokumen bekerja dari toolbar dan Kanban, tahan klik berulang, dan menutup dialog saat proyek berubah', async () => {
+test('Tambah Dokumen memakai satu tombol toolbar, tahan klik berulang, dan menutup dialog saat proyek berubah', async () => {
   const env = fixture();
   await openCenter(env);
-  const toolbar = env.get('dcToolbar').children.filter((item) => item.id === 'dcNewDraftToolbar');
-  assert.equal(toolbar.length, 1);
+  assert.equal(env.get('dcToolbar').children.length, 0, 'client tidak menambah tombol duplikat');
   assert.equal(env.rootListeners.click.length, 1, 'hanya satu listener klik');
 
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   assert.equal(env.get('dcNewDraftDialog').open, true);
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   assert.equal(env.get('dcNewDraftDialog').modalCount, 1, 'klik kedua tidak membuka dialog baru');
   env.get('dcNewDraftDialog').close();
   env.window.DocumentCenter.reload();
@@ -162,15 +162,15 @@ test('Tambah Dokumen bekerja dari toolbar dan Kanban, tahan klik berulang, dan m
   env.document.dispatchEvent(new CustomEvent('utp-project-change'));
   assert.equal(env.get('dcNewDraftDialog').open, false);
   await tick();
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   assert.equal(env.get('dcNewDraftDialog').open, true);
   env.get('dcNewDraftDialog').close();
-  assert.equal(env.get('dcToolbar').children.filter((item) => item.id === 'dcNewDraftToolbar').length, 1, 'tidak ada tombol toolbar ganda');
+  assert.equal(env.get('dcToolbar').children.length, 0, 'tidak ada tombol toolbar ganda');
   assert.equal(env.rootListeners.click.length, 1, 'listener klik tetap tunggal setelah reload dan ganti proyek');
 });
 
 async function createDraft(env, templateId, title) {
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   env.get('dcNewDraftTemplate').value = templateId;
   env.get('dcNewDraftTitle').value = title;
   env.get('dcNewDraftForm').onsubmit({ preventDefault() {}, submitter: node('submit') });
@@ -238,7 +238,7 @@ test('callback reload lama tidak menimpa hasil proyek baru', async () => {
 test('simpan draf berhasil dengan warning menampilkan status tersimpan dan mengirim templateSourceId', async () => {
   const env = fixture();
   await openCenter(env);
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   env.get('dcNewDraftTemplate').value = 'utp-f-a1-01';
   env.get('dcNewDraftTitle').value = 'Salinan Form';
   env.get('dcNewDraftDue').value = '2026-10-30';
@@ -263,7 +263,7 @@ test('simpan draf berhasil dengan warning menampilkan status tersimpan dan mengi
 test('callback simpan lama dibuang setelah proyek berubah', async () => {
   const env = fixture();
   await openCenter(env);
-  click(env, 'dcNewDraftToolbar');
+  click(env, 'dcNewDraft');
   env.get('dcNewDraftTemplate').value = 'app-pn';
   env.get('dcNewDraftTitle').value = 'Memo Lama';
   env.get('dcNewDraftForm').onsubmit({ preventDefault() {}, submitter: node('submit') });
@@ -279,3 +279,35 @@ test('callback simpan lama dibuang setelah proyek berubah', async () => {
   assert.doesNotMatch(env.get('dcStatus').textContent, /Tersimpan dengan peringatan/);
   assert.equal(env.window.UTP_PENDING_DOCUMENT_ID, '');
 });
+
+ test('Semua proyek: tombol tetap membuka dialog, memilih proyek mempertahankan isian dan menyimpan pada proyek pilihan', async () => {
+  const env=fixture();
+  env.project.active='all';
+  click(env,'dcNewDraft');
+  assert.equal(env.get('dcNewDraftDialog').open,true);
+  assert.equal(env.get('dcNewDraftProject').value,'');
+  await env.get('dcNewDraftForm').onsubmit({preventDefault(){},submitter:node('submit')});
+  assert.match(env.get('dcNewDraftMessage').textContent,/Pilih satu proyek/);
+  assert.equal(env.calls.filter(c=>c.name==='apiProjectDocument').length,0);
+  env.get('dcNewDraftTitle').value='Dokumen Alpha';
+  env.get('dcNewDraftDue').value='2026-11-15';
+  env.get('dcNewDraftTemplate').value='app-pn';
+  env.get('dcNewDraftProject').value=P1;
+  env.get('dcNewDraftProject').onchange();
+  assert.equal(env.get('dcNewDraftDialog').open,true);
+  assert.equal(env.get('dcNewDraftTitle').value,'Dokumen Alpha');
+  assert.equal(env.get('dcNewDraftDue').value,'2026-11-15');
+  env.get('dcNewDraftTemplate').value='app-pn';
+  env.get('dcNewDraftForm').onsubmit({preventDefault(){},submitter:node('submit')});
+  const call=env.calls.find(c=>c.name==='apiProjectDocument');
+  assert.equal(call.args[1].record.projectId,P1);
+  assert.equal(call.args[1].record.title,'Dokumen Alpha');
+ });
+
+ test('markup menyediakan satu tombol tambah, satu reload, dan pesan di luar panel Kanban',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','aplikasi','DocumentCenter.html'),'utf8');
+  assert.equal((html.match(/id="dcNewDraft"/g)||[]).length,1);
+  assert.equal((html.match(/id="dcReload"/g)||[]).length,1);
+  assert.doesNotMatch(html,/data-dc-new-draft/);
+  assert.ok(html.indexOf('id="dcStatus"')<html.indexOf('id="dcBoardView"'));
+ });
