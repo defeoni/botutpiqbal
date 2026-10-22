@@ -21,7 +21,7 @@ Ada dua lingkungan kerja:
 
 Jalankan **Finishing Hemat Token**. Jangan melakukan orientasi ulang, membaca README/riwayat/memory, memakai Graphify/Caveman/Ponytail, audit repository, review diff, atau pencarian luas.
 
-1. Sinkronisasi minimum: `git fetch origin`, lalu fast-forward `main` ke `origin/main`. Jika tidak dapat fast-forward atau ada perubahan lokal, berhenti dan tampilkan blocker singkat.
+1. Sinkronisasi minimum: abaikan artefak lokal `graphify-out/`, `.ai-inbox/`, `MODE_HEMAT_TOKEN.md`, dan `.clasp-src/`; lalu `git fetch origin` dan fast-forward `main` ke `origin/main`. Hanya perubahan terlacak atau file lokal lain yang benar-benar berpotensi tertimpa menjadi blocker.
 2. Jalankan generator source clasp yang sudah dikenal proyek. Test relevan dikerjakan oleh Freebuff dalam paket implementasi sebelum finishing; jangan mengulang test di VSCode kecuali pengguna memintanya secara eksplisit.
 3. Bila hasil test Freebuff yang relevan sudah tersedia, deploy Apps Script memakai `clasp.cmd` ke deployment web app yang ada dan verifikasi versi/URL. Bila hasil itu belum ada, berhenti dan laporkan bahwa test Freebuff diperlukan.
 4. Jangan memperbaiki kode, refactor, commit, push, atau menjalankan pemeriksaan tambahan. Bila generator, test, atau deploy gagal, berhenti dan tampilkan error singkat.

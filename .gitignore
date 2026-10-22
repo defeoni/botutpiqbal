@@ -1,5 +1,8 @@
 .clasp-src/
 .local/
+graphify-out/
+.ai-inbox/
+MODE_HEMAT_TOKEN.md
 node_modules/
 .env
 .env.*
