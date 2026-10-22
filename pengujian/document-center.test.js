@@ -370,6 +370,7 @@ test('Memo, RPB, dan RPD memanggil penautan draf dengan jenis sumber yang benar'
   assert.match(source('RPBClient.html'), /workspaceDocumentId:\s*rpbWorkspaceDocumentId_[\s\S]{0,30}UTP_PENDING_DOCUMENT_ID/);
   assert.match(source('MemoClient.html'), /UtpPendingDocument\.clear/);
   assert.match(source('RPBClient.html'), /UtpPendingDocument\.clear/);
+  assert.match(source('RPD.html'), /UtpPendingDocument\)window\.UtpPendingDocument\.clear\(record\.projectId\)/);
 });
 
 test('kegagalan audit saat menautkan draf hanya menjadi warning', () => {
