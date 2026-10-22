@@ -10,3 +10,23 @@ test('indexed approval matching preserves first exact match, generic classificat
   const result=c.utpSearchItems_(items,{limit:50},approvals),byCode=Object.fromEntries(result.items.map(i=>[i.code,i]));assert.equal(byCode['0001'].approvalId,'first');assert.equal(byCode['0002'].approvalId,'generic');assert.equal(byCode['0003'].approved,false);
   assert.equal(c.utpSearchItems_(items,{approvedOnly:true},approvals).total,2);assert.equal(c.utpSearchItems_(items,{query:'0001'},approvals).items[0].code,'0001');
 });
+test('brand checkboxes combine by union, unknown is not generic, empty selection means all',()=>{
+  const c=setup(),items=[{code:'01',name:'Barang',brand:'AUX'},{code:'02',name:'Barang',brandStatus:'GENERIC'},{code:'03',name:'Barang',brandStatus:'unknown'}];
+  assert.equal(c.utpSearchItems_(items,{brandClasses:[]},[]).total,3);
+  assert.equal(c.utpSearchItems_(items,{brandClasses:['GENERIC']},[]).items[0].code,'02');
+  assert.equal(c.utpSearchItems_(items,{brandClasses:['BRANDED','UNKNOWN']},[]).total,2);
+  assert.throws(()=>c.utpSearchItems_(items,{brandClasses:'BRANDED'},[]),/Filter/);
+});
+test('fuzzy names allow one letter edit, never fuzzy codes, brands or short specifications; preview agrees',()=>{
+  const c=setup(),source=fs.readFileSync(path.join(__dirname,'../aplikasi/UtpClient.html'),'utf8');
+  vm.runInContext(source.match(/  function searchWord\(term, word\) \{[\s\S]*?\n  \}/)[0],c);
+  for(const [term,word,expected] of [['adaptar','adaptor',true],['adptor','adaptor',true],['adapttor','adaptor',true],['pompa','pampa',true],['pmp','pompa',false],['12','24',false],['ab123','ab124',false],['adxxptor','adaptor',false]]){
+    assert.equal(c.utpSearchWord_(term,word),expected);assert.equal(c.searchWord(term,word),expected);
+  }
+  const items=[{code:'0001',name:'Adaptor Daya 12 V, AUX',brand:'AUX',model:'ABC123'}];
+  assert.equal(c.utpSearchItems_(items,{query:'adaptar 12',fuzzy:true},[]).total,1);
+  assert.equal(c.utpSearchItems_(items,{query:'adaptar'},[]).total,0);
+  assert.equal(c.utpSearchItems_(items,{query:'0002',fuzzy:true},[]).total,0);
+  assert.equal(c.utpSearchItems_(items,{query:'adaptar',fuzzy:true,brand:'AUY'},[]).total,0);
+  assert.equal(items[0].name,'Adaptor Daya 12 V, AUX');
+});

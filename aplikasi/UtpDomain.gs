@@ -394,10 +394,20 @@ function utpPublishRevision_(record, context) {
   result.history.push({ at: ctx.now, action: 'PUBLISH_REVISION', actor: actor, note: ctx.note, changes: [{ field: 'revision', oldValue: record.revision || 0, newValue: result.revision }] });
   return result;
 }
+// One edit for alphabetic words >=5 characters; codes/specifications stay exact.
+function utpSearchWord_(term, word) {
+  if (word.indexOf(term) >= 0) return true;
+  if (!/^[a-z]{5,40}$/.test(term) || !/^[a-z]+$/.test(word) || Math.abs(term.length-word.length)>1) return false;
+  var i=0,j=0,edits=0;
+  while(i<term.length&&j<word.length){if(term[i]===word[j]){i++;j++;continue;}if(++edits>1)return false;if(term.length<=word.length)j++;if(term.length>=word.length)i++;}
+  return edits+(i<term.length||j<word.length?1:0)<=1;
+}
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
   var brandClass = String(options.brandClass || options.classification || 'ALL').toUpperCase();
   if (['ALL', 'BRANDED', 'GENERIC', 'UNKNOWN'].indexOf(brandClass) < 0) throw new Error('Filter jenis merek tidak valid.');
+  var selectedClasses = options.brandClasses || [];
+  if (!Array.isArray(selectedClasses) || selectedClasses.some(function(value){return ['BRANDED','GENERIC','UNKNOWN'].indexOf(value)<0;})) throw new Error('Filter jenis merek tidak valid.');
   var typeQuery = utpNorm_(options.typeQuery || options.model);
   if (typeQuery.length > 160) throw new Error('Filter tipe/spesifikasi terlalu panjang.');
   var limit = Math.max(1, Math.min(50, Number(options.limit) || 50));
@@ -409,12 +419,14 @@ function utpSearchItems_(items, filters, approvals) {
   var matches = (items || []).filter(function (item) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
     if (brandClass !== 'ALL' && utpItemClassification_(item) !== brandClass) return false;
+    if (selectedClasses.length && selectedClasses.indexOf(utpItemClassification_(item)) < 0) return false;
     if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
     if (typeQuery && utpNorm_(item.model).indexOf(typeQuery) < 0) return false;
     if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
     if(!terms.length)return true;
     var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).concat(item.note || '').join(' '));
-    return terms.every(function (term) { return text.indexOf(term) >= 0; });
+    var words;
+    return terms.every(function (term) { if(text.indexOf(term)>=0)return true;if(!options.fuzzy)return false;words=words||utpNorm_(item.name).split(/[^a-z0-9]+/);return words.some(function(word){return utpSearchWord_(term,word);}); });
   }).map(function (item) {
     var classification=utpItemClassification_(item),candidates=classification==='GENERIC'?generic:classification==='BRANDED'?byBrand[utpNorm_(item.brand)]||[]:[];
     return {item:item,approval:utpFindApproval_(item,candidates)};

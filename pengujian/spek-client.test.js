@@ -677,6 +677,11 @@ ${spekView}
     await sleep(340);
     await sleep(40);
 
+    input('#spek-catalog-brand', 'Aqua');
+    click('[data-spek-brand-class][value="BRANDED"]');
+    await sleep(380);
+    check(rpcLog.some(entry => entry.action === 'searchCatalog' && entry.payload.fuzzy === true && entry.payload.brand === 'Aqua' && entry.payload.brandClasses.includes('BRANDED')), 'filter merek Spek diteruskan ke backend');
+
     check(
       root.querySelectorAll(
         '[data-spek-catalog-results] .spek-catalog-result'

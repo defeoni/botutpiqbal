@@ -49,6 +49,19 @@ const {chromium} = require(process.argv[2] || 'playwright');
       pass('Material layouts contained at '+viewport.width+'px');
     }
     await page.setViewportSize({width:1440,height:900});
+    await page.evaluate(()=>switchMainPage('CATALOG'));
+    await page.locator('[data-catalog-filter="brandClasses"][value="UNKNOWN"]').check();
+    await page.waitForTimeout(350); // Search is debounced by 250 ms.
+    await page.waitForFunction(()=>UTPFrontend.getState().catalog.brandClasses?.join()==='UNKNOWN'&&!UTPFrontend.getState().catalog.loading);
+    assert.ok((await page.evaluate(()=>UTPFrontend.getState().catalog.items)).every(item=>!item.brand&&String(item.brandStatus||'').toUpperCase()!=='GENERIC'));
+    await page.locator('[data-catalog-filter="brandClasses"][value="BRANDED"]').check();
+    await page.waitForTimeout(350);
+    await page.waitForFunction(()=>UTPFrontend.getState().catalog.brandClasses?.length===2&&!UTPFrontend.getState().catalog.loading);
+    await page.locator('[data-catalog-filter="brandClasses"][value="UNKNOWN"]').uncheck();
+    await page.locator('[data-catalog-filter="brandClasses"][value="BRANDED"]').uncheck();
+    await page.waitForTimeout(350);
+    await page.waitForFunction(()=>UTPFrontend.getState().catalog.brandClasses?.length===0&&!UTPFrontend.getState().catalog.loading);
+    pass('Brand checkboxes combine selections and empty selection restores all');
     await page.evaluate(()=>ProjectWorkspace.select('legacy'));
     await page.evaluate(()=>switchMainPage('REQUESTS'));
     await page.locator('[data-action=new-request]').click();

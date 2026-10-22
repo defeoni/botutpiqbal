@@ -355,7 +355,8 @@ function apiMaterialSpec(
       total: result.total,
       offset: result.offset,
       limit: result.limit,
-      hasMore: result.hasMore
+      hasMore: result.hasMore,
+      brands: result.brands
     };
   }
 

@@ -1,5 +1,15 @@
 # Kinerja katalog Spek/Approval dan review merek
 
+## Lanjutan 2026-10-22 — pencarian dan kesepakatan merek
+
+Pencarian katalog/material dan dialog Spek memakai Nama barang, Merek (datalist), serta checkbox Bermerk/Tidak bermerek terkonfirmasi/Belum diketahui. Beberapa kategori memakai union; kosong berarti semua. Tidak menambah isian tipe/model; nama/model sumber dan aturan approval tetap utuh. Filter kelompok disembunyikan dari pencarian material, API lama tetap kompatibel.
+
+Pencarian parsial tetap tersedia termasuk kode. `fuzzy:true` pada UI mengizinkan satu edit huruf untuk token alfabet 5–40 karakter pada nama barang saja, tanpa melonggarkan filter merek, ukuran/model atau aturan approval. Query API lama tetap exact substring jika fuzzy tidak diaktifkan. Ini bukan pencarian semantik/AI; pertukaran dua huruf belum didukung. Nomor/spesifikasi tidak ditebak.
+
+Daftar tinjauan sampel, batas pencarian dan aturan ada di REVIEW-MEREK.md. Tidak ada perubahan master/label massal pada lanjutan ini; validasi sumber resmi dan AI belum dilakukan. Kamus merek terverifikasi belum disahkan.
+
+Bukti source akhir: 50 tes terarah lulus (domain, cache, Spek backend/browser, kategori gabungan dan matcher FE/BE); 20 pemeriksaan browser material/navigasi lulus. Pemeriksaan browser awal menangkap test yang membaca hasil sebelum debounce selesai; test kini menunggu siklus pencarian. Generator 43 file, diff check bersih. Deployment Apps Script tetap menunggu VSCode.
+
 Basis source d07ebba. Penyebab yang ditemukan: setiap pencarian membaca ulang semua baris master; aturan pencarian menormalisasi semua teks bahkan query kosong, menyalin setiap hasil sebelum pagination, dan memeriksa seluruh approval untuk setiap item.
 
 Perbaikan:

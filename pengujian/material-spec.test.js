@@ -574,6 +574,13 @@ test(
   }
 );
 
+test('Spek search forwards brand checkboxes and fuzzy names without changing identity', () => {
+  const env=environment();
+  const result=env.plain(env.call('searchCatalog',{projectId:'proyek-alpha',query:'keramix',fuzzy:true,brand:'Aqua',brandClasses:['BRANDED']}));
+  assert.equal(result.total,1);assert.equal(result.items[0].code,'MTR-001');assert.ok(result.brands.includes('Aqua'));
+  assert.equal(env.call('searchCatalog',{projectId:'proyek-alpha',query:'keramik',brandClasses:['UNKNOWN']}).total,0);
+});
+
 test(
   'searchCatalog memakai katalog bersama dalam konteks proyek aktif',
   () => {

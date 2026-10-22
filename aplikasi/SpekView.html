@@ -398,9 +398,12 @@
 
 #blank-SPEC .spek-catalog-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, .6fr);
   gap: 8px;
 }
+
+#blank-SPEC .spek-catalog-toolbar fieldset { min-width: 0; margin: 0; padding: 6px 8px; font-size: 12px; }
+#blank-SPEC .spek-catalog-toolbar fieldset label { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
 
 #blank-SPEC .spek-catalog-results {
   display: grid;
@@ -670,7 +673,7 @@
       <div class="spek-dialog-body">
         <div class="spek-catalog-toolbar">
           <div class="spek-field">
-            <label for="spek-catalog-search">Cari katalog</label>
+            <label for="spek-catalog-search">Nama barang</label>
             <input
               id="spek-catalog-search"
               class="spek-input"
@@ -680,6 +683,17 @@
               data-spek-catalog-search
             >
           </div>
+          <div class="spek-field">
+            <label for="spek-catalog-brand">Merek</label>
+            <input id="spek-catalog-brand" class="spek-input" autocomplete="off" list="spek-catalog-brands" placeholder="Pilih atau ketik merek">
+            <datalist id="spek-catalog-brands"></datalist>
+          </div>
+          <fieldset>
+            <legend>Jenis merek · kosong berarti semua</legend>
+            <label><input type="checkbox" data-spek-brand-class value="BRANDED"> Bermerk</label>
+            <label><input type="checkbox" data-spek-brand-class value="GENERIC"> Tidak bermerek (terkonfirmasi)</label>
+            <label><input type="checkbox" data-spek-brand-class value="UNKNOWN"> Belum diketahui</label>
+          </fieldset>
 
           <button
             class="spek-btn"
@@ -2005,6 +2019,11 @@
   }
 
   function renderCatalog(result) {
+    const brands = $('#spek-catalog-brands');
+    brands.replaceChildren();
+    (result.brands || []).forEach(value => {
+      const option = make('option'); option.value = value; brands.append(option);
+    });
     refs.catalogResults
       .replaceChildren();
 
@@ -2126,7 +2145,7 @@
       state.catalogOffset = 0;
     }
 
-    if (!query) {
+    if (!query && !$('#spek-catalog-brand').value.trim() && !$$('[data-spek-brand-class]:checked').length) {
       refs.catalogResults
         .replaceChildren();
 
@@ -2172,6 +2191,9 @@
           {
             projectId,
             query,
+            fuzzy: true,
+            brand: $('#spek-catalog-brand').value.trim(),
+            brandClasses: $$('[data-spek-brand-class]:checked').map(node => node.value),
             limit:
               state.catalogLimit,
             offset
@@ -2995,7 +3017,7 @@
 
       if (
         event.target ===
-        refs.catalogSearch
+        refs.catalogSearch || event.target.id === 'spek-catalog-brand' || event.target.matches('[data-spek-brand-class]')
       ) {
         if (
           state.catalogTimer

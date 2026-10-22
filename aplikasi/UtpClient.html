@@ -54,10 +54,19 @@
   }
   function materialFilterMarkup(filters, scope) {
     const attr = key => 'data-' + scope + '-filter="' + key + '"';
-    return select('brandClass', 'Jenis merek', filters.brandClass || 'ALL', { ALL: 'Semua jenis merek', BRANDED: 'Bermerek', GENERIC: 'Generik terkonfirmasi', UNKNOWN: 'Merek belum diketahui' }, attr('brandClass')) +
-      input('brand', 'Merek tersimpan / merek persis', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>' +
-      input('group', 'Kelompok persis', filters.group, 'text', attr('group')) +
+    return ['BRANDED','GENERIC','UNKNOWN'].map(value => check('brandClasses', {BRANDED:'Bermerk',GENERIC:'Tidak bermerek (terkonfirmasi)',UNKNOWN:'Belum diketahui'}[value], (filters.brandClasses || []).includes(value), attr('brandClasses') + ' value="' + value + '"')).join('') +
+      input('brand', 'Merek', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>' +
       check('approvedOnly', 'Sesuai approval aktif', filters.approvedOnly, attr('approvedOnly'));
+  }
+  function searchWord(term, word) {
+    if (word.includes(term)) return true;
+    if (!/^[a-z]{5,40}$/.test(term) || !/^[a-z]+$/.test(word) || Math.abs(term.length-word.length)>1) return false;
+    let i=0,j=0,edits=0;
+    while(i<term.length&&j<word.length){if(term[i]===word[j]){i++;j++;continue;}if(++edits>1)return false;if(term.length<=word.length)j++;if(term.length>=word.length)i++;}
+    return edits+(i<term.length||j<word.length?1:0)<=1;
+  }
+  function filterValue(target, scope) {
+    return target.name === 'brandClasses' ? Array.from(document.querySelectorAll('[data-'+scope+'-filter="brandClasses"]:checked')).map(node=>node.value) : target.checked;
   }
   function textArea(name, label, value, attrs) { return '<label class="utp-field">' + esc(label) + '<textarea name="' + esc(name) + '" ' + (attrs || '') + '>' + esc(value) + '</textarea></label>'; }
   function check(name, label, checked, attrs) { return '<label class="utp-field utp-check"><span><input type="checkbox" name="' + esc(name) + '"' + (checked ? ' checked' : '') + ' ' + (attrs || '') + '> ' + esc(label) + '</span></label>'; }
@@ -187,7 +196,7 @@
   function renderCatalog() {
     const c = state.catalog;
     el('utpContent').innerHTML = header(pages.CATALOG, 'Identitas dan spesifikasi resmi · bukan saldo stok proyek', button('Muat ulang hasil', 'search-catalog') + (!preview && liveWorkflow() ? button('Impor master CSV','import-master') : '')) +
-      '<div class="utp-toolbar" id="utpCatalogFilters">' + input('query', 'Cari kode, nama, merek, tipe, satuan, atau keterangan', c.query, 'search', 'data-catalog="query" placeholder="Kode pendek juga dapat dicari" autocomplete="off"') +
+      '<div class="utp-toolbar" id="utpCatalogFilters">' + input('query', 'Nama barang', c.query, 'search', 'data-catalog="query" placeholder="Ketik sebagian nama atau kode barang" autocomplete="off"') +
       materialFilterMarkup(c, 'catalog') + check('favoriteOnly', 'Favorit saja', c.favoriteOnly, 'data-catalog-filter="favoriteOnly"') + '</div><div id="utpCatalogResults" aria-live="polite"></div>';
     renderCatalogResults();
   }
@@ -228,9 +237,10 @@
       const classification = itemClassification(item);
       return (!filters.favoriteOnly || item.favorite) &&
         (!filters.brandClass || filters.brandClass === 'ALL' || classification === filters.brandClass) &&
+        (!filters.brandClasses || !filters.brandClasses.length || filters.brandClasses.includes(classification)) &&
         (!filters.brand || norm(item.brand) === norm(filters.brand)) &&
         (!filters.group || norm(item.group) === norm(filters.group)) &&
-        terms.every(term => norm([item.code, item.name, item.brand, item.brandCandidate, item.brandStatus, item.model, item.unit, item.group, item.family, item.note].join(' ')).includes(term));
+        terms.every(term => norm([item.code, item.name, item.brand, item.brandCandidate, item.brandStatus, item.model, item.unit, item.group, item.family, item.note].join(' ')).includes(term) || filters.fuzzy && norm(item.name).split(/[^a-z0-9]+/).some(word => searchWord(term, word)));
     }).map(item => {
       const approval = approvalFor(item);
       return Object.assign({}, item, { approved: !!approval, approvalId: approval ? approval.id : '', approvalAuthority: approval ? approval.authority : '' });
@@ -243,7 +253,7 @@
     if (!state.data) return;
     clearTimeout(timer); const generation = epoch, requestId = ++sequence, c = state.catalog;
     c.requestId = requestId; c.loading = true; c.error = ''; renderCatalogResults();
-    const filters = { query: c.query, brandClass: c.brandClass, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
+    const filters = { query: c.query, fuzzy: true, brandClasses: c.brandClasses || [], brandClass: c.brandClass, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
     try {
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || c.requestId !== requestId) return;
@@ -505,7 +515,7 @@
   }
   function masterLookup() {
     const filters = { brandClass: 'ALL', brand: '', group: '', approvedOnly: false, favoriteOnly: false };
-    dialog('Cari material', input('lookup', 'Cari kode, nama, merek, tipe, satuan, atau keterangan', '', 'search', 'id="utpLookupQuery" autocomplete="off" placeholder="Kode pendek dapat dicari"') +
+    dialog('Cari material', input('lookup', 'Nama barang', '', 'search', 'id="utpLookupQuery" autocomplete="off" placeholder="Ketik sebagian nama atau kode barang"') +
       '<div class="utp-toolbar">' + materialFilterMarkup(filters, 'lookup') + '</div><div id="utpLookupResults" aria-live="polite"></div>', null);
     modal.filters = filters;
     lookup('');
@@ -515,7 +525,7 @@
     const context = modal, id = ++context.searchId, generation = epoch, box = el('utpLookupResults'); if (!box) return;
     context.query = query; context.offset = offset; box.innerHTML = '<p class="utp-muted" role="status">Mencari material…</p>';
     try {
-      const filters = Object.assign({}, context.filters, { query, limit: 50, offset });
+      const filters = Object.assign({}, context.filters, { query, fuzzy: true, limit: 50, offset });
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || context !== modal || id !== context.searchId) return;
       context.items = result.items.slice(0, 50);
@@ -847,7 +857,7 @@
     app.addEventListener('change', event => {
       const target = event.target;
       if (target.dataset.catalog && target.type === 'checkbox') scheduleCatalogSearch(target.dataset.catalog, target.checked);
-      if (target.dataset.catalogFilter && target.type === 'checkbox') scheduleCatalogSearch(target.dataset.catalogFilter, target.checked);
+      if (target.dataset.catalogFilter && target.type === 'checkbox') scheduleCatalogSearch(target.dataset.catalogFilter, filterValue(target, 'catalog'));
       if (target.dataset.reviewMeta && state.editor) state.editor[target.dataset.reviewMeta] = target.value;
     });
     d.addEventListener('input', event => {
@@ -855,7 +865,7 @@
       if (event.target.dataset.lookupFilter && event.target.type !== 'checkbox') scheduleLookupSearch(event.target.dataset.lookupFilter, event.target.value);
     });
     d.addEventListener('change', event => {
-      if (event.target.dataset.lookupFilter && event.target.type === 'checkbox') scheduleLookupSearch(event.target.dataset.lookupFilter, event.target.checked);
+      if (event.target.dataset.lookupFilter && event.target.type === 'checkbox') scheduleLookupSearch(event.target.dataset.lookupFilter, filterValue(event.target, 'lookup'));
       if (['utpItemClassification', 'utpItemAuthority'].includes(event.target.id)) toggleItemFields();
       if (event.target.id === 'utpItemParty' && modal && modal.item) { const status = (modal.item.decisions[event.target.value] || {}).status || 'PENDING'; el('utpItemDecision').value = status; }
     });
