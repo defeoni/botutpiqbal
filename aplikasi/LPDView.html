@@ -1,0 +1,89 @@
+<section id="blank-LPD" class="lpd-page" data-main-page="LPD" hidden>
+  <div class="lpd-head">
+    <div>
+      <p class="lpd-kicker">Keuangan proyek</p>
+      <h2>Laporan Penggunaan Dana (LPD)</h2>
+      <p>Pilih satu RPB/tranche dan RPD periode yang sama, catat nota, lalu kirim ke HO. Semua saldo dan kewajiban dihitung server.</p>
+    </div>
+    <div class="lpd-actions"><button class="btn" type="button" id="lpdRefresh">Muat ulang</button><button class="btn primary" type="button" id="lpdNew">LPD baru</button></div>
+  </div>
+
+  <div class="lpd-filter-grid">
+    <div class="field"><label for="lpdProjectSelect">Proyek</label><select id="lpdProjectSelect" aria-label="Proyek LPD"></select></div>
+    <div class="field"><label for="lpdMonth">Bulan</label><input id="lpdMonth" type="month"></div>
+    <div class="field"><label for="lpdPeriod">Periode</label><select id="lpdPeriod"><option value="M1-M2">M1-M2</option><option value="M3-M4">M3-M4</option></select></div>
+    <div class="field"><label for="lpdStatusFilter">Status</label><select id="lpdStatusFilter"><option value="">Semua status</option><option value="DRAFT">Draf</option><option value="SENT">Dikirim</option><option value="COMPLETE">Selesai</option></select></div>
+    <div class="lpd-filter-actions"><button class="btn" type="button" id="lpdLoadScope">Tampilkan</button><button class="btn" type="button" id="lpdClearFilter">Bersihkan filter</button></div>
+  </div>
+
+  <div id="lpdSummary" class="lpd-summary" aria-live="polite"></div>
+  <p id="lpdMessage" class="lpd-message" role="status" aria-live="polite"></p>
+
+  <div class="lpd-layout">
+    <div class="lpd-column">
+      <div class="lpd-card">
+        <div class="lpd-note-head"><div><h3>Daftar LPD</h3><p class="lpd-help">Klik nomor LPD untuk membuka rincian. Daftar mengikuti proyek, bulan, periode, dan status pada filter.</p></div><span id="lpdListCount" class="lpd-tag"></span></div>
+        <div class="tablewrap"><table class="lpd-table"><thead><tr><th>LPD</th><th>Deadline</th><th>RPB</th><th>Status</th><th class="num">Dana cair</th><th class="num">Saldo</th><th class="num">Terbuka</th></tr></thead><tbody id="lpdListRows"></tbody></table></div>
+        <div id="lpdListEmpty" class="lpd-empty" hidden>Belum ada LPD pada filter ini.</div>
+      </div>
+
+      <div class="lpd-card">
+        <div class="lpd-note-head"><div><h3>Formulir LPD</h3><p class="lpd-help" id="lpdRecordMeta">Pilih LPD dari daftar atau buat LPD baru.</p></div><span id="lpdStatusBadge" class="lpd-status draft">DRAFT</span></div>
+        <div class="lpd-grid-3">
+          <div class="lpd-field"><label for="lpdEditorMonth">Bulan</label><input id="lpdEditorMonth" type="month"></div>
+          <div class="lpd-field"><label for="lpdEditorPeriod">Periode</label><select id="lpdEditorPeriod"><option value="M1-M2">M1-M2</option><option value="M3-M4">M3-M4</option></select></div>
+          <div class="lpd-field"><label for="lpdDeadline">Deadline kirim</label><input id="lpdDeadline" type="date"></div>
+        </div>
+        <p class="lpd-muted" id="lpdDeadlineInfo"></p>
+        <div class="lpd-field"><label for="lpdDeadlineReason">Alasan perubahan deadline (opsional)</label><input id="lpdDeadlineReason" maxlength="500" placeholder="Diisi bila deadline diubah"></div>
+        <div class="actions"><button class="btn" type="button" id="lpdSaveDeadline">Simpan deadline</button></div>
+
+        <div class="lpd-field"><label for="lpdNote">Catatan LPD</label><textarea id="lpdNote" maxlength="2000" placeholder="Catatan pengiriman, kondisi nota, atau hal yang perlu diperiksa HO"></textarea></div>
+
+        <h4>Nota dan realisasi</h4>
+        <p class="lpd-help">Satu nota satu baris. Sub-item dihitung server; beberapa foto/dokumen dapat dilampirkan per nota.</p>
+        <div id="lpdNotaList"></div>
+        <div class="actions"><button class="btn" type="button" id="lpdAddNota">Tambah nota</button></div>
+
+        <div class="lpd-actions">
+          <button class="btn primary" type="button" id="lpdSaveDraft">Simpan Draf</button>
+          <button class="btn green" type="button" id="lpdSend">Kirim ke HO</button>
+          <button class="btn" type="button" id="lpdCorrect">Koreksi</button>
+          <button class="btn" type="button" id="lpdRepay">Catat pengembalian</button>
+          <button class="btn" type="button" id="lpdPayCompany">Bayar kewajiban</button>
+          <button class="btn green" type="button" id="lpdComplete">Selesaikan</button>
+        </div>
+        <p id="lpdFormError" class="lpd-message error" role="alert"></p>
+      </div>
+    </div>
+
+    <div class="lpd-column">
+      <div class="lpd-card">
+        <h3>Sumber dana</h3>
+        <p class="lpd-help">Tepat satu RPB/tranche. RPD harus terdaftar pada bulan dan periode yang sama.</p>
+        <div class="lpd-field"><label for="lpdRpbSelect">RPB / tranche</label><select id="lpdRpbSelect"><option value="">Pilih RPB</option></select></div>
+        <div id="lpdTrancheInfo" class="lpd-settle"></div>
+        <h4>RPD periode ini</h4>
+        <div class="tablewrap"><table class="lpd-table"><thead><tr><th>Pilih</th><th>RPD</th><th>Status</th><th class="num">Nominal</th><th>Aksi</th></tr></thead><tbody id="lpdRpdRows"></tbody></table></div>
+        <div id="lpdRpdEmpty" class="lpd-empty" hidden>Belum ada RPD terdaftar untuk periode ini.</div>
+      </div>
+
+      <div class="lpd-card">
+        <h3>Dana cair dan belum cair</h3>
+        <p class="lpd-help">Nilai dihitung server. RPD yang belum cair tidak menambah dana tersedia.</p>
+        <h4>Dana cair</h4>
+        <div class="tablewrap"><table class="lpd-table"><thead><tr><th>Sumber</th><th class="num">Nominal</th></tr></thead><tbody id="lpdCairRows"></tbody></table></div>
+        <h4>Dana belum cair</h4>
+        <div class="tablewrap"><table class="lpd-table"><thead><tr><th>Sumber</th><th class="num">Nominal</th></tr></thead><tbody id="lpdPendingRows"></tbody></table></div>
+      </div>
+
+      <div class="lpd-card">
+        <h3>Penyelesaian</h3>
+        <p class="lpd-help">Transaksi yang sudah terjadi dipertahankan saat koreksi. Selisih yang tidak terselesaikan harus direkonsiliasi.</p>
+        <div id="lpdSettlement" class="lpd-settle"></div>
+        <h4>Audit terbaru</h4>
+        <div id="lpdAudit" class="lpd-audit">Belum ada audit dimuat.</div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -286,8 +286,8 @@ function formatUiDate_(value) {
 
 function switchMainPage(page, rpbRecordId) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
-  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'LPD', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
+  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'LPD', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
     resumeMainPage = page;
     showLoginPanel_('Masuk data server untuk membuka formulir dan menyimpan dokumen.');
     return;
@@ -297,7 +297,7 @@ function switchMainPage(page, rpbRecordId) {
   if(page==='DOCUMENTS'&&$('workspaceLabel'))$('workspaceLabel').textContent='Operasional Bersama';
   if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
-  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
+  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',LPD:'Laporan Penggunaan Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
   document.title=(titles[page]||'Operasional Proyek')+' · UTP Workspace';
@@ -306,7 +306,7 @@ function switchMainPage(page, rpbRecordId) {
     button.classList.toggle('active', button.dataset.main === page);if(button.dataset.main===page){button.setAttribute('aria-current','page');const folder=button.closest('.nav-folder');if(folder)folder.open=true;}else button.removeAttribute('aria-current');
   });
   document.querySelectorAll('.memo-area').forEach((element) => { element.hidden = page !== 'MEMO'; });
-  document.querySelectorAll('.home-page, .blank-page, .rpb-page, .settings-page, .document-center').forEach((element) => {
+  document.querySelectorAll('.home-page, .blank-page, .lpd-page, .rpb-page, .settings-page, .document-center').forEach((element) => {
     element.hidden = page !== (element.dataset.mainPage || element.id.replace('blank-', ''));
   });
   if (page === 'HOME' || page === 'HO') setHomeCurrentDate_();
@@ -314,6 +314,7 @@ function switchMainPage(page, rpbRecordId) {
   if (page === 'HOME' && window.refreshProjectSummary) window.refreshProjectSummary();
   if (['HOME','HO'].includes(page) && window.loadWorkspaceDashboard) window.loadWorkspaceDashboard();
   if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
+  if (page === 'LPD' && window.LPDWorkspace) window.LPDWorkspace.open();
   if (page === 'MANPOWER' && accessToken) loadManpower();
   if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_(rpbRecordId);
@@ -613,6 +614,8 @@ $('confirmSubmit').addEventListener('click', () => {
     $('confirmSubmit').disabled = false;
     $('loading').hidden = true;
     $('resNumber').textContent = response.docNumber;
+    $('memoResultWarning').hidden = !response.warning;
+    $('memoResultWarning').textContent = response.warning ? 'Memo tersimpan dengan peringatan: ' + response.warning : '';
     $('sheetLink').hidden = !response.sheetUrl;
     if (response.sheetUrl) $('sheetLink').href = response.sheetUrl;
     $('pdfLink').hidden = !response.pdfUrl;
@@ -636,7 +639,7 @@ $('confirmSubmit').addEventListener('click', () => {
     $('result').scrollIntoView({ behavior: 'instant', block: 'start' });
     pendingPayload = null;
     memoDirty_ = false;
-    window.UTP_PENDING_DOCUMENT_ID = '';
+    if (window.UtpPendingDocument) window.UtpPendingDocument.clear(); else window.UTP_PENDING_DOCUMENT_ID = '';
     loadCounters();
     loadHistory();
     loadManpower();
@@ -644,6 +647,7 @@ $('confirmSubmit').addEventListener('click', () => {
     $('confirmSubmit').disabled = false;
     $('loading').hidden = true;
     $('preview').hidden = false;
+    $('memoResultWarning').hidden = true;
     $('formError').textContent = `Gagal membuat memo: ${error.message}`;
   });
 });

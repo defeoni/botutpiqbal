@@ -282,7 +282,7 @@ function submitRpb_() {
   const button = $('rpbSubmit'); button.disabled = true; button.textContent = 'Membuat arsip...';
   invokeServer('apiCreateRpb', [payload, token, rpbRevisionOf_], (result) => {
     if(!rpbCurrentScope_(projectId,generation,token))return;
-    if(payload.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===payload.workspaceDocumentId)window.UTP_PENDING_DOCUMENT_ID='';
+    if(payload.workspaceDocumentId&&window.UTP_PENDING_DOCUMENT_ID===payload.workspaceDocumentId){if(window.UtpPendingDocument)window.UtpPendingDocument.clear();else window.UTP_PENDING_DOCUMENT_ID='';}
     rpbSubmitting_ = false;
     setRpbFormDisabled_(false);
     button.disabled = false; button.textContent = 'Buat RPB / Kirim Pengajuan';
@@ -294,7 +294,7 @@ function submitRpb_() {
     $('rpbItemsTable').tBodies[0].replaceChildren();
     $('rpbLpdMonth').value = '';
     $('rpbLpdConfirmed').checked = false;
-    $('rpbFormError').textContent = '';
+    $('rpbFormError').textContent = result.warning ? 'RPB tersimpan dengan peringatan: ' + result.warning : '';
     loadRpbData_();
   }, (error) => {
     if(!rpbCurrentScope_(projectId,generation,token))return;

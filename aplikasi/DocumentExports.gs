@@ -115,11 +115,11 @@ function documentRpdCells_(data,meta) {
 function documentArchiveFolder_(entity,date,kind,projectName,projectId) {
   var props=PropertiesService.getScriptProperties(),rootId=props.getProperty('DRIVE_ROOT_FOLDER_ID');
   var root=rootId?DriveApp.getFolderById(rootId):getArchiveRootFolder_();
-  if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length){var privateId=props.getProperty('DOCUMENT_PRIVATE_ROOT_ID');root=privateId?DriveApp.getFolderById(privateId):DriveApp.createFolder('Arsip UTP - Dokumen Privat');if(!privateId)props.setProperty('DOCUMENT_PRIVATE_ROOT_ID',root.getId());if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length)throw new Error('Folder arsip dokumen privat telah dibagikan. Atur folder privat dahulu.');}
+  if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length){root=sistemDriveInternalFolder_('Dokumen Privat',true);if(root.getSharingAccess()!==DriveApp.Access.PRIVATE||root.getEditors().length||root.getViewers().length)throw new Error('Folder arsip dokumen privat telah dibagikan. Atur folder privat dahulu.');}
   var record=projectId&&projectId!=='legacy'?utpGet_('workspaceProjects',projectId):null;
   if(projectId&&projectId!=='legacy'&&(!record||record.archived))throw new Error('Proyek arsip tidak tersedia.');
-  var project=getOrCreateArchiveSubfolder_(root,record?'Project '+record.code+' - '+record.name:projectId==='legacy'?'Data lama - belum dipetakan':'Project '+(projectName||'Belum dipetakan'));
-  var section=getOrCreateArchiveSubfolder_(project,entity==='rpd'?'RPD':'Material');
+  var project=record?sistemDriveProjectFolder_(record,true):(projectId==='legacy'?sistemDriveLegacyFolder_('',true):workspaceProjectFolderByName_(projectName,'Ekspor'));
+  var section=getOrCreateArchiveSubfolder_(project,entity==='rpd'?'02_RPD':'06_EKSPOR');
   var subtype=getOrCreateArchiveSubfolder_(section,entity==='approvalRecap'?'Rekap Approval':entity==='rpd'?'Rencana Pengeluaran Dana':entity==='approvals'?'Approval Material':kind==='initial'?'Permintaan Awal':'Daftar Final');
   var parts=utpDate_(date,'Tanggal arsip',true).split('-'),months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   var folder=getOrCreateArchiveSubfolder_(subtype,months[Number(parts[1])-1]+' '+parts[0]);

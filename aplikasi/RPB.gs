@@ -123,6 +123,11 @@ function apiCreateRpb(payload, token, revisionOf) {
       id, number, revision, status: 'Diajukan', requestDate: clean.requestDate,
       lpdReceivedMonth: clean.lpdReceivedMonth, data: clean, outputs, parentId: clean.revisionOf
     });
+    let warning='';
+    if(clean.workspaceDocumentId){
+      try{const draftLink=workspaceDocumentLink_(clean.workspaceDocumentId,clean.projectId,'rpb',id);if(draftLink.warning)warning=draftLink.warning;}
+      catch(draftLinkError){warning='Tautan draf gagal dicatat: '+draftLinkError.message;}
+    }
     const userProperties = PropertiesService.getUserProperties();
     const submittedDraftVersion = Number(payload.draftVersion);
     const currentDraftVersion = Number(userProperties.getProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId))) || 0;
@@ -131,10 +136,12 @@ function apiCreateRpb(payload, token, revisionOf) {
       : currentDraftVersion;
     userProperties.deleteProperty(rpbDraftKey_('RPB_DRAFT',clean.projectId));
     userProperties.setProperty(rpbDraftKey_('RPB_DRAFT_REVISION',clean.projectId), String(consumedDraftVersion));
-    return {
+    const result = {
       id, number, revision, spreadsheetUrl: outputs.spreadsheetUrl, excelUrl: outputs.excelUrl,
       pdfUrl: outputs.pdfUrl, folderUrl: folder.getUrl(), waDraft: buildRpbWhatsAppDraft_(clean, number, outputs)
     };
+    if(warning)result.warning=warning;
+    return result;
   } catch (error) {
     const cleanupFailures = [];
     createdIds.forEach((id) => {
@@ -221,7 +228,7 @@ function getRpbHistorySheet_(create) {
   }
   if (!create) return null;
   const book = SpreadsheetApp.create('Riwayat RPB UTP');
-  DriveApp.getFileById(book.getId()).moveTo(getArchiveRootFolder_());
+  DriveApp.getFileById(book.getId()).moveTo(sistemDriveInternalFolder_('Data Operasional', true));
   const sheet = book.getSheets()[0];
   sheet.setName('Riwayat');
   sheet.getRange(1, 1, 1, RPB_HISTORY_HEADERS.length).setValues([RPB_HISTORY_HEADERS]);

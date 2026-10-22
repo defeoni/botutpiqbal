@@ -85,11 +85,11 @@ function utpFinalEvidence_(id) {
   return document && /^(application\/pdf|image\/(jpeg|png))$/.test(document.mime) ? document : null;
 }
 function utpFilesFolder_() {
-  var props = PropertiesService.getScriptProperties(), folderId = props.getProperty('UTP_FILES_FOLDER_ID');
-  var folder = folderId && props.getProperty('UTP_FILES_FOLDER_PRIVATE') === 'true' ? DriveApp.getFolderById(folderId) : null;
-  if (folder && folder.getSharingAccess() === DriveApp.Access.PRIVATE) return folder;
-  folder = DriveApp.createFolder('Administrasi Terrasentra · Dokumen');
-  if (folder.getSharingAccess() !== DriveApp.Access.PRIVATE) throw new Error('Folder dokumen baru tidak privat.');
+  var props = PropertiesService.getScriptProperties(), folderId = props.getProperty('UTP_FILES_FOLDER_ID'), folder = null;
+  if (folderId) { try { folder = DriveApp.getFolderById(folderId); } catch (error) { folder = null; } }
+  if (folder && folder.getSharingAccess() === DriveApp.Access.PRIVATE && !(folder.getEditors && folder.getEditors().length) && !(folder.getViewers && folder.getViewers().length)) return folder;
+  folder = sistemDriveInternalFolder_('Dokumen Privat', true);
+  sistemDriveProtect_(folder, true);
   props.setProperty('UTP_FILES_FOLDER_ID', folder.getId());
   props.setProperty('UTP_FILES_FOLDER_PRIVATE', 'true');
   return folder;

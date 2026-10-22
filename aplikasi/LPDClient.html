@@ -1,0 +1,1578 @@
+<script>
+(function () {
+  'use strict';
+
+  var state = {
+    opened: false,
+    session: '',
+    scopeTicket: 0,
+    requestTicket: 0,
+    projectId: '',
+    month: '',
+    period: 'M1-M2',
+    statusFilter: '',
+    list: [],
+    record: null,
+    calculation: null,
+    audit: [],
+    rpbRecords: [],
+    rpdRecords: [],
+    selectedRpdIds: [],
+    notas: [],
+    dirty: false,
+    busy: false,
+    applying: false
+  };
+
+  var STATUS_LABEL = { DRAFT: 'Draf', SENT: 'Dikirim', COMPLETE: 'Selesai' };
+  var RPD_LABEL = { DIAJUKAN: 'Diajukan', DICAIRKAN: 'Dicairkan', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan', DITUTUP: 'Ditutup' };
+  var moneyFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+
+  function get(id) { return document.getElementById(id); }
+  function text(id, value) { var node = get(id); if (node) node.textContent = value == null ? '' : String(value); }
+  function token() { return typeof accessToken === 'undefined' ? '' : accessToken; }
+  function activeProject() {
+    if (!window.ProjectWorkspace) return 'all';
+    return window.ProjectWorkspace.getActiveId();
+  }
+  function projectRecord(id) {
+    if (!window.ProjectWorkspace) return null;
+    return window.ProjectWorkspace.getProjects().filter(function (row) { return row.id === id; })[0] || null;
+  }
+  function money(value) {
+    var number = Number(value);
+    return isFinite(number) ? moneyFormatter.format(number) : '—';
+  }
+  function dateText(value) {
+    if (!value) return '—';
+    var date = new Date(String(value).length === 10 ? value + 'T00:00:00+07:00' : value);
+    if (isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function dateTimeText(value) {
+    if (!value) return '—';
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function jakartaMonth() {
+    var parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' }).formatToParts(new Date());
+    var values = {};
+    parts.forEach(function (part) { values[part.type] = part.value; });
+    return values.year + '-' + values.month;
+  }
+  function uuid() {
+    try { return crypto.randomUUID(); } catch (error) {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (char) {
+        var random = Math.random() * 16 | 0;
+        return (char === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
+      });
+    }
+  }
+  function setStatus(message, kind) {
+    var node = get('lpdMessage');
+    node.textContent = message || '';
+    node.className = 'lpd-message' + (kind ? ' ' + kind : '');
+  }
+  function errorText(error) { return error && error.message ? error.message : String(error); }
+
+  function rpc(action, payload) {
+    return new Promise(function (resolve, reject) {
+      if (!token()) return reject(new Error('Masuk data server untuk membuka LPD.'));
+      invokeServer('apiLpd', [action, payload || {}, token()], resolve, reject);
+    });
+  }
+
+  function editable() { return !state.record || state.record.status === 'DRAFT'; }
+  function markDirty() {
+    if (state.applying) return;
+    state.dirty = true;
+    renderActionState();
+  }
+  function confirmDiscard() {
+    if (!state.dirty) return true;
+    return window.confirm('Isian LPD belum disimpan. Buang isian ini?');
+  }
+
+  function setBusy(value) {
+    state.busy = value;
+    var page = get('blank-LPD');
+    if (page) page.setAttribute('aria-busy', String(value));
+    renderActionState();
+  }
+
+  function run(label, task) {
+    if (state.busy) return Promise.resolve();
+    var scope = state.scopeTicket;
+    setBusy(true);
+    setStatus(label || 'Memproses…', '');
+    return Promise.resolve().then(function () {
+      return task(scope);
+    }).catch(function (error) {
+      if (scope === state.scopeTicket) setStatus('Gagal: ' + errorText(error), 'error');
+    }).then(function () {
+      setBusy(false);
+    });
+  }
+
+  function askPin(purpose) {
+    if (typeof askDeletePin_ !== 'function') return Promise.reject(new Error('Dialog PIN belum tersedia. Muat ulang aplikasi.'));
+    return askDeletePin_(purpose).then(function (pin) {
+      if (!pin) throw new Error('Tindakan dibatalkan.');
+      return pin;
+    });
+  }
+
+  function applyProjectOptions() {
+    var select = get('lpdProjectSelect');
+    var projects = window.ProjectWorkspace ? window.ProjectWorkspace.getProjects() : [];
+    select.replaceChildren();
+    select.add(new Option(projects.length ? 'Pilih proyek' : 'Belum ada proyek', ''));
+    projects.forEach(function (project) { select.add(new Option(project.name + (project.code ? ' · ' + project.code : ''), project.id)); });
+    if (state.projectId && !projects.some(function (project) { return project.id === state.projectId; })) state.projectId = '';
+    select.value = state.projectId || '';
+    select.disabled = state.busy || projects.length === 0;
+  }
+
+  function setScope(projectId) {
+    state.scopeTicket++;
+    state.requestTicket++;
+    state.projectId = projectId || '';
+    state.list = [];
+    state.record = null;
+    state.calculation = null;
+    state.audit = [];
+    state.rpbRecords = [];
+    state.rpdRecords = [];
+    state.selectedRpdIds = [];
+    state.notas = [];
+    state.dirty = false;
+    renderAll();
+  }
+
+  function renderAll() {
+    applyProjectOptions();
+    renderList();
+    renderEditor();
+    renderSources();
+    renderSettlement();
+    renderAudit();
+    renderActionState();
+  }
+
+  function renderList() {
+    var body = get('lpdListRows');
+    body.replaceChildren();
+    var records = state.list.filter(function (row) {
+      return !state.statusFilter || row.status === state.statusFilter;
+    });
+    text('lpdListCount', records.length + ' LPD');
+    get('lpdListEmpty').hidden = records.length > 0;
+    records.forEach(function (row) {
+      var calc = row.calculation || {};
+      var settlement = calc.settlement || {};
+      var tr = document.createElement('tr');
+      var numberCell = document.createElement('td');
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'lpd-link';
+      open.textContent = 'LPD ' + String(row.id).slice(0, 8);
+      open.title = 'Buka LPD ' + row.id;
+      open.onclick = function () { openRecord(row.id); };
+      numberCell.appendChild(open);
+      var deadline = document.createElement('td');
+      var due = (calc.deadline && calc.deadline.due) || (row.deadline && row.deadline.due) || '';
+      deadline.textContent = due ? dateText(due) : '—';
+      if (calc.deadline && calc.deadline.late) {
+        deadline.className = 'lpd-late';
+        deadline.appendChild(document.createTextNode(' · terlambat'));
+      }
+      var rpb = document.createElement('td');
+      rpb.textContent = calc.rpb && calc.rpb.number ? calc.rpb.number : (row.rpbId ? String(row.rpbId).slice(0, 8) : '—');
+      var status = document.createElement('td');
+      var badge = document.createElement('span');
+      badge.className = 'lpd-status ' + String(row.status || '').toLowerCase();
+      badge.textContent = STATUS_LABEL[row.status] || row.status || '—';
+      status.appendChild(badge);
+      var dana = document.createElement('td');
+      dana.className = 'num';
+      dana.textContent = money(calc.totals && calc.totals.danaTersedia);
+      var saldo = document.createElement('td');
+      saldo.className = 'num';
+      saldo.textContent = money(settlement.saldoAkhir == null ? (calc.totals && calc.totals.saldo) : settlement.saldoAkhir);
+      var openCell = document.createElement('td');
+      openCell.className = 'num';
+      var openAmount = Number(settlement.totalTerbuka || 0);
+      openCell.textContent = money(openAmount);
+      if (openAmount > 0) openCell.className = 'num lpd-open-money';
+      tr.append(numberCell, deadline, rpb, status, dana, saldo, openCell);
+      body.appendChild(tr);
+    });
+    var totals = state.list.reduce(function (acc, row) {
+      var calc = row.calculation || {};
+      acc.count++;
+      if (calc.deadline && calc.deadline.late) acc.late++;
+      if (row.status === 'DRAFT') acc.draft++;
+      if (row.status === 'SENT') acc.sent++;
+      if (row.status === 'COMPLETE') acc.complete++;
+      acc.open += Number(calc.settlement && calc.settlement.totalTerbuka || 0);
+      return acc;
+    }, { count: 0, late: 0, draft: 0, sent: 0, complete: 0, open: 0 });
+    text('lpdSummary', state.projectId
+      ? totals.count + ' LPD pada filter · ' + totals.draft + ' draf · ' + totals.sent + ' dikirim · ' + totals.complete + ' selesai · ' + totals.late + ' terlambat · terbuka ' + money(totals.open)
+      : 'Pilih satu proyek untuk memuat LPD.');
+  }
+
+  function renderEditor() {
+    var record = state.record;
+    var calc = state.calculation;
+    var badge = get('lpdStatusBadge');
+    var status = record ? record.status : 'DRAFT';
+    badge.className = 'lpd-status ' + String(status).toLowerCase();
+    badge.textContent = STATUS_LABEL[status] || status;
+    get('lpdEditorMonth').disabled = state.busy || !!record;
+    get('lpdEditorPeriod').disabled = state.busy || !!record;
+    get('lpdDeadlineReason').disabled = state.busy || !record;
+    text('lpdRecordMeta', record
+      ? 'ID ' + record.id + ' · versi ' + record.version + (record.firstSentAt ? ' · pertama dikirim ' + dateTimeText(record.firstSentAt) : '') + (record.correctionCount ? ' · ' + record.correctionCount + ' koreksi' : '')
+      : 'Belum tersimpan. Pilih RPB/tranche dan RPD, lalu simpan Draf.');
+    if (!state.dirty) {
+      get('lpdNote').value = record ? record.note || '' : '';
+    }
+    renderDeadline();
+    renderNotas();
+  }
+
+  function renderDeadline() {
+    var calc = state.calculation;
+    var deadline = calc && calc.deadline ? calc.deadline : null;
+    var input = get('lpdDeadline');
+    if (deadline) input.value = deadline.due || '';
+    else if (!state.record) input.value = '';
+    var parts = [];
+    if (deadline) {
+      parts.push('Deadline asli ' + dateText(deadline.original) + '; berlaku ' + dateText(deadline.due) + '.');
+      parts.push(deadline.late ? 'Sudah melewati deadline.' : 'Belum melewati deadline.');
+      if (deadline.changedAt) parts.push('Diubah ' + dateTimeText(deadline.changedAt) + ' oleh ' + (deadline.changedBy || '—') + '.');
+      if (deadline.history && deadline.history.length) {
+        parts.push('Riwayat: ' + deadline.history.slice(-3).map(function (item) {
+          return dateText(item.from) + ' → ' + dateText(item.to) + ' (' + (item.actor || '—') + (item.reason ? ': ' + item.reason : '') + ')';
+        }).join(' · '));
+      }
+    } else {
+      parts.push('Kosongkan untuk memakai deadline server: tanggal 15 (M1-M2) atau akhir bulan (M3-M4), kalender Jakarta.');
+    }
+    text('lpdDeadlineInfo', parts.join(' '));
+  }
+
+  function lineAmount(line) {
+    return line.amount == null ? '' : String(line.amount);
+  }
+
+  function renderNotas() {
+    var root = get('lpdNotaList');
+    root.replaceChildren();
+    if (!state.notas.length) {
+      var empty = document.createElement('p');
+      empty.className = 'lpd-empty';
+      empty.textContent = 'Belum ada nota. Tambahkan satu nota per baris pengeluaran.';
+      root.appendChild(empty);
+      return;
+    }
+    state.notas.forEach(function (nota, index) {
+      root.appendChild(renderNota(nota, index));
+    });
+  }
+
+  function renderNota(nota, index) {
+    var card = document.createElement('article');
+    card.className = 'lpd-nota';
+    card.dataset.key = nota.key;
+
+    var head = document.createElement('div');
+    head.className = 'lpd-nota-head';
+    var title = document.createElement('h5');
+    title.textContent = 'Nota ' + (index + 1);
+    var serverAmount = document.createElement('span');
+    serverAmount.className = 'lpd-nota-amount';
+    serverAmount.textContent = nota.savedAmount != null && nota.savedAmount !== '' ? 'Tersimpan: ' + money(nota.savedAmount) : 'Belum tersimpan';
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn red lpd-small';
+    remove.textContent = 'Hapus nota';
+    remove.disabled = state.busy || !editable();
+    remove.onclick = function () {
+      if (!window.confirm('Hapus nota ' + (index + 1) + ' dari draf?')) return;
+      state.notas.splice(index, 1);
+      markDirty();
+      renderNotas();
+    };
+    head.append(title, serverAmount, remove);
+
+    var grid = document.createElement('div');
+    grid.className = 'lpd-grid-3';
+    grid.appendChild(field('Tanggal nota', 'date', nota.date || '', 'notaDate', true));
+    var amountField = field('Nominal nota (bila tanpa sub-item)', 'number', lineAmount(nota), 'notaAmount', !nota.items.length);
+    if (nota.items.length) amountField.querySelector('input').dataset.lock = 'items';
+    grid.appendChild(amountField);
+    var descWrap = document.createElement('div');
+    descWrap.className = 'lpd-field lpd-span-2';
+    var descLabel = document.createElement('label');
+    descLabel.textContent = 'Uraian nota';
+    var desc = document.createElement('input');
+    desc.type = 'text';
+    desc.maxLength = 300;
+    desc.value = nota.description || '';
+    desc.placeholder = 'Contoh: Pembelian material dan konsumsi';
+    desc.disabled = state.busy || !editable();
+    desc.addEventListener('input', function () { nota.description = desc.value; markDirty(); });
+    descLabel.appendChild(desc);
+    descWrap.appendChild(descLabel);
+    grid.appendChild(descWrap);
+
+    var items = document.createElement('div');
+    items.className = 'lpd-subitems';
+    var itemHead = document.createElement('div');
+    itemHead.className = 'lpd-subitem-head';
+    itemHead.innerHTML = '<span>Sub-item</span><span>Jumlah</span><span>Harga satuan</span><span></span>';
+    items.appendChild(itemHead);
+    (nota.items || []).forEach(function (item, itemIndex) {
+      var row = document.createElement('div');
+      row.className = 'lpd-subitem-row';
+      row.dataset.item = String(itemIndex);
+      var name = document.createElement('input');
+      name.type = 'text';
+      name.value = item.name || '';
+      name.maxLength = 300;
+      name.placeholder = 'Nama sub-item';
+      name.disabled = state.busy || !editable();
+      name.addEventListener('input', function () { item.name = name.value; markDirty(); });
+      var quantity = document.createElement('input');
+      quantity.type = 'number';
+      quantity.min = '0';
+      quantity.step = 'any';
+      quantity.value = item.quantity == null ? '' : String(item.quantity);
+      quantity.disabled = state.busy || !editable();
+      quantity.addEventListener('input', function () { item.quantity = quantity.value; markDirty(); });
+      var price = document.createElement('input');
+      price.type = 'number';
+      price.min = '0';
+      price.step = 'any';
+      price.value = item.price == null ? '' : String(item.price);
+      price.disabled = state.busy || !editable();
+      price.addEventListener('input', function () { item.price = price.value; markDirty(); });
+      var removeItem = document.createElement('button');
+      removeItem.type = 'button';
+      removeItem.className = 'btn lpd-small';
+      removeItem.textContent = 'Hapus';
+      removeItem.disabled = state.busy || !editable();
+      removeItem.onclick = function () {
+        nota.items.splice(itemIndex, 1);
+        markDirty();
+        renderNotas();
+      };
+      row.append(name, quantity, price, removeItem);
+      items.appendChild(row);
+    });
+    var addItem = document.createElement('button');
+    addItem.type = 'button';
+    addItem.className = 'btn lpd-small';
+    addItem.textContent = 'Tambah sub-item';
+    addItem.disabled = state.busy || !editable();
+    addItem.onclick = function () {
+      nota.items.push({ name: '', quantity: 1, price: '' });
+      markDirty();
+      renderNotas();
+    };
+    items.appendChild(addItem);
+
+    var attachHead = document.createElement('div');
+    attachHead.className = 'lpd-attach-head';
+    var attachTitle = document.createElement('strong');
+    attachTitle.textContent = 'Foto / dokumen bukti';
+    var uploadLabel = document.createElement('label');
+    uploadLabel.className = 'lpd-upload';
+    var uploadInput = document.createElement('input');
+    uploadInput.type = 'file';
+    uploadInput.accept = 'image/jpeg,image/png,application/pdf';
+    uploadInput.multiple = true;
+    uploadInput.dataset.lpdUpload = 'true';
+    uploadInput.disabled = state.busy || !editable() || !state.record;
+    uploadInput.addEventListener('change', function () { uploadFiles(nota, uploadInput); });
+    uploadLabel.appendChild(document.createTextNode(state.record ? 'Unggah bukti' : 'Simpan Draf untuk mengunggah'));
+    uploadLabel.appendChild(uploadInput);
+    attachHead.append(attachTitle, uploadLabel);
+
+    var attachments = document.createElement('div');
+    attachments.className = 'lpd-attachments';
+    if (!(nota.attachments || []).length) {
+      var noFile = document.createElement('span');
+      noFile.className = 'lpd-muted';
+      noFile.textContent = 'Belum ada bukti.';
+      attachments.appendChild(noFile);
+    }
+    (nota.attachments || []).forEach(function (file, fileIndex) {
+      var chip = document.createElement('span');
+      chip.className = 'lpd-chip';
+      var link = document.createElement('a');
+      link.href = file.url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = file.name || 'Bukti';
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.textContent = '×';
+      drop.title = 'Lepas lampiran dari draf';
+      drop.disabled = state.busy || !editable();
+      drop.onclick = function () {
+        nota.attachments.splice(fileIndex, 1);
+        markDirty();
+        renderNotas();
+      };
+      chip.append(link, drop);
+      attachments.appendChild(chip);
+    });
+
+    card.append(head, grid, items, attachHead, attachments);
+    return card;
+  }
+
+  function field(labelText, type, value, key, enabled) {
+    var wrap = document.createElement('div');
+    wrap.className = 'lpd-field';
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    var input = document.createElement('input');
+    input.type = type;
+    input.value = value == null ? '' : String(value);
+    if (type === 'number') { input.min = '0'; input.step = 'any'; }
+    input.disabled = state.busy || !editable() || enabled === false;
+    input.addEventListener('input', function () {
+      var nota = state.notas.filter(function (row) { return row.key === input.closest('.lpd-nota').dataset.key; })[0];
+      if (!nota) return;
+      if (key === 'notaDate') nota.date = input.value;
+      if (key === 'notaAmount') nota.amount = input.value;
+      markDirty();
+    });
+    label.appendChild(input);
+    wrap.appendChild(label);
+    return wrap;
+  }
+
+  function readBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = String(reader.result || '');
+        var comma = result.indexOf(',');
+        if (comma < 0) reject(new Error('File tidak dapat dibaca.'));
+        else resolve(result.slice(comma + 1));
+      };
+      reader.onerror = function () { reject(new Error('File gagal dibaca.')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function uploadFiles(nota, input) {
+    if (!state.record || state.busy) return;
+    var files = Array.prototype.slice.call(input.files || []);
+    input.value = '';
+    if (!files.length) return;
+    if ((nota.attachments || []).length + files.length > 10) {
+      setStatus('Satu nota maksimal 10 foto/dokumen. Lepas sebagian lampiran sebelum mengunggah lagi.', 'error');
+      return;
+    }
+    run('Mengunggah bukti nota…', async function (scope) {
+      var uploaded = 0, failures = [];
+      for (var index = 0; index < files.length; index++) {
+        var file = files[index];
+        if (['image/jpeg', 'image/png', 'application/pdf'].indexOf(file.type) < 0) {
+          failures.push(file.name + ': gunakan JPG, PNG, atau PDF.');
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          failures.push(file.name + ': maksimal 5 MB.');
+          continue;
+        }
+        try {
+          var base64 = await readBase64(file);
+          var result = await rpc('upload', {
+            projectId: state.projectId,
+            lpdId: state.record.id,
+            name: file.name,
+            mime: file.type,
+            base64: base64
+          });
+          if (scope !== state.scopeTicket) return;
+          nota.attachments = nota.attachments || [];
+          nota.attachments.push({ id: result.id, url: result.url, name: result.name, mime: result.mime });
+          uploaded++;
+        } catch (error) {
+          failures.push(file.name + ': ' + errorText(error));
+        }
+      }
+      if (scope !== state.scopeTicket) return;
+      if (uploaded) markDirty();
+      renderNotas();
+      setStatus(uploaded + ' bukti diunggah' + (failures.length ? '. Gagal: ' + failures.join(' | ') : '.') + ' Simpan Draf agar tautan tersimpan pada LPD.', failures.length ? 'error' : 'ok');
+    });
+  }
+
+  function applyRecord(record, calculation, audit) {
+    state.applying = true;
+    state.record = record;
+    state.calculation = calculation;
+    state.audit = audit || state.audit;
+    state.selectedRpdIds = (record.rpdIds || []).slice();
+    state.notas = (record.realisasi || []).map(function (line) {
+      return {
+        key: line.id || uuid(),
+        id: line.id || '',
+        date: line.date || '',
+        description: line.description || '',
+        amount: line.amount == null ? '' : String(line.amount),
+        savedAmount: line.amount == null ? '' : line.amount,
+        items: (line.items || []).map(function (item) {
+          return { name: item.name || '', quantity: item.quantity == null ? '' : item.quantity, price: item.price == null ? '' : item.price };
+        }),
+        attachments: (line.attachments || []).map(function (file) { return { name: file.name || '', url: file.url || '', mime: file.mime || '' }; })
+      };
+    });
+    get('lpdEditorMonth').value = record.month;
+    get('lpdEditorPeriod').value = record.period;
+    get('lpdNote').value = record.note || '';
+    get('lpdDeadlineReason').value = '';
+    state.dirty = false;
+    state.applying = false;
+    renderEditor();
+    renderSources();
+    renderSettlement();
+    renderAudit();
+    renderActionState();
+  }
+
+  function clearEditor() {
+    state.record = null;
+    state.calculation = null;
+    state.audit = [];
+    state.selectedRpdIds = [];
+    state.notas = [];
+    state.dirty = false;
+    state.applying = true;
+    get('lpdEditorMonth').value = state.month || jakartaMonth();
+    get('lpdEditorPeriod').value = state.period;
+    get('lpdRpbSelect').value = '';
+    get('lpdNote').value = '';
+    get('lpdDeadline').value = '';
+    get('lpdDeadlineReason').value = '';
+    state.applying = false;
+    renderEditor();
+    renderSources();
+    renderSettlement();
+    renderAudit();
+    renderActionState();
+  }
+
+  function renderActionState() {
+    var record = state.record;
+    var calc = state.calculation || {};
+    var settlement = calc.settlement || {};
+    var editableNow = editable();
+    var buttons = {
+      lpdSaveDraft: editableNow && !state.busy,
+      lpdSend: !!record && record.status === 'DRAFT' && !state.dirty && !state.busy,
+      lpdCorrect: !!record && ['SENT', 'COMPLETE'].indexOf(record.status) >= 0 && !state.dirty && !state.busy,
+      lpdRepay: !!record && record.status === 'SENT' && !state.dirty && Number(settlement.pengembalianTerbuka) > 0 && !state.busy,
+      lpdPayCompany: !!record && record.status === 'SENT' && !state.dirty && Number(settlement.kewajibanPerusahaanTerbuka) > 0 && !state.busy,
+      lpdComplete: !!record && record.status === 'SENT' && !state.dirty && !state.busy,
+      lpdSaveDeadline: !!record && !state.busy,
+      lpdAddNota: editableNow && !state.busy,
+      lpdNew: !state.busy,
+      lpdRefresh: !state.busy,
+      lpdLoadScope: !state.busy,
+      lpdClearFilter: !state.busy
+    };
+    Object.keys(buttons).forEach(function (id) { if (get(id)) get(id).disabled = !buttons[id]; });
+    if (get('lpdProjectSelect')) get('lpdProjectSelect').disabled = state.busy || !(window.ProjectWorkspace && window.ProjectWorkspace.getProjects().length);
+    ['lpdMonth', 'lpdPeriod', 'lpdStatusFilter'].forEach(function (id) { if (get(id)) get(id).disabled = state.busy; });
+    if (get('lpdEditorMonth')) get('lpdEditorMonth').disabled = state.busy || !!record;
+    if (get('lpdEditorPeriod')) get('lpdEditorPeriod').disabled = state.busy || !!record;
+    if (get('lpdDeadlineReason')) get('lpdDeadlineReason').disabled = state.busy;
+    Array.prototype.forEach.call(document.querySelectorAll('#lpdNotaList input, #lpdNotaList button, #lpdNote, #lpdRpbSelect, #lpdDeadline'), function (node) {
+      if (node.id === 'lpdDeadline') { node.disabled = !record || state.busy; return; }
+      if (node.id === 'lpdNote') { node.disabled = !editableNow || state.busy; return; }
+      if (node.id === 'lpdRpbSelect') { node.disabled = !editableNow || state.busy || !state.projectId; return; }
+      if (node.dataset.lock === 'items') { node.disabled = true; return; }
+      if (node.dataset.lpdUpload === 'true') { node.disabled = !editableNow || state.busy || !record; return; }
+      node.disabled = !editableNow || state.busy;
+    });
+  }
+
+  function renderRpbOptions() {
+    var select = get('lpdRpbSelect');
+    var current = state.record ? state.record.rpbId || '' : select.value || '';
+    select.replaceChildren();
+    select.add(new Option(state.rpbRecords.length ? 'Pilih RPB' : 'Tidak ada RPB pada bulan ini', ''));
+    state.rpbRecords.forEach(function (rpb) {
+      var tranche = rpb.tranche || {};
+      var suffix = tranche.status === 'DICAIRKAN' ? ' · cair' : (tranche.status ? ' · belum cair' : '');
+      select.add(new Option((rpb.number || rpb.id) + suffix, rpb.id));
+    });
+    if (current && state.rpbRecords.some(function (rpb) { return rpb.id === current; })) select.value = current;
+    select.disabled = state.busy || !editable() || !state.projectId;
+  }
+
+  function renderSources() {
+    renderRpbOptions();
+    var calc = state.calculation;
+    var selectedRpbId = get('lpdRpbSelect').value || (state.record ? state.record.rpbId : '');
+    var tranche = null;
+    if (state.record && selectedRpbId === state.record.rpbId && calc && calc.tranche) {
+      tranche = calc.tranche;
+    } else if (selectedRpbId) {
+      var selected = state.rpbRecords.filter(function (rpb) { return rpb.id === selectedRpbId; })[0];
+      tranche = selected && selected.tranche ? selected.tranche : null;
+    }
+    var box = get('lpdTrancheInfo');
+    box.replaceChildren();
+    if (!state.projectId) {
+      box.textContent = 'Pilih proyek untuk memuat RPB dan RPD.';
+    } else if (!tranche && !get('lpdRpbSelect').value) {
+      box.textContent = 'Pilih satu RPB/tranche sebagai sumber dana.';
+    } else if (!tranche) {
+      box.textContent = 'Tranche belum terdaftar. Pencairan akan mendaftarkan tranche setelah gerbang M3-M4 lolos.';
+    } else {
+      var rows = [
+        ['Status tranche', tranche.status === 'DICAIRKAN' ? 'Dicairkan' : 'Belum dicairkan'],
+        ['Rencana', money(tranche.plannedAmount)],
+        ['Nilai cair', money(tranche.amount)],
+        ['Tanggal cair', tranche.disbursedAt ? dateTimeText(tranche.disbursedAt) : '—']
+      ];
+      rows.forEach(function (row) {
+        var line = document.createElement('div');
+        var label = document.createElement('span');
+        label.textContent = row[0];
+        var value = document.createElement('strong');
+        value.textContent = row[1];
+        line.append(label, value);
+        box.appendChild(line);
+      });
+    }
+    var trancheActions = document.createElement('div');
+    trancheActions.className = 'actions';
+    var rpbId = get('lpdRpbSelect').value;
+    if (rpbId && (!tranche || tranche.status !== 'DICAIRKAN')) {
+      var disburse = document.createElement('button');
+      disburse.type = 'button';
+      disburse.className = 'btn green lpd-small';
+      disburse.textContent = 'Cairkan tranche';
+      disburse.disabled = state.busy;
+      disburse.onclick = function () { disburseTranche(rpbId, tranche); };
+      trancheActions.appendChild(disburse);
+    }
+    if (rpbId && editable()) {
+      var plan = document.createElement('button');
+      plan.type = 'button';
+      plan.className = 'btn lpd-small';
+      plan.textContent = 'Ubah rencana tranche';
+      plan.disabled = state.busy;
+      plan.onclick = function () { planTranche(rpbId, tranche); };
+      trancheActions.appendChild(plan);
+    }
+    if (trancheActions.childNodes.length) box.appendChild(trancheActions);
+
+    renderRpdRows();
+    renderCash();
+  }
+
+  function rpdCatalog() {
+    var groups = { enrolled: [], available: [], used: [], closed: [] };
+    var selected = state.selectedRpdIds || [];
+    var seen = {};
+    (state.rpdRecords || []).forEach(function (row) {
+      var finance = row.finance;
+      var inMonth = String(row.date || '').slice(0, 7) === (state.record ? state.record.month : get('lpdEditorMonth').value);
+      if (!finance && !inMonth) return;
+      if (finance && finance.lpdId && finance.lpdId !== (state.record && state.record.id)) {
+        groups.used.push(row);
+      } else if (finance && ['DITOLAK', 'DIBATALKAN', 'DITUTUP'].indexOf(finance.status) >= 0) {
+        if (selected.indexOf(row.id) >= 0) groups.closed.push(row);
+      } else if (finance) {
+        groups.enrolled.push(row);
+      } else {
+        groups.available.push(row);
+      }
+      seen[row.id] = true;
+    });
+    (state.selectedRpdIds || []).forEach(function (id) {
+      if (seen[id]) return;
+      var calc = state.calculation && (state.calculation.rpds || []).filter(function (row) { return row.id === id; })[0];
+      groups.closed.push({
+        id: id,
+        purpose: calc ? calc.purpose : id,
+        date: '',
+        enrolled: true,
+        eligible: false,
+        finance: calc ? { month: state.record.month, period: state.record.period, status: calc.status, amount: calc.amount, lpdId: calc.lpdId } : null,
+        missing: true
+      });
+    });
+    return groups;
+  }
+
+  function renderRpdRows() {
+    var body = get('lpdRpdRows');
+    body.replaceChildren();
+    var groups = rpdCatalog();
+    var rows = groups.available.concat(groups.enrolled, groups.used, groups.closed);
+    get('lpdRpdEmpty').hidden = rows.length > 0;
+    rows.forEach(function (row) {
+      var finance = row.finance;
+      var selected = state.selectedRpdIds.indexOf(row.id) >= 0;
+      var tr = document.createElement('tr');
+      if (row.missing) tr.className = 'lpd-row-warn';
+      var pickCell = document.createElement('td');
+      var pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.checked = selected;
+      pick.setAttribute('aria-label', 'Pilih RPD ' + (row.purpose || row.id));
+      pick.disabled = state.busy || !editable() || !!row.missing ||
+        (!selected && finance && finance.lpdId && finance.lpdId !== (state.record && state.record.id)) ||
+        (!selected && finance && ['DITOLAK', 'DIBATALKAN', 'DITUTUP'].indexOf(finance.status) >= 0);
+      pick.addEventListener('change', function () {
+        if (pick.checked) state.selectedRpdIds.push(row.id);
+        else state.selectedRpdIds = state.selectedRpdIds.filter(function (id) { return id !== row.id; });
+        markDirty();
+        renderSources();
+      });
+      pickCell.appendChild(pick);
+      var name = document.createElement('td');
+      name.textContent = row.purpose || row.id;
+      var small = document.createElement('small');
+      small.className = 'lpd-block';
+      small.textContent = row.date ? dateText(row.date) : (row.id || '');
+      name.appendChild(small);
+      var status = document.createElement('td');
+      status.textContent = finance ? (RPD_LABEL[finance.status] || finance.status) : 'Belum terdaftar';
+      var amount = document.createElement('td');
+      amount.className = 'num';
+      amount.textContent = money(finance ? finance.amount : row.total);
+      var actions = document.createElement('td');
+      actions.className = 'lpd-row-actions';
+      if (!finance && editable()) {
+        var enroll = document.createElement('button');
+        enroll.type = 'button';
+        enroll.className = 'btn lpd-small';
+        enroll.textContent = 'Daftarkan';
+        enroll.disabled = state.busy;
+        enroll.onclick = function () { enrollRpd(row); };
+        actions.appendChild(enroll);
+      } else if (finance && finance.status === 'DIAJUKAN' && editable()) {
+        var disburse = document.createElement('button');
+        disburse.type = 'button';
+        disburse.className = 'btn green lpd-small';
+        disburse.textContent = 'Cairkan';
+        disburse.disabled = state.busy;
+        disburse.onclick = function () { disburseRpd(row); };
+        actions.appendChild(disburse);
+        var editAmount = document.createElement('button');
+        editAmount.type = 'button';
+        editAmount.className = 'btn lpd-small';
+        editAmount.textContent = 'Ubah nominal';
+        editAmount.disabled = state.busy;
+        editAmount.onclick = function () { editRpdAmount(row); };
+        actions.appendChild(editAmount);
+        var reject = document.createElement('button');
+        reject.type = 'button';
+        reject.className = 'btn red lpd-small';
+        reject.textContent = 'Tolak / batalkan';
+        reject.disabled = state.busy;
+        reject.onclick = function () { setRpdStatus(row); };
+        actions.appendChild(reject);
+      } else if (finance && finance.lpdId) {
+        var linked = document.createElement('span');
+        linked.className = 'lpd-muted';
+        linked.textContent = finance.lpdId === (state.record && state.record.id) ? 'Dipakai LPD ini' : 'Dipakai LPD lain';
+        actions.appendChild(linked);
+      }
+      tr.append(pickCell, name, status, amount, actions);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderCash() {
+    var calc = state.calculation;
+    var cair = get('lpdCairRows');
+    var pending = get('lpdPendingRows');
+    cair.replaceChildren();
+    pending.replaceChildren();
+    if (!calc) {
+      cair.innerHTML = '<tr><td colspan="2">Belum ada perhitungan server. Simpan Draf.</td></tr>';
+      pending.innerHTML = '<tr><td colspan="2">Belum ada perhitungan server. Simpan Draf.</td></tr>';
+      return;
+    }
+    var cairRows = [];
+    if (calc.tranche && calc.tranche.status === 'DICAIRKAN') cairRows.push(['Tranche RPB ' + calc.period, calc.tranche.amount]);
+    (calc.rpds || []).forEach(function (row) {
+      if (row.disbursed) cairRows.push([row.purpose || row.id, row.amount]);
+    });
+    if (!cairRows.length) cairRows.push(['Belum ada dana cair', 0]);
+    cairRows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      var label = document.createElement('td'); label.textContent = row[0];
+      var value = document.createElement('td'); value.className = 'num'; value.textContent = money(row[1]);
+      tr.append(label, value); cair.appendChild(tr);
+    });
+    var total = document.createElement('tr');
+    total.className = 'lpd-total-row';
+    total.innerHTML = '<td>Total dana tersedia</td><td class="num">' + money(calc.totals && calc.totals.danaTersedia) + '</td>';
+    cair.appendChild(total);
+
+    var pendingRows = [];
+    if (calc.tranche && calc.tranche.status !== 'DICAIRKAN') pendingRows.push(['Tranche RPB ' + calc.period + ' (rencana)', calc.tranche.plannedAmount]);
+    (calc.rpds || []).forEach(function (row) {
+      if (!row.disbursed) pendingRows.push([row.purpose || row.id, row.amount]);
+    });
+    if (!pendingRows.length) pendingRows.push(['Tidak ada dana tertunda', 0]);
+    pendingRows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      var label = document.createElement('td'); label.textContent = row[0];
+      var value = document.createElement('td'); value.className = 'num'; value.textContent = money(row[1]);
+      tr.append(label, value); pending.appendChild(tr);
+    });
+    var pendingTotal = document.createElement('tr');
+    pendingTotal.className = 'lpd-total-row';
+    pendingTotal.innerHTML = '<td>RPD belum cair</td><td class="num">' + money(calc.rpdBelumCair && calc.rpdBelumCair.amount) + '</td>';
+    pending.appendChild(pendingTotal);
+  }
+
+  function renderSettlement() {
+    var root = get('lpdSettlement');
+    root.replaceChildren();
+    var calc = state.calculation;
+    if (!calc) {
+      root.textContent = 'Belum ada perhitungan server.';
+      return;
+    }
+    var settlement = calc.settlement || {};
+    var pengembalian = settlement.pengembalian || {};
+    var pembayaran = settlement.pembayaranKewajiban || {};
+    var rows = [
+      ['Dana tersedia', calc.totals.danaTersedia, ''],
+      ['Realisasi nota', calc.totals.realisasi, ''],
+      ['Saldo sebelum penyelesaian', settlement.saldoSebelumPenyelesaian, Number(settlement.saldoSebelumPenyelesaian) < 0 ? 'warn' : ''],
+      ['Pengembalian tercatat', pengembalian.paid, 'ok'],
+      ['Pembayaran kewajiban tercatat', pembayaran.paid, 'ok'],
+      ['Pengembalian masih terbuka', settlement.pengembalianTerbuka, Number(settlement.pengembalianTerbuka) > 0 ? 'warn' : ''],
+      ['Kewajiban perusahaan masih terbuka', settlement.kewajibanPerusahaanTerbuka, Number(settlement.kewajibanPerusahaanTerbuka) > 0 ? 'warn' : ''],
+      ['Saldo akhir / selisih', settlement.saldoAkhir, settlement.status === 'SELESAI' ? 'ok' : 'warn']
+    ];
+    rows.forEach(function (row) {
+      var line = document.createElement('div');
+      line.className = 'lpd-settle-row ' + (row[2] || '');
+      var label = document.createElement('span');
+      label.textContent = row[0];
+      var value = document.createElement('strong');
+      value.textContent = money(row[1]);
+      line.append(label, value);
+      root.appendChild(line);
+    });
+    var status = document.createElement('p');
+    status.className = 'lpd-settle-status ' + (settlement.status === 'SELESAI' ? 'ok' : settlement.status === 'TERBUKA' ? 'warn' : 'danger');
+    status.textContent = settlement.status === 'SELESAI'
+      ? 'Selesai: saldo akhir nol dan tidak ada kewajiban terbuka.'
+      : settlement.status === 'TERBUKA'
+        ? 'Belum tuntas: masih ada pengembalian atau kewajiban perusahaan yang terbuka.'
+        : 'Perlu rekonsiliasi: saldo akhir tidak nol dan tidak ada jalur pembayaran otomatis. Transaksi lama tetap dipertahankan.';
+    root.appendChild(status);
+    if (settlement.selisih && settlement.status !== 'SELESAI') {
+      var note = document.createElement('p');
+      note.className = 'lpd-message error';
+      note.textContent = 'Selisih ' + money(settlement.selisih) + ' memerlukan rekonsiliasi. Jangan membuat pembayaran kedua tanpa memeriksa transaksi lama.';
+      root.appendChild(note);
+    }
+    if (pengembalian.id) {
+      var paid = document.createElement('p');
+      paid.className = 'lpd-muted';
+      paid.textContent = 'Pengembalian ' + dateTimeText(pengembalian.at) + ' oleh ' + (pengembalian.actor || '—') + (pengembalian.note ? ' · ' + pengembalian.note : '') + ' · ID ' + pengembalian.id;
+      root.appendChild(paid);
+    }
+    if (pembayaran.id) {
+      var paidCompany = document.createElement('p');
+      paidCompany.className = 'lpd-muted';
+      paidCompany.textContent = 'Pembayaran kewajiban ' + dateTimeText(pembayaran.at) + ' oleh ' + (pembayaran.actor || '—') + (pembayaran.note ? ' · ' + pembayaran.note : '') + ' · ID ' + pembayaran.id;
+      root.appendChild(paidCompany);
+    }
+    var reimb = calc.reimbursement || {};
+    if ((reimb.items || []).length) {
+      var list = document.createElement('div');
+      list.className = 'lpd-reimb';
+      var title = document.createElement('strong');
+      title.textContent = 'Reimbursement RPD menunggu pencairan';
+      list.appendChild(title);
+      reimb.items.forEach(function (item) {
+        var line = document.createElement('div');
+        line.textContent = item.rpdId + ' · ' + money(item.amount);
+        list.appendChild(line);
+      });
+      root.appendChild(list);
+    }
+    if (calc.amountDrift && calc.amountDrift.length) {
+      var drift = document.createElement('p');
+      drift.className = 'lpd-message error';
+      drift.textContent = 'Nominal RPD berubah dari catatan keuangan: ' + calc.amountDrift.map(function (row) {
+        return row.rpdId + ' (' + money(row.recorded) + ' → ' + money(row.source) + ')';
+      }).join(', ') + '. Sinkronkan nominal RPD sebelum mengirim atau menyelesaikan LPD.';
+      root.appendChild(drift);
+    }
+    if (calc.warnings && calc.warnings.length) {
+      var warnings = document.createElement('p');
+      warnings.className = 'lpd-message error';
+      warnings.textContent = calc.warnings.join(' ');
+      root.appendChild(warnings);
+    }
+  }
+
+  function renderAudit() {
+    var root = get('lpdAudit');
+    root.replaceChildren();
+    if (!state.audit.length) {
+      root.textContent = state.record ? 'Belum ada audit untuk LPD ini.' : 'Audit dimuat setelah LPD tersimpan.';
+      return;
+    }
+    state.audit.slice(0, 12).forEach(function (event) {
+      var line = document.createElement('div');
+      line.className = 'lpd-audit-row';
+      var time = document.createElement('span');
+      time.textContent = dateTimeText(event.at);
+      var action = document.createElement('strong');
+      action.textContent = String(event.action || '').replace(/_/g, ' ');
+      var actor = document.createElement('span');
+      actor.textContent = event.actor || '—';
+      line.append(time, action, actor);
+      root.appendChild(line);
+    });
+  }
+
+  function loadList(scope) {
+    return rpc('list', { projectId: state.projectId, month: state.month, period: state.period }).then(function (result) {
+      if (scope !== state.scopeTicket) return;
+      state.list = result.records || [];
+      renderList();
+    });
+  }
+
+  function loadCatalogs(scope) {
+    var month = state.record ? state.record.month : get('lpdEditorMonth').value;
+    var period = state.record ? state.record.period : get('lpdEditorPeriod').value;
+    return Promise.all([
+      rpc('rpbList', { projectId: state.projectId, month: month, period: period }),
+      rpc('rpdFinanceList', { projectId: state.projectId, month: month, period: period, lpdId: state.record ? state.record.id : '' })
+    ]).then(function (results) {
+      if (scope !== state.scopeTicket) return;
+      state.rpbRecords = results[0].records || [];
+      state.rpdRecords = results[1].records || [];
+      renderSources();
+    });
+  }
+
+  function loadDetail(id, scope) {
+    return rpc('detail', { id: id, projectId: state.projectId }).then(function (result) {
+      if (scope !== state.scopeTicket) return null;
+      if (!result || !result.record) throw new Error('LPD tidak ditemukan.');
+      applyRecord(result.record, result.calculation, result.audit || []);
+      return result;
+    });
+  }
+
+  function setFilterFromRecord(record) {
+    state.month = record.month;
+    state.period = record.period;
+    state.projectId = record.projectId;
+    get('lpdMonth').value = record.month;
+    get('lpdPeriod').value = record.period;
+    get('lpdProjectSelect').value = record.projectId;
+  }
+
+  function openRecord(id) {
+    if (state.busy) return;
+    if (!confirmDiscard()) return;
+    var scope = state.scopeTicket;
+    setBusy(true);
+    setStatus('Memuat LPD…', '');
+    rpc('detail', { id: id, projectId: state.projectId }).then(function (result) {
+      if (scope !== state.scopeTicket) return;
+      if (result.record.projectId !== state.projectId) throw new Error('LPD ini bukan milik proyek aktif. Muat ulang daftar LPD.');
+      setFilterFromRecord(result.record);
+      applyRecord(result.record, result.calculation, result.audit || []);
+      return Promise.all([loadCatalogs(scope), loadList(scope)]).then(function () {
+        if (scope === state.scopeTicket) setStatus('LPD dimuat.', '');
+      });
+    }).catch(function (error) {
+      if (scope === state.scopeTicket) setStatus('Gagal memuat LPD: ' + errorText(error), 'error');
+    }).then(function () { setBusy(false); });
+  }
+
+  function loadWorkspace() {
+    if (!token()) {
+      setStatus('Masuk data server untuk membuka LPD.', 'error');
+      renderAll();
+      return Promise.resolve();
+    }
+    if (!state.projectId) {
+      setStatus('Pilih satu proyek untuk membuka LPD.', 'error');
+      renderAll();
+      return Promise.resolve();
+    }
+    state.record = null;
+    state.calculation = null;
+    state.audit = [];
+    state.list = [];
+    state.rpbRecords = [];
+    state.rpdRecords = [];
+    state.selectedRpdIds = [];
+    state.notas = [];
+    state.dirty = false;
+    renderList();
+    var scope = ++state.scopeTicket;
+    state.requestTicket++;
+    clearEditor();
+    setBusy(true);
+    setStatus('Memuat LPD…', '');
+    return Promise.all([loadList(scope), loadCatalogs(scope)]).then(function () {
+      if (scope === state.scopeTicket) {
+        setStatus(state.list.length ? 'Daftar LPD dimuat. Pilih satu LPD atau buat LPD baru.' : 'Belum ada LPD pada filter ini. Buat LPD baru untuk mulai.', '');
+      }
+    }).catch(function (error) {
+      if (scope === state.scopeTicket) setStatus('Gagal memuat LPD: ' + errorText(error), 'error');
+    }).then(function () { setBusy(false); });
+  }
+
+  function open() {
+    if (window.ProjectWorkspace && window.ProjectWorkspace.ready) {
+      var ready = window.ProjectWorkspace.ready();
+      if (ready && ready.then) {
+        ready.then(openPage).catch(function (error) {
+          setStatus('Gagal memuat daftar proyek: ' + errorText(error), 'error');
+        });
+        return;
+      }
+    }
+    openPage();
+  }
+
+  function openPage() {
+    if (get('blank-LPD') && get('blank-LPD').hidden) return;
+    if (!state.opened) {
+      state.opened = true;
+      state.month = jakartaMonth();
+      get('lpdMonth').value = state.month;
+      get('lpdPeriod').value = state.period;
+    }
+    if (state.session !== token()) {
+      state.session = token();
+      state.projectId = '';
+      state.list = [];
+      state.record = null;
+    }
+    var active = activeProject();
+    if (active && active !== 'all' && active !== 'legacy') state.projectId = active;
+    if (!state.projectId) {
+      var projects = window.ProjectWorkspace ? window.ProjectWorkspace.getProjects() : [];
+      if (projects.length === 1) state.projectId = projects[0].id;
+    }
+    applyProjectOptions();
+    if (state.busy) return;
+    if (state.dirty) {
+      setStatus('Isian LPD belum disimpan. Simpan atau koreksi sebelum memuat ulang.', '');
+      return;
+    }
+    loadWorkspace();
+  }
+
+  function newDraft() {
+    if (state.busy) return;
+    if (!confirmDiscard()) return;
+    if (!state.projectId) {
+      setStatus('Pilih satu proyek sebelum membuat LPD.', 'error');
+      return;
+    }
+    state.scopeTicket++;
+    state.record = null;
+    state.calculation = null;
+    state.audit = [];
+    state.selectedRpdIds = [];
+    state.notas = [{ key: uuid(), id: '', date: '', description: '', amount: '', items: [], attachments: [] }];
+    state.dirty = false;
+    state.month = get('lpdMonth').value || state.month;
+    state.period = get('lpdPeriod').value || state.period;
+    get('lpdEditorMonth').value = state.month;
+    get('lpdEditorPeriod').value = state.period;
+    get('lpdRpbSelect').value = '';
+    state.applying = true;
+    get('lpdNote').value = '';
+    get('lpdDeadlineReason').value = '';
+    get('lpdDeadline').value = '';
+    state.applying = false;
+    renderEditor();
+    renderSources();
+    renderSettlement();
+    renderAudit();
+    renderActionState();
+    setStatus('LPD baru. Pilih RPB/tranche dan RPD, isi nota, lalu simpan Draf.', '');
+    loadCatalogs(state.scopeTicket).catch(function (error) { setStatus('Gagal memuat RPB/RPD: ' + errorText(error), 'error'); });
+  }
+
+  function notePayload() {
+    return state.notas.map(function (nota) {
+      var items = (nota.items || []).filter(function (item) {
+        return String(item.name || '').trim() !== '' || String(item.price || '') !== '' || Number(item.quantity) > 0 && String(item.quantity) !== '1';
+      }).map(function (item) {
+        return { name: String(item.name || '').trim(), quantity: item.quantity === '' ? 0 : Number(item.quantity), price: item.price === '' ? 0 : Number(item.price) };
+      });
+      return {
+        id: nota.id || nota.key,
+        date: nota.date || '',
+        description: String(nota.description || '').trim(),
+        amount: items.length ? 0 : (nota.amount === '' ? 0 : Number(nota.amount)),
+        items: items,
+        attachments: (nota.attachments || []).map(function (file) {
+          return { name: file.name || '', url: file.url || '', mime: file.mime || '' };
+        })
+      };
+    });
+  }
+
+  function saveDraft() {
+    if (state.busy) return;
+    if (!state.projectId) { setStatus('Pilih satu proyek.', 'error'); return; }
+    var rpbId = get('lpdRpbSelect').value;
+    if (!rpbId) { setStatus('Pilih tepat satu RPB/tranche sebagai sumber dana.', 'error'); return; }
+    if (!state.notas.length) { setStatus('Tambahkan minimal satu nota sebelum menyimpan.', 'error'); return; }
+    var scope = state.scopeTicket;
+    var payload = {
+      id: state.record ? state.record.id : '',
+      version: state.record ? state.record.version : 0,
+      projectId: state.projectId,
+      month: get('lpdEditorMonth').value,
+      period: get('lpdEditorPeriod').value,
+      rpbId: rpbId,
+      rpdIds: state.selectedRpdIds.slice(),
+      realisasi: notePayload(),
+      note: get('lpdNote').value,
+      deadline: get('lpdDeadline').value,
+      deadlineReason: get('lpdDeadlineReason').value
+    };
+    run('Menyimpan Draf LPD…', function () {
+      return rpc('saveDraft', { projectId: state.projectId, record: payload }).then(function (result) {
+        if (scope !== state.scopeTicket) return;
+        if (result.conflict) throw new Error('Versi LPD berubah di sesi lain. Muat ulang sebelum menyimpan; isian tidak ditimpa.');
+        state.month = result.record.month;
+        state.period = result.record.period;
+        get('lpdMonth').value = result.record.month;
+        get('lpdPeriod').value = result.record.period;
+        applyRecord(result.record, result.calculation, state.audit);
+        return Promise.all([loadList(scope), loadCatalogs(scope), loadDetail(result.record.id, scope)]).then(function () {
+          if (scope === state.scopeTicket) setStatus((result.warnings && result.warnings.length ? 'Draf tersimpan dengan peringatan: ' + result.warnings.join(' ') : 'Draf LPD tersimpan.'), result.warnings && result.warnings.length ? 'error' : 'ok');
+        });
+      });
+    });
+  }
+
+  function sendLpd() {
+    if (state.busy) return;
+    if (!state.record) { setStatus('Simpan Draf terlebih dahulu sebelum mengirim.', 'error'); return; }
+    if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan Draf terlebih dahulu, lalu kirim.', 'error'); return; }
+    if (!window.confirm('Kirim LPD ini ke HO? Setelah dikirim, perubahan hanya melalui Koreksi.')) return;
+    var scope = state.scopeTicket;
+    askPin('pengiriman LPD').then(function (pin) {
+      return run('Mengirim LPD…', function () {
+        return rpc('send', { projectId: state.projectId, id: state.record.id, version: state.record.version, pin: pin }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum mengirim.');
+          return Promise.all([loadList(scope), loadCatalogs(scope), loadDetail(result.record.id, scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'LPD terkirim dengan peringatan: ' + result.warnings.join(' ') : 'LPD terkirim ke HO.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mengirim: ' + errorText(error), 'error');
+    });
+  }
+
+  function correctLpd() {
+    if (state.busy || !state.record) return;
+    if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan deadline terlebih dahulu.', 'error'); return; }
+    var reason = window.prompt('Alasan koreksi LPD (wajib):', '');
+    if (reason === null) return;
+    if (!String(reason).trim()) { setStatus('Alasan koreksi wajib diisi.', 'error'); return; }
+    var scope = state.scopeTicket;
+    askPin('koreksi LPD').then(function (pin) {
+      return run('Membuka koreksi LPD…', function () {
+        return rpc('correct', { projectId: state.projectId, id: state.record.id, version: state.record.version, pin: pin, reason: reason }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum mengoreksi.');
+          return Promise.all([loadList(scope), loadDetail(result.record.id, scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus('LPD dibuka untuk koreksi. Transaksi pembayaran yang sudah terjadi dipertahankan.', '');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mengoreksi: ' + errorText(error), 'error');
+    });
+  }
+
+  function recordRepayment() {
+    if (state.busy || !state.record || !state.calculation) return;
+    if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan deadline terlebih dahulu.', 'error'); return; }
+    var expected = state.calculation.settlement.pengembalianTerbuka;
+    if (!(expected > 0)) { setStatus('Tidak ada pengembalian terbuka.', 'error'); return; }
+    var amount = window.prompt('Nominal pengembalian penuh yang sudah ditransfer (harus tepat ' + money(expected) + '):', String(expected));
+    if (amount === null) return;
+    var note = window.prompt('Catatan pengembalian (opsional):', '');
+    if (note === null) return;
+    var scope = state.scopeTicket;
+    askPin('pencatatan pengembalian').then(function (pin) {
+      return run('Mencatat pengembalian…', function () {
+        return rpc('recordRepayment', { projectId: state.projectId, id: state.record.id, version: state.record.version, pin: pin, amount: amount, note: note }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum mencatat pengembalian.');
+          return Promise.all([loadList(scope), loadDetail(result.record.id, scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'Pengembalian tercatat dengan peringatan: ' + result.warnings.join(' ') : 'Pengembalian tercatat.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mencatat pengembalian: ' + errorText(error), 'error');
+    });
+  }
+
+  function payCompany() {
+    if (state.busy || !state.record || !state.calculation) return;
+    if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan deadline terlebih dahulu.', 'error'); return; }
+    var expected = state.calculation.settlement.kewajibanPerusahaanTerbuka;
+    if (!(expected > 0)) { setStatus('Tidak ada kewajiban perusahaan yang terbuka.', 'error'); return; }
+    if (!window.confirm('Bayar kewajiban perusahaan sebesar ' + money(expected) + '? Pastikan RPD yang belum cair tidak dibayar melalui jalur ini.')) return;
+    var amount = window.prompt('Nominal pembayaran penuh (harus tepat ' + money(expected) + '):', String(expected));
+    if (amount === null) return;
+    var note = window.prompt('Catatan pembayaran (opsional):', '');
+    if (note === null) return;
+    var scope = state.scopeTicket;
+    askPin('pembayaran kewajiban').then(function (pin) {
+      return run('Mencatat pembayaran kewajiban…', function () {
+        return rpc('payCompanyObligation', { projectId: state.projectId, id: state.record.id, version: state.record.version, pin: pin, amount: amount, note: note }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum membayar.');
+          return Promise.all([loadList(scope), loadDetail(result.record.id, scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'Pembayaran tercatat dengan peringatan: ' + result.warnings.join(' ') : 'Pembayaran kewajiban perusahaan tercatat.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal membayar kewajiban: ' + errorText(error), 'error');
+    });
+  }
+
+  function completeLpd() {
+    if (state.busy || !state.record) return;
+    if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan deadline terlebih dahulu.', 'error'); return; }
+    if (!window.confirm('Selesaikan LPD ini? Server akan memeriksa RPD, reimbursement, pengembalian, kewajiban, dan saldo akhir.')) return;
+    var note = window.prompt('Catatan penyelesaian (opsional):', '');
+    if (note === null) return;
+    var scope = state.scopeTicket;
+    askPin('penyelesaian LPD').then(function (pin) {
+      return run('Menyelesaikan LPD…', function () {
+        return rpc('complete', { projectId: state.projectId, id: state.record.id, version: state.record.version, pin: pin, note: note }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum menyelesaikan.');
+          return Promise.all([loadList(scope), loadCatalogs(scope), loadDetail(result.record.id, scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'LPD selesai dengan peringatan: ' + result.warnings.join(' ') : 'LPD selesai.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Belum dapat diselesaikan: ' + errorText(error), 'error');
+    });
+  }
+
+  function saveDeadline() {
+    if (state.busy || !state.record) return;
+    var due = get('lpdDeadline').value;
+    if (!due) { setStatus('Deadline wajib diisi.', 'error'); return; }
+    var scope = state.scopeTicket;
+    run('Menyimpan deadline…', function () {
+      return rpc('setDeadline', { projectId: state.projectId, id: state.record.id, version: state.record.version, deadline: due, reason: get('lpdDeadlineReason').value }).then(function (result) {
+        if (scope !== state.scopeTicket) return;
+        if (result.conflict) throw new Error('Versi LPD berubah. Muat ulang sebelum mengubah deadline.');
+        applyRecord(result.record, result.calculation, state.audit);
+        get('lpdDeadlineReason').value = '';
+        return loadList(scope).then(function () {
+          if (scope === state.scopeTicket) setStatus('Deadline LPD disimpan beserta riwayat perubahan.', 'ok');
+        });
+      });
+    });
+  }
+
+  function enrollRpd(row) {
+    if (state.busy || !editable()) return;
+    var month = get('lpdEditorMonth').value;
+    if (String(row.date || '').slice(0, 7) !== month) {
+      setStatus('RPD ini tidak berada pada bulan LPD. Pilih RPD dengan tanggal bulan ' + month + '.', 'error');
+      return;
+    }
+    var scope = state.scopeTicket;
+    askPin('pendaftaran RPD').then(function (pin) {
+      return run('Mendaftarkan RPD pada periode…', function () {
+        return rpc('rpdEnroll', { projectId: state.projectId, rpdId: row.id, month: month, period: get('lpdEditorPeriod').value, pin: pin }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          return loadCatalogs(scope).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'RPD terdaftar dengan peringatan: ' + result.warnings.join(' ') : 'RPD terdaftar pada periode.', 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mendaftarkan RPD: ' + errorText(error), 'error');
+    });
+  }
+
+  function disburseRpd(row) {
+    if (state.busy || !row.finance) return;
+    var amount = window.prompt('Nominal pencairan RPD (harus penuh ' + money(row.finance.amount) + '):', String(row.finance.amount));
+    if (amount === null) return;
+    var scope = state.scopeTicket;
+    askPin('pencairan RPD').then(function (pin) {
+      return run('Mencairkan RPD…', function () {
+        return rpc('rpdDisburse', { projectId: state.projectId, rpdId: row.id, version: row.finance.version, amount: amount, pin: pin }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi RPD berubah. Muat ulang sebelum mencairkan.');
+          return Promise.all([loadCatalogs(scope), state.record ? loadDetail(state.record.id, scope) : Promise.resolve(), loadList(scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'RPD dicairkan dengan peringatan: ' + result.warnings.join(' ') : 'RPD dicairkan. Dana tersedia diperbarui server.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mencairkan RPD: ' + errorText(error), 'error');
+    });
+  }
+
+  function editRpdAmount(row) {
+    if (state.busy || !row.finance) return;
+    var amount = window.prompt('Nominal RPD pada periode ini:', String(row.finance.amount));
+    if (amount === null) return;
+    var scope = state.scopeTicket;
+    askPin('perubahan nominal RPD').then(function (pin) {
+      return run('Mengubah nominal RPD…', function () {
+        return rpc('rpdSetAmount', { projectId: state.projectId, rpdId: row.id, version: row.finance.version, amount: amount, pin: pin }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi RPD berubah. Muat ulang sebelum mengubah nominal.');
+          return Promise.all([loadCatalogs(scope), state.record ? loadDetail(state.record.id, scope) : Promise.resolve()]).then(function () {
+            if (scope === state.scopeTicket) setStatus('Nominal RPD tersimpan. Kirim ulang LPD bila nominal berubah setelah pengiriman.', 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mengubah nominal RPD: ' + errorText(error), 'error');
+    });
+  }
+
+  function setRpdStatus(row) {
+    if (state.busy || !row.finance) return;
+    var reason = window.prompt('Alasan penolakan/pembatalan RPD (wajib):', '');
+    if (reason === null) return;
+    if (!String(reason).trim()) { setStatus('Alasan wajib diisi.', 'error'); return; }
+    var target = window.prompt('Status tujuan: DITOLAK atau DIBATALKAN', 'DITOLAK');
+    if (target === null) return;
+    target = String(target || '').trim().toUpperCase();
+    if (['DITOLAK', 'DIBATALKAN'].indexOf(target) < 0) {
+      setStatus('Status tujuan harus DITOLAK atau DIBATALKAN.', 'error');
+      return;
+    }
+    var scope = state.scopeTicket;
+    askPin('perubahan status RPD').then(function (pin) {
+      return run('Mengubah status RPD…', function () {
+        return rpc('rpdSetStatus', { projectId: state.projectId, rpdId: row.id, version: row.finance.version, status: target, reason: reason, pin: pin }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi RPD berubah. Muat ulang sebelum mengubah status.');
+          return Promise.all([loadCatalogs(scope), state.record ? loadDetail(state.record.id, scope) : Promise.resolve(), loadList(scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus('Status RPD diubah. Kewajiban perusahaan dihitung ulang server.', 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mengubah status RPD: ' + errorText(error), 'error');
+    });
+  }
+
+  function disburseTranche(rpbId, tranche) {
+    if (state.busy) return;
+    var planned = tranche && tranche.plannedAmount != null ? tranche.plannedAmount : 0;
+    var amount = window.prompt('Nominal pencairan tranche (penuh):', String(planned || ''));
+    if (amount === null) return;
+    var scope = state.scopeTicket;
+    askPin('pencairan tranche RPB').then(function (pin) {
+      return run('Mencairkan tranche…', function () {
+        return rpc('rpbTrancheDisburse', {
+          projectId: state.projectId,
+          rpbId: rpbId,
+          period: get('lpdEditorPeriod').value,
+          amount: amount,
+          version: tranche ? tranche.version : 0,
+          pin: pin
+        }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi tranche berubah. Muat ulang sebelum mencairkan.');
+          return Promise.all([loadCatalogs(scope), state.record ? loadDetail(state.record.id, scope) : Promise.resolve(), loadList(scope)]).then(function () {
+            if (scope === state.scopeTicket) setStatus(result.warnings && result.warnings.length ? 'Tranche dicairkan dengan peringatan: ' + result.warnings.join(' ') : 'Tranche dicairkan. Dana tersedia diperbarui server.', result.warnings && result.warnings.length ? 'error' : 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal mencairkan tranche: ' + errorText(error), 'error');
+    });
+  }
+
+  function planTranche(rpbId, tranche) {
+    if (state.busy) return;
+    var planned = window.prompt('Nominal rencana tranche:', String(tranche && tranche.plannedAmount != null ? tranche.plannedAmount : ''));
+    if (planned === null) return;
+    var scope = state.scopeTicket;
+    askPin('perubahan rencana tranche').then(function (pin) {
+      return run('Menyimpan rencana tranche…', function () {
+        return rpc('rpbTrancheSave', {
+          projectId: state.projectId,
+          rpbId: rpbId,
+          period: get('lpdEditorPeriod').value,
+          plannedAmount: planned,
+          pin: pin
+        }).then(function (result) {
+          if (scope !== state.scopeTicket) return;
+          if (result.conflict) throw new Error('Versi tranche berubah. Muat ulang sebelum mengubah rencana.');
+          return Promise.all([loadCatalogs(scope), state.record ? loadDetail(state.record.id, scope) : Promise.resolve()]).then(function () {
+            if (scope === state.scopeTicket) setStatus('Rencana tranche tersimpan.', 'ok');
+          });
+        });
+      });
+    }).catch(function (error) {
+      if (error && error.message !== 'Tindakan dibatalkan.') setStatus('Gagal menyimpan rencana tranche: ' + errorText(error), 'error');
+    });
+  }
+
+  function bind() {
+    get('lpdRefresh').addEventListener('click', function () {
+      if (state.dirty) { setStatus('Isian belum disimpan. Simpan Draf atau koreksi sebelum memuat ulang.', 'error'); return; }
+      loadWorkspace();
+    });
+    get('lpdNew').addEventListener('click', newDraft);
+    get('lpdLoadScope').addEventListener('click', function () {
+      if (state.dirty) { setStatus('Isian belum disimpan. Simpan Draf atau koreksi sebelum mengganti filter.', 'error'); return; }
+      state.month = get('lpdMonth').value || jakartaMonth();
+      state.period = get('lpdPeriod').value;
+      state.statusFilter = get('lpdStatusFilter').value;
+      if (state.record && (state.record.month !== state.month || state.record.period !== state.period)) {
+        if (!confirmDiscard()) return;
+        state.record = null;
+        state.calculation = null;
+      }
+      loadWorkspace();
+    });
+    get('lpdClearFilter').addEventListener('click', function () {
+      if (state.dirty) { setStatus('Isian belum disimpan. Simpan Draf sebelum membersihkan filter.', 'error'); return; }
+      state.month = jakartaMonth();
+      state.period = 'M1-M2';
+      state.statusFilter = '';
+      get('lpdMonth').value = state.month;
+      get('lpdPeriod').value = state.period;
+      get('lpdStatusFilter').value = '';
+      loadWorkspace();
+    });
+    get('lpdProjectSelect').addEventListener('change', function () {
+      var value = get('lpdProjectSelect').value;
+      if (!value) { state.projectId = ''; setScope(''); setStatus('Pilih satu proyek.', 'error'); return; }
+      if (window.ProjectWorkspace) window.ProjectWorkspace.select(value);
+      if (activeProject() !== value) get('lpdProjectSelect').value = state.projectId || '';
+    });
+    get('lpdStatusFilter').addEventListener('change', function () {
+      state.statusFilter = get('lpdStatusFilter').value;
+      renderList();
+    });
+    get('lpdEditorMonth').addEventListener('change', function () {
+      if (state.record) return;
+      state.month = get('lpdEditorMonth').value;
+      get('lpdMonth').value = state.month;
+      loadWorkspace();
+    });
+    get('lpdEditorPeriod').addEventListener('change', function () {
+      if (state.record) return;
+      state.period = get('lpdEditorPeriod').value;
+      get('lpdPeriod').value = state.period;
+      loadWorkspace();
+    });
+    get('lpdNote').addEventListener('input', markDirty);
+    get('lpdRpbSelect').addEventListener('change', markDirty);
+    get('lpdDeadline').addEventListener('input', markDirty);
+    get('lpdDeadlineReason').addEventListener('input', markDirty);
+    get('lpdAddNota').addEventListener('click', function () {
+      state.notas.push({ key: uuid(), id: '', date: '', description: '', amount: '', items: [], attachments: [] });
+      markDirty();
+      renderNotas();
+    });
+    get('lpdSaveDraft').addEventListener('click', saveDraft);
+    get('lpdSend').addEventListener('click', sendLpd);
+    get('lpdCorrect').addEventListener('click', correctLpd);
+    get('lpdRepay').addEventListener('click', recordRepayment);
+    get('lpdPayCompany').addEventListener('click', payCompany);
+    get('lpdComplete').addEventListener('click', completeLpd);
+    get('lpdSaveDeadline').addEventListener('click', saveDeadline);
+
+    document.addEventListener('utp-project-change', function () {
+      var active = activeProject();
+      if (active === 'all' || active === 'legacy') {
+        setScope('');
+        setStatus('Pilih satu proyek untuk membuka LPD.', 'error');
+        return;
+      }
+      if (active === state.projectId) return;
+      setScope(active);
+      applyProjectOptions();
+      loadWorkspace();
+    });
+
+    window.addEventListener('beforeunload', function (event) {
+      if (!state.dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+  }
+
+  window.LPDWorkspace = {
+    open: open,
+    isBusy: function () { return state.busy; },
+    isDirty: function () { return state.dirty; },
+    reset: function () {
+      state.scopeTicket++;
+      state.requestTicket++;
+      state.opened = false;
+      state.session = '';
+      state.projectId = '';
+      state.list = [];
+      state.record = null;
+      state.calculation = null;
+      state.audit = [];
+      state.rpbRecords = [];
+      state.rpdRecords = [];
+      state.selectedRpdIds = [];
+      state.notas = [];
+      state.dirty = false;
+      state.busy = false;
+      state.statusFilter = '';
+      if (get('lpdStatusFilter')) get('lpdStatusFilter').value = '';
+      var page = get('blank-LPD');
+      if (page) page.setAttribute('aria-busy', 'false');
+      renderAll();
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+</script>

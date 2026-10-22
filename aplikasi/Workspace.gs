@@ -57,6 +57,9 @@ function apiWorkspace(action,payload,token) {
       record.pendingReview=module==='finance'&&record.source==='Telegram'&&(record.fields.vendor==='Belum diisi'||record.fields.category==='Perlu klasifikasi');
       record.history=(old&&old.history||[]).slice();record.history.push({at:new Date().toISOString(),status:record.status,reason:record.note||'Catatan disimpan'});
     }
-    try{return {record:utpWrite_(entity,record,version)};}catch(error){if(error.recordSaved)return {record:utpGet_(entity,record.id),warning:error.message};throw error;}
+    var saved,warning='';
+    try{saved=utpWrite_(entity,record,version);}catch(error){if(!error.recordSaved)throw error;saved=utpGet_(entity,record.id);warning=error.message;}
+    if(module==='rpd'&&saved&&saved.workspaceDocumentId){var link=workspaceDocumentLink_(saved.workspaceDocumentId,saved.projectId||'legacy','rpd',saved.id);if(link.warning)warning=(warning?warning+' ':'')+link.warning;}
+    return warning?{record:saved,warning:warning}:{record:saved};
   } finally {lock.releaseLock();}
 }

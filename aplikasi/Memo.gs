@@ -95,7 +95,7 @@ function getPendingKtpFolder_(createIfMissing) {
   const folderId = props.getProperty('PENDING_KTP_FOLDER_ID');
   if (folderId) return DriveApp.getFolderById(folderId);
   if (!createIfMissing) return null;
-  const folder = getArchiveRootFolder_().createFolder('Unggahan KTP Sementara');
+  const folder = sistemDriveInternalFolder_('Unggahan Sementara', true);
   props.setProperty('PENDING_KTP_FOLDER_ID', folder.getId());
   return folder;
 }
@@ -148,7 +148,7 @@ function apiCreateMemo(payload, token, requestId) {
     let manpowerRecord = null;
 
     try {
-      const folder = getArchiveFolder_(validated.projectName, validated.typeKey, period, validated.projectCode);
+      const folder = getArchiveFolder_(validated.projectName, validated.typeKey, period, validated.projectCode, validated.projectId);
       const imageFiles = saveKtpImages_(validated, folder, number, createdFileIds);
       const workingSpreadsheetFile = createSpreadsheet_(validated, number, folder, imageFiles, createdFileIds);
       const workingSpreadsheet = SpreadsheetApp.openById(workingSpreadsheetFile.getId());
@@ -181,6 +181,10 @@ function apiCreateMemo(payload, token, requestId) {
       result.waDraft = whatsappDraft;
       historyRecord = appendMemoHistory_(validated, number, documentDate, sheet, pdf, folder, createdFileIds, whatsappDraft);
       try{utpWrite_('memoProjects',{id:number,projectId:validated.projectId||'legacy',workspaceDocumentId:validated.workspaceDocumentId||''},0);}catch(linkError){if(!linkError.recordSaved)throw linkError;result.warning=linkError.message;}
+      if(validated.workspaceDocumentId){
+        try{var draftLink=workspaceDocumentLink_(validated.workspaceDocumentId,validated.projectId||'legacy','memo',number);if(draftLink.warning)result.warning=(result.warning?result.warning+' ':'')+draftLink.warning;}
+        catch(draftLinkError){result.warning=(result.warning?result.warning+' ':'')+'Tautan draf gagal dicatat: '+draftLinkError.message;}
+      }
       manpowerRecord = appendManpowerEvents_(validated, number, documentDate);
       props.setProperty(counterKey, String(sequence));
       counterCommitted = true;
@@ -664,30 +668,19 @@ function getCounters_(requestedPeriod) {
   return result;
 }
 
-function getArchiveFolder_(projectName, typeKey, period, projectCode) {
-  const root = getArchiveRootFolder_();
-  migrateExistingMemoArchiveFolders_(root);
-  return getMemoArchiveTargetFolder_(root, projectName, typeKey, period, projectCode);
+function getArchiveFolder_(projectName, typeKey, period, projectCode, projectId) {
+  migrateExistingMemoArchiveFolders_(getArchiveRootFolder_());
+  return getMemoArchiveTargetFolder_(projectName, typeKey, period, projectId);
 }
 
 function getArchiveRootFolder_() {
-  const props = PropertiesService.getScriptProperties();
-  let rootId = props.getProperty('DRIVE_ROOT_FOLDER_ID');
-  if (rootId) {
-    const root = DriveApp.getFolderById(rootId);
-    if (root.getName() !== 'Arsip UTP') root.setName('Arsip UTP');
-    return root;
-  }
-  const root = DriveApp.createFolder('Arsip UTP');
-  props.setProperty('DRIVE_ROOT_FOLDER_ID', root.getId());
-  return root;
+  return sistemDriveRoot_(true);
 }
 
-function getMemoArchiveTargetFolder_(root, projectName, typeKey, period, projectCode) {
-  const projectBaseName = String(projectName || projectCode || 'Tanpa Nama').replace(/^Project\s+/i, '').trim();
-  const projectLabel = safeFileName_(`Project ${projectBaseName}`);
-  const projectFolder = getOrCreateArchiveSubfolder_(root, projectLabel);
-  const sectionFolder = getOrCreateArchiveSubfolder_(projectFolder, 'Memo');
+function getMemoArchiveTargetFolder_(projectName, typeKey, period, projectId) {
+  const projectFolder = projectId
+    ? workspaceProjectFolder_(projectId, 'Memo')
+    : workspaceProjectFolderByName_(projectName, 'Memo');
   const typeNames = {
     PN: 'Memo Penambahan Manpower',
     SP: 'Memo Surplus OS',
@@ -706,7 +699,10 @@ function getMemoArchiveTargetFolder_(root, projectName, typeKey, period, project
 function getOrCreateArchiveSubfolder_(parent, name) {
   const safeName = safeFileName_(name);
   const matches = parent.getFoldersByName(safeName);
-  return matches.hasNext() ? matches.next() : parent.createFolder(safeName);
+  if (matches.hasNext()) return matches.next();
+  const folder = parent.createFolder(safeName);
+  sistemDriveProtect_(folder, true);
+  return folder;
 }
 
 function migrateExistingMemoArchiveFolders_(root) {
@@ -735,7 +731,7 @@ function migrateExistingMemoArchiveFolders_(root) {
     const period = archivePeriodFromValue_(row[4]);
     if (!number || !projectName || !period || !APP.types[typeKey]) return;
     try {
-      const target = getMemoArchiveTargetFolder_(root, projectName, typeKey, period, '');
+      const target = getMemoArchiveTargetFolder_(projectName, typeKey, period, '');
       const filesById = new Map();
       try {
         JSON.parse(String(row[8] || '[]')).forEach((item) => {
@@ -838,7 +834,7 @@ function getMemoHistorySheet_(createIfMissing) {
 
   const spreadsheet = SpreadsheetApp.create('Riwayat Memo UTP');
   const file = DriveApp.getFileById(spreadsheet.getId());
-  file.moveTo(getArchiveRootFolder_());
+  file.moveTo(sistemDriveInternalFolder_('Data Operasional', true));
   const sheet = spreadsheet.getSheets()[0];
   sheet.setName('Riwayat');
   sheet.getRange(1, 1, 1, 10).setValues([[

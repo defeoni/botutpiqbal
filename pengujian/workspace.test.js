@@ -6,7 +6,7 @@ const path=require('node:path');
 function env(){
   const rows={};let locked=false,pins=0;
   const folder={};const c={Date,requireAuthorized_:token=>{if(token!=='owner')throw Error('Unauthorized');},requireDeletePin_:pin=>{pins++;if(pin!=='valid')throw Error('PIN');},Utilities:{getUuid:()=> 'server-generated-uuid'},LockService:{getScriptLock:()=>({waitLock(){locked=true;},releaseLock(){locked=false;}})},utpRead_:(entity)=>(rows[entity]||[]).filter(r=>!r.archived),utpGet_:(entity,id)=>(rows[entity]||[]).find(r=>r.id===id)||null,utpWrite_:(entity,r,version)=>{assert.equal(locked,true);const list=rows[entity]||(rows[entity]=[]),index=list.findIndex(x=>x.id===r.id);r.version=Number(version||0)+1;r.updatedAt='2026-10-19T00:00:00Z';if(index<0)list.push(r);else list[index]=r;return r;},getArchiveRootFolder_:()=>folder,getOrCreateArchiveSubfolder_:()=>folder,DriveApp:{getFileById:()=>({moveTo:()=>{}})},utpUpload_:p=>({id:'private',url:'https://drive.google.com/file/d/private',kind:p.kind})};
-  vm.createContext(c);for(const name of ['Workspace.gs','Projects.gs'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi',name),'utf8'),c);
+  vm.createContext(c);for(const name of ['Workspace.gs','Projects.gs','SistemDrive.gs'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi',name),'utf8'),c);
   return {c,rows,get pins(){return pins;}};
 }
 function task(overrides={}){return Object.assign({id:'stable-task-123',version:0,name:'Tagih nota',date:'2026-10-19',status:'Draf',fields:{priority:'Normal',due:'2026-10-20'}},overrides);}

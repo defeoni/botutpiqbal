@@ -8,6 +8,7 @@ const sourceFiles = [
   ["aplikasi/Auth.gs", "Auth.gs"],
   ["aplikasi/Dashboard.gs", "Dashboard.gs"],
   ["aplikasi/Workspace.gs", "Workspace.gs"],
+  ["aplikasi/SistemDrive.gs", "SistemDrive.gs"],
   ["aplikasi/Projects.gs", "Projects.gs"],
   ["aplikasi/ProjectsClient.html", "ProjectsClient.html"],
   ["aplikasi/PeopleProfiles.html", "PeopleProfilesClient.html"],
@@ -18,6 +19,7 @@ const sourceFiles = [
   ["aplikasi/UtpStyles.html", "UtpStyles.html"],
   ["aplikasi/UtpClient.html", "UtpClient.html"],
   ["aplikasi/RPB.gs", "RPB.gs"],
+  ["aplikasi/LPD.gs", "LPD.gs"],
   ["aplikasi/Index.html", "Index.html"],
   ["aplikasi/HomeView.html", "HomeView.html"],
   ["aplikasi/HoHomeView.html", "HoHomeView.html"],
@@ -35,6 +37,9 @@ const sourceFiles = [
   ["aplikasi/RPD.html", "RPD.html"],
   ["aplikasi/RPBView.html", "RPBView.html"],
   ["aplikasi/RPBClient.html", "RPBClient.html"],
+  ["aplikasi/LPDView.html", "LPDView.html"],
+  ["aplikasi/LPDStyles.html", "LPDStyles.html"],
+  ["aplikasi/LPDClient.html", "LPDClient.html"],
   ["aplikasi/appsscript.json", "appsscript.json"],
 ];
 
@@ -63,7 +68,11 @@ async function main() {
   console.log(`Prepared ${sourceFiles.length} Apps Script files in ${stagingDir}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+module.exports = { sourceFiles, stagingDir, main };
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

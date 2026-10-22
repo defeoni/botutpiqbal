@@ -40,7 +40,9 @@ function environment() {
   }
   function folder(id, access = 'PRIVATE') {
     const result = {
-      id, access, getId() { return id; }, getSharingAccess() { return this.access; },
+      id, access, getId() { return id; }, getName() { return 'folder-' + id; }, setName() { return this; }, getUrl() { return 'https://drive.google.com/drive/folders/' + id; }, getSharingAccess() { return this.access; },
+      getEditors() { return []; }, getViewers() { return []; }, getParents() { return { hasNext: () => false }; },
+      getFoldersByName() { return { hasNext: () => false }; },
       setSharing(access) { this.access = access; return this; },
       createFolder() { const child = folder(uid(), this.access); state.folders.set(child.id, child); return child; },
       createFile(blob) {
@@ -58,7 +60,7 @@ function environment() {
     PropertiesService: { getScriptProperties: () => ({ getProperty: key => state.props.get(key) || null, setProperty: (key, value) => state.props.set(key, value) }) },
     SpreadsheetApp: { create: () => { const id = uid(), sheets = new Map(); const book = { getId: () => id, getSheetByName: name => sheets.get(name) || null, insertSheet: name => { const sheet = new Sheet(name); sheets.set(name, sheet); return sheet; } }; state.books.set(id, book); return book; }, openById: id => { if (!state.books.has(id)) throw new Error('Spreadsheet not found'); return state.books.get(id); } },
     Utilities: { getUuid: uid, base64Decode: value => Array.from(Buffer.from(value, 'base64')), base64Encode: bytes => Buffer.from(bytes).toString('base64'), DigestAlgorithm: { SHA_256: 'sha256' }, computeDigest: (algorithm, bytes) => Array.from(crypto.createHash('sha256').update(Buffer.from(bytes)).digest()), newBlob: (bytes, mime, name) => ({ bytes, mime, name }) },
-    DriveApp: { Access: { PRIVATE: 'PRIVATE', ANYONE: 'ANYONE' }, Permission: { NONE: 'NONE', VIEW: 'VIEW' }, createFolder: () => { const created = folder(uid()); state.folders.set(created.id, created); return created; }, getFolderById: id => state.folders.get(id), getFileById: id => { if (!state.files.has(id)) throw new Error('File not found'); return state.files.get(id); } },
+    DriveApp: { Access: { PRIVATE: 'PRIVATE', ANYONE: 'ANYONE' }, Permission: { NONE: 'NONE', VIEW: 'VIEW' }, getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => { const created = folder(uid()); state.folders.set(created.id, created); return created; }, getFolderById: id => state.folders.get(id), getFileById: id => { if (!state.files.has(id)) throw new Error('File not found'); return state.files.get(id); } },
     GmailApp: { createDraft: (to, subject, body, options) => { const draft = { id: uid(), to, subject, body, options }; state.drafts.push(draft); return { getId: () => draft.id }; }, sendEmail: () => { throw new Error('Sending email is forbidden'); } },
     UrlFetchApp: { fetch: () => { throw new Error('Network calls are forbidden in storage tests'); } },
     LockService: { getScriptLock: () => ({ waitLock: () => { state.locks++; if (state.onLock) state.onLock(); }, releaseLock: () => { state.locks--; } }) },
@@ -67,7 +69,7 @@ function environment() {
     getArchiveRootFolder_: () => sharedArchive
   };
   vm.createContext(sandbox);
-  for (const name of ['UtpDomain.gs', 'Utp.gs', 'Workspace.gs', 'Projects.gs']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../aplikasi', name), 'utf8'), sandbox, { filename: name });
+  for (const name of ['UtpDomain.gs', 'Utp.gs', 'Workspace.gs', 'Projects.gs', 'SistemDrive.gs']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../aplikasi', name), 'utf8'), sandbox, { filename: name });
   sandbox.UTP_MASTER_REFERENCE_ID = ''; // Isolate tests from the production Drive source.
   const call = (action, payload = {}, token = 'session') => sandbox.apiUtp(action, payload, token);
   const plain = value => JSON.parse(JSON.stringify(value));

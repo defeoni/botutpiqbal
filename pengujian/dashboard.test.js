@@ -13,7 +13,7 @@ function env(){
     utpWrite_:(entity,r)=>{assert.equal(locked,true);writes.push([entity,r.id]);return r;},
     apiWorkspace:()=>({counts:{tasks:1,rpd:0},activities:[]}),
     LockService:{getScriptLock:()=>({waitLock:()=>{locked=true;},releaseLock:()=>{locked=false;}})}};
-  vm.createContext(c);for(const name of ['Workspace.gs','Projects.gs','Dashboard.gs'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi',name),'utf8'),c);
+  vm.createContext(c);for(const name of ['Workspace.gs','Projects.gs','SistemDrive.gs','Dashboard.gs'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../aplikasi',name),'utf8'),c);
   return {c,rows,writes};
 }
 test('dashboard is authenticated and distinguishes waiting from arrivals',()=>{const{c}=env();assert.throws(()=>c.apiDashboard('bad'),/Unauthorized/);const d=c.apiDashboard('owner');assert.equal(d.material.waiting,1);assert.equal(d.material.arrived,0);assert.equal(d.workspace.counts.tasks,1);});

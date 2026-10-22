@@ -101,7 +101,7 @@
   window.refreshHoSummary = render;
   window.decorateWorkspace=decorate;decorate();
   window.refreshProjectSummary = render;
-  window.resetWorkspaceSession = () => {generation++;loading=false;dashboard=null;window.UTP_PIN_DEFERRED=false;if(window.PeopleProfiles)window.PeopleProfiles.reset();if(window.ProjectWorkspace)window.ProjectWorkspace.reset();if(window.DocumentCenter)window.DocumentCenter.resetSession();render();if(window.WorkspaceTools)window.WorkspaceTools.reset();if(window.RpdWorkspace&&window.RpdWorkspace.reset)window.RpdWorkspace.reset();};
+  window.resetWorkspaceSession = () => {generation++;loading=false;dashboard=null;window.UTP_PIN_DEFERRED=false;if(window.PeopleProfiles)window.PeopleProfiles.reset();if(window.ProjectWorkspace)window.ProjectWorkspace.reset();if(window.DocumentCenter)window.DocumentCenter.resetSession();render();if(window.WorkspaceTools)window.WorkspaceTools.reset();if(window.RpdWorkspace&&window.RpdWorkspace.reset)window.RpdWorkspace.reset();if(window.LPDWorkspace&&window.LPDWorkspace.reset)window.LPDWorkspace.reset();};
   document.addEventListener('utp-project-change',()=>{generation++;loading=false;dashboard=null;render();window.loadWorkspaceDashboard();if(window.DocumentCenter)window.DocumentCenter.reload();});
   document.addEventListener('click', async event => {
     const b=event.target.closest('button');if(!b)return;
