@@ -146,6 +146,7 @@ function projectDocumentIndex_(projectId,token) {
   var documents=[],warnings=[];
   function add(source,load){try{load().forEach(function(r){if(workspaceProjectMatches_(r,projectId))documents.push(r);});}catch(e){warnings.push(source+': '+e.message);}}
   add('Dokumen',function(){return utpRead_('workspaceDocuments').map(function(r){return Object.assign({source:'document'},r);});});
+  add('LPD',function(){return utpRead_('workspaceLpd').map(function(r){return {id:'lpd:'+r.id,source:'lpd',sourceId:r.id,projectId:r.projectId,title:'LPD '+r.month+' · '+r.id.slice(0,8),status:r.status==='COMPLETE'?'SELESAI':r.status==='SENT'?'DIAJUKAN':'DRAFT',due:r.deadline&&r.deadline.due||'',record:r};});});
   ['rpd','archives','finance','tasks'].forEach(function(module){add(module,function(){return utpRead_(WORKSPACE_MODULES_[module]).map(function(r){return {id:module+':'+r.id,source:module,sourceId:r.id,projectId:r.projectId||'legacy',workspaceDocumentId:r.workspaceDocumentId||'',title:r.name||r.purpose,status:r.status==='DRAFT'||r.status==='Draf'?'DRAFT':r.status==='Selesai dicatat'?'SELESAI':'DIAJUKAN',date:r.date,due:module==='rpd'?r.date:r.fields&&r.fields.due||'',url:r.proof||r.fields&&(r.fields.location||r.fields.proof||r.fields.documentUrl)||'',record:r};});});});
   add('RPB',function(){return getRpbHistory_().map(function(r){return {id:'rpb:'+r.id,source:'rpb',sourceId:r.id,projectId:r.data&&r.data.projectId||'legacy',workspaceDocumentId:r.data&&r.data.workspaceDocumentId||'',title:r.number,status:r.status==='Serah terima selesai'?'SELESAI':r.status==='Ditolak'?'DITOLAK':'DIAJUKAN',date:r.requestDate,url:r.spreadsheetUrl||r.excelUrl,record:r};});});
   ['requests','approvals'].forEach(function(entity){add(entity,function(){return utpRead_(entity).map(function(r){return {id:entity+':'+r.id,source:entity,sourceId:r.id,projectId:r.projectId||'legacy',workspaceDocumentId:r.workspaceDocumentId||'',title:r.title||r.material||r.number||'Material',status:r.status==='DRAFT'?'DRAFT':r.status==='REJECTED'?'DITOLAK':r.status==='APPROVED'||r.arrived?'SELESAI':'DIPROSES',date:r.date||'',due:'',record:r};});});});
@@ -165,6 +166,8 @@ function projectDocumentIndex_(projectId,token) {
   });
   var tracking=utpRead_('workspaceDocumentTracking');
   documents=documents.filter(function(d){var tracked=tracking.find(function(t){return t.id===d.id;});if(!tracked)return true;if(tracked.hidden)return false;d.status=tracked.status;d.due=tracked.due;d.note=tracked.note;d.history=tracked.history;d.trackingVersion=tracked.version;return true;});
+  var followups=utpRead_('telegramDocumentFollowups');
+  documents.forEach(function(d){var follow=followups.find(function(f){return f.id===d.id;});if(follow)d.telegramFollowup={state:follow.state,history:follow.history||[]};});
   return {documents:documents,warnings:warnings};
 }
 function apiProjectDocument(action,payload,token) {

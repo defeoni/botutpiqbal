@@ -29,9 +29,7 @@ function lpdNow_() { return new Date().toISOString(); }
 function lpdTodayJakarta_() { return Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd'); }
 
 function lpdDeadlineDefault_(month, period) {
-  var parts = month.split('-'), year = Number(parts[0]), monthNumber = Number(parts[1]);
-  var day = period === 'M1-M2' ? 15 : new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-  return month + '-' + String(day).padStart(2, '0');
+  return ''; // Tenggat hanya ditentukan admin.
 }
 
 function lpdDeadlineState_(record) {
@@ -65,7 +63,7 @@ function lpdDeadlineFromInput_(input, existing, month, period, actor) {
   var original = prior ? (prior.original || prior.due || fallback) : (requested || fallback);
   var due = prior ? (prior.due || original) : original;
   if (!prior && requested) due = requested;
-  if (prior && requested && requested !== due) {
+  if (prior && Object.prototype.hasOwnProperty.call(input||{},'deadline') && requested !== due) {
     history.push({
       at: lpdNow_(),
       actor: actor,
@@ -476,10 +474,9 @@ function lpdReleaseRpds_(ids, lpdId, actor) {
 /* ---------- validasi relasi ---------- */
 
 function lpdAssertUnique_(record, existingId) {
-  var duplicate = lpdRows_('lpd').filter(function (row) {
-    return row.id !== existingId && row.projectId === record.projectId && row.month === record.month && row.period === record.period;
-  })[0];
-  if (duplicate) throw new Error('LPD untuk proyek, bulan, dan periode ini sudah ada (' + duplicate.id + ').');
+  // Beberapa LPD per periode diperbolehkan; satu sumber dana tidak boleh dihitung dua kali.
+  var duplicate = lpdRows_('lpd').find(function(row){return row.id!==existingId&&record.rpbId&&row.rpbId===record.rpbId&&row.period===record.period;});
+  if(duplicate)throw new Error('Tranche RPB sudah digunakan LPD '+duplicate.id+'. Gunakan sumber RPD tersendiri atau koreksi LPD tersebut.');
 }
 
 function lpdValidateRelations_(record, actor, selfId) {
@@ -520,7 +517,7 @@ function lpdRealisasi_(value) {
   var seen = Object.create(null);
   return value.map(function (line) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) throw new Error('Baris realisasi tidak valid.');
-    var description = utpText_(line.description, 'Uraian nota', 300, true);
+    var description = utpText_(line.description, 'Uraian nota', 2000, true);
     var id = utpText_(line.id, 'ID nota', 100, false) || Utilities.getUuid();
     if (!/^[a-zA-Z0-9-]{8,100}$/.test(id) || seen[id]) throw new Error('ID baris realisasi tidak valid atau duplikat.');
     seen[id] = true;
@@ -550,6 +547,7 @@ function lpdRealisasi_(value) {
       : lpdAmount_(line.amount, 'Nominal realisasi');
     return {
       id: id,
+      financeId: utpText_(line.financeId, 'ID nota inbox', 100, false),
       date: line.date ? workspaceDate_(line.date, true) : '',
       description: description,
       amount: amount,
@@ -749,6 +747,17 @@ function lpdSaveDraft_(p) {
   var actor = lpdActor_(p);
   var projectId = lpdProject_(p.projectId);
   var input = p.record || {};
+  var requestId=input.clientRequestId?lpdSourceId_(input.clientRequestId,'ID permintaan draf'):'';
+  var signature=requestId?Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,JSON.stringify(input))):'';
+  if(requestId&&!input.id){
+    var retry=lpdRows_('lpd').find(function(r){return r.clientRequestId===requestId;});
+    if(retry){
+      lpdAssertProject_(retry,projectId,'LPD');
+      if(retry.createSignature!==signature)throw new Error('Permintaan draf sudah tersimpan dengan isi berbeda. Muat ulang LPD '+retry.id+'.');
+      try{lpdReserveRpds_(retry,lpdActor_(p));}catch(e){return {record:retry,calculation:null,reservationPending:true,warnings:['Draf ditemukan; reservasi RPD perlu dicoba kembali. '+e.message]};}
+      return {record:retry,calculation:lpdCalculate_(retry),deduplicated:true,warnings:[]};
+    }
+  }
   var existingId = utpText_(input.id, 'ID LPD', 100, false);
   var existing = existingId ? lpdRow_('lpd', existingId) : null;
   if (existingId && !existing) throw new Error('LPD tidak ditemukan.');
@@ -768,6 +777,8 @@ function lpdSaveDraft_(p) {
   warnings = warnings.concat(relations.warnings);
   record = relations.record;
   record.id = existing ? existing.id : Utilities.getUuid();
+  if(requestId||existing&&existing.clientRequestId){record.clientRequestId=existing?existing.clientRequestId:requestId;record.createSignature=existing?existing.createSignature:signature;}
+  record.realisasi = lpdSyncNotas_(record);
   var saved = lpdWrite_('lpd', record, existing ? existing.version : 0);
   lpdCollectWarning_(warnings, saved);
 
@@ -811,7 +822,8 @@ function lpdSend_(p) {
   lpdAssertProject_(record, p.projectId, 'LPD');
   if (record.status !== 'DRAFT') throw new Error('Hanya LPD DRAFT yang dapat dikirim.');
   if (record.version !== Number(p.version)) return { conflict: true, record: record };
-  if (!record.rpbId) throw new Error('Pilih satu RPB sebelum mengirim LPD.');
+  if (!record.rpbId && !(record.rpdIds||[]).length) throw new Error('Pilih sumber dana RPB atau RPD sebelum mencatat pengiriman LPD.');
+  lpdValidateNotaEvidence_(record);
   var warnings = [];
   var reopen = lpdReopenRpds_(record.id, actor);
   reopen.warnings.forEach(function (warning) { warnings.push(warning); });
@@ -1456,16 +1468,20 @@ function lpdSetDeadline_(p) {
 function lpdUpload_(p) {
   var projectId = lpdProject_(p.projectId);
   var lpdId = utpText_(p.lpdId, 'ID LPD', 100, false);
-  if (lpdId) lpdAssertProject_(lpdRow_('lpd', lpdId), projectId, 'LPD');
-  var uploaded = utpUpload_({
-    name: p.name,
-    mime: p.mime,
-    base64: p.base64,
-    kind: 'LPD_NOTA',
-    recordId: lpdId || projectId
-  });
-  DriveApp.getFileById(uploaded.id).moveTo(workspaceProjectFolder_(projectId, 'LPD'));
-  return uploaded;
+  var notaId = lpdSourceId_(p.notaId || Utilities.getUuid(), 'ID nota');
+  var lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    if(lpdId){var lpd=lpdRow_('lpd',lpdId);lpdAssertProject_(lpd,projectId,'LPD');if(lpd.status!=='DRAFT')throw new Error('Koreksi LPD sebelum menambahkan bukti.');}
+    var old=utpGet_('workspaceFinance',notaId);
+    if(old&&(old.archived||old.projectId!==projectId))throw new Error('Nota tidak tersedia pada proyek ini.');
+    if(lpdNotaUsage_(notaId).some(function(r){return r.id!==lpdId||r.status!=='DRAFT';}))throw new Error('Nota sudah dipakai LPD. Koreksi laporan terlebih dahulu.');
+    var uploaded=utpUpload_({name:p.name,mime:p.mime,base64:p.base64,kind:'LPD_NOTA',recordId:lpdId||projectId});
+    DriveApp.getFileById(uploaded.id).moveTo(workspaceProjectFolder_(projectId,'Nota dan Keuangan'));
+    var record=old||{id:notaId,projectId:projectId,name:'Nota dari LPD',date:lpdTodayJakarta_(),status:'Draf',source:'LPD',note:'',fields:{vendor:'Belum diisi',amount:0,category:'Perlu klasifikasi'},attachments:[]};
+    record.attachments=(record.attachments||[]).concat([{name:uploaded.name,url:uploaded.url,mime:uploaded.mime,fileId:uploaded.id}]);record.fields.proof=record.fields.proof||uploaded.url;
+    var saved=lpdWriteNota_(record,old?old.version:0);uploaded.financeId=saved.id;
+    return uploaded;
+  }finally{lock.releaseLock();}
 }
 
 /* ---------- pembacaan ---------- */
@@ -1644,6 +1660,7 @@ function lpdAuditList_(p) {
 function apiLpd(action, payload, token) {
   requireAuthorized_(token);
   var p = payload || {};
+  if(['notaList','artifacts','templateStatus','export','signedUpload','templateUpload'].indexOf(action)>=0)return lpdDocumentAction_(action,p);
   if (action === 'list') return lpdList_(p);
   if (action === 'detail') return lpdDetail_(p);
   if (action === 'calculate') return lpdDetail_(p).calculation;

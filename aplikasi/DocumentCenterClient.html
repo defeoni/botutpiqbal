@@ -77,10 +77,17 @@
     loading=true;render();
     try{
       await window.ProjectWorkspace.ready();
+      const link=window.UTP_TELEGRAM_DOCUMENT;
+      if(link&&link.id&&link.project&&link.project!==projectId()){
+        if(!window.ProjectWorkspace.getProjects().some(p=>p.id===link.project)&&link.project!=='legacy'){window.UTP_TELEGRAM_DOCUMENT=null;showStatus('Proyek pada tautan Telegram tidak tersedia.');return;}
+        loading=false;
+        window.ProjectWorkspace.select(link.project);return;
+      }
       if(ticket!==epoch||token!==accessToken||requestProject!==projectId())return;
       const result=await rpc('apiProjects',['documents',{projectId:requestProject},token]);
       if(ticket!==epoch||token!==accessToken||requestProject!==projectId())return;
       docs=result.documents||[];loadedAt=Date.now();showStatus((result.warnings||[]).join(' · '));
+      if(link&&link.id){const doc=docs.find(d=>d.id===link.id);if(doc){window.UTP_TELEGRAM_DOCUMENT=null;openRecord(doc);}else showStatus('Dokumen dari Telegram tidak tersedia pada proyek ini.');}
     }catch(e){
       if(ticket===epoch&&token===accessToken&&requestProject===projectId())showStatus(e.message);
     }finally{if(ticket===epoch){loading=false;render();}}
@@ -123,6 +130,7 @@
     const select=form.elements.status;select.replaceChildren();Object.entries(statuses).forEach(([value,label])=>select.add(new Option(label,value)));select.value=doc.status;
     const local=doc.source==='document';form.elements.title.disabled=!local;['due','note','status'].forEach(k=>form.elements[k].disabled=false);get('dcRecordSave').hidden=get('dcRecordDelete').hidden=false;
     get('dcRecordDetails').replaceChildren(node('p',projectName(doc.projectId)+' · '+(doc.source||'document')));
+    if(doc.telegramFollowup){const f=doc.telegramFollowup;get('dcRecordDetails').append(node('p',f.state==='answerPending'?'Telegram: ada jawaban — lengkapi keputusan pada dokumen sumber.':'Telegram: follow-up dikirim — menunggu jawaban.'));(f.history||[]).slice(-5).forEach(h=>get('dcRecordDetails').append(node('small',h.at+' · '+(h.action==='sent'?'Pengiriman dikonfirmasi admin':'Ada jawaban'))));}
     const history=get('dcRecordHistory');history.replaceChildren();(doc.history||[]).forEach(h=>history.append(node('p',h.at+' · '+h.reason)));
     const original=doc.record||{};[['Salinan template',doc.fileUrl],['Google Sheets',original.spreadsheetUrl||original.sheetUrl],['Excel',original.excelUrl],['PDF',original.pdfUrl],['Folder arsip',original.folderUrl]].forEach(([label,url])=>{if(/^https?:\/\//i.test(url||'')){const a=node('a',label,'btn');a.href=url;a.target='_blank';a.rel='noopener';get('dcRecordDetails').appendChild(a);}});
     get('dcRecordMessage').textContent=local?'':'Status ini mencatat tracking administrasi. Keputusan approval dan data sumber diedit melalui Buka formulir / arsip.';
@@ -147,6 +155,7 @@
     if(d.source==='document')route(t,d,false,scope);
     else if(d.source==='rpb')switchMainPage('RPB',d.sourceId);
     else if(d.source==='rpd'){switchMainPage('RPD');window.RpdWorkspace.openRecord(d.sourceId);}
+    else if(d.source==='lpd'){window.LPDWorkspace.requestRecord(d.sourceId);switchMainPage('LPD');}
     else if(d.source==='memo'){if(window.MemoHistory)window.MemoHistory.open(d.sourceId);else switchMainPage('HO');}
     else if(d.source==='requests'){switchMainPage('REQUESTS');window.UTPFrontend.openRecord(d.sourceId);}
     else if(d.source==='approvals'){switchMainPage('APPROVALS');}

@@ -252,7 +252,7 @@
     var parts = [];
     if (deadline) {
       parts.push('Deadline asli ' + dateText(deadline.original) + '; berlaku ' + dateText(deadline.due) + '.');
-      parts.push(deadline.late ? 'Sudah melewati deadline.' : 'Belum melewati deadline.');
+      parts.push(!deadline.due?'Belum dijadwalkan.':deadline.late ? 'Sudah melewati deadline.' : 'Belum melewati deadline.');
       if (deadline.changedAt) parts.push('Diubah ' + dateTimeText(deadline.changedAt) + ' oleh ' + (deadline.changedBy || '—') + '.');
       if (deadline.history && deadline.history.length) {
         parts.push('Riwayat: ' + deadline.history.slice(-3).map(function (item) {
@@ -260,7 +260,7 @@
         }).join(' · '));
       }
     } else {
-      parts.push('Kosongkan untuk memakai deadline server: tanggal 15 (M1-M2) atau akhir bulan (M3-M4), kalender Jakarta.');
+      parts.push('Deadline ditentukan admin. Kosong berarti belum dijadwalkan.');
     }
     text('lpdDeadlineInfo', parts.join(' '));
   }
@@ -321,7 +321,7 @@
     descLabel.textContent = 'Uraian nota';
     var desc = document.createElement('input');
     desc.type = 'text';
-    desc.maxLength = 300;
+    desc.maxLength = 2000;
     desc.value = nota.description || '';
     desc.placeholder = 'Contoh: Pembelian material dan konsumsi';
     desc.disabled = state.busy || !editable();
@@ -499,12 +499,14 @@
           var result = await rpc('upload', {
             projectId: state.projectId,
             lpdId: state.record.id,
+            notaId: nota.financeId || nota.id || nota.key,
             name: file.name,
             mime: file.type,
             base64: base64
           });
           if (scope !== state.scopeTicket) return;
           nota.attachments = nota.attachments || [];
+          nota.financeId = result.financeId;
           nota.attachments.push({ id: result.id, url: result.url, name: result.name, mime: result.mime });
           uploaded++;
         } catch (error) {
@@ -519,6 +521,7 @@
   }
 
   function applyRecord(record, calculation, audit) {
+    get('lpdArtifacts').replaceChildren();get('lpdSignedExport').replaceChildren();get('lpdSignedFile').value='';delete get('lpdSignedFile').dataset.requestId;
     state.applying = true;
     state.record = record;
     state.calculation = calculation;
@@ -528,6 +531,7 @@
       return {
         key: line.id || uuid(),
         id: line.id || '',
+        financeId: line.financeId || '',
         date: line.date || '',
         description: line.description || '',
         amount: line.amount == null ? '' : String(line.amount),
@@ -593,6 +597,8 @@
       lpdClearFilter: !state.busy
     };
     Object.keys(buttons).forEach(function (id) { if (get(id)) get(id).disabled = !buttons[id]; });
+    ['lpdGenerate','lpdArtifactsLoad','lpdSignedSave','lpdSignedFile'].forEach(function(id){get(id).disabled=state.busy||!record||state.dirty;});
+    ['lpdInboxLoad','lpdInboxAdd'].forEach(function(id){get(id).disabled=state.busy||!editableNow||!state.projectId;});
     if (get('lpdProjectSelect')) get('lpdProjectSelect').disabled = state.busy || !(window.ProjectWorkspace && window.ProjectWorkspace.getProjects().length);
     ['lpdMonth', 'lpdPeriod', 'lpdStatusFilter'].forEach(function (id) { if (get(id)) get(id).disabled = state.busy; });
     if (get('lpdEditorMonth')) get('lpdEditorMonth').disabled = state.busy || !!record;
@@ -638,7 +644,7 @@
     if (!state.projectId) {
       box.textContent = 'Pilih proyek untuk memuat RPB dan RPD.';
     } else if (!tranche && !get('lpdRpbSelect').value) {
-      box.textContent = 'Pilih satu RPB/tranche sebagai sumber dana.';
+      box.textContent = 'Pilih RPB atau gunakan RPD tersendiri.';
     } else if (!tranche) {
       box.textContent = 'Tranche belum terdaftar. Pencairan akan mendaftarkan tranche setelah gerbang M3-M4 lolos.';
     } else {
@@ -1010,7 +1016,7 @@
       });
     }).catch(function (error) {
       if (scope === state.scopeTicket) setStatus('Gagal memuat LPD: ' + errorText(error), 'error');
-    }).then(function () { setBusy(false); });
+    }).then(function () { setBusy(false); if(pendingDocumentId){var id=pendingDocumentId;pendingDocumentId='';openRecord(id);} });
   }
 
   function loadWorkspace() {
@@ -1045,7 +1051,7 @@
       }
     }).catch(function (error) {
       if (scope === state.scopeTicket) setStatus('Gagal memuat LPD: ' + errorText(error), 'error');
-    }).then(function () { setBusy(false); });
+    }).then(function () { setBusy(false); if(pendingDocumentId){var id=pendingDocumentId;pendingDocumentId='';openRecord(id);} });
   }
 
   function open() {
@@ -1091,6 +1097,7 @@
   }
 
   function newDraft() {
+    state.clientRequestId=uuid();
     if (state.busy) return;
     if (!confirmDiscard()) return;
     if (!state.projectId) {
@@ -1123,6 +1130,23 @@
     loadCatalogs(state.scopeTicket).catch(function (error) { setStatus('Gagal memuat RPB/RPD: ' + errorText(error), 'error'); });
   }
 
+  var inboxNotas=[],pendingDocumentId='';
+  function documentPayload(){if(!state.record)throw new Error('Simpan Draf LPD dahulu.');if(state.dirty)throw new Error('Simpan perubahan LPD dahulu.');return {projectId:state.projectId,id:state.record.id,version:state.record.version};}
+  function documentLink(label,url){if(!/^https:\/\/(docs|drive)\.google\.com\//.test(url||''))return;var a=document.createElement('a');a.textContent=label;a.href=url;a.target='_blank';a.rel='noopener';a.className='btn';get('lpdArtifacts').appendChild(a);}
+  async function loadArtifacts(){var p=documentPayload(),result=await rpc('artifacts',p);get('lpdArtifacts').replaceChildren();get('lpdSignedExport').replaceChildren();(result.exports||[]).forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent='LPD v'+r.recordVersion+' · '+r.at;get('lpdSignedExport').appendChild(o);documentLink('Spreadsheet v'+r.recordVersion,r.spreadsheetUrl);documentLink('PDF v'+r.recordVersion,r.pdfUrl);});(result.signed||[]).forEach(function(r){documentLink('Scan bertanda tangan v'+r.recordVersion+' · '+r.at,r.file.url);});}
+  function bindDocuments(){
+    var fields=[['transaction','No. Trans'],['rpd','No. RPD'],['rpm','No. RPM'],['department','Departemen'],['section','Bagian'],['receivedDate','Tanggal penerimaan dana','date'],['documentDate','Tanggal laporan','date'],['admin','Nama admin'],['pic','Nama PIC / PM'],['manager','Nama pihak mengetahui']];
+    fields.push(['transferReference','Referensi bukti transfer']);
+    fields.forEach(function(f){var label=document.createElement('label'),input=document.createElement('input');label.textContent=f[1];input.type=f[2]||'text';input.maxLength=300;input.id='lpdExport-'+f[0];label.appendChild(input);get('lpdExportFields').appendChild(label);});
+    var label=document.createElement('label');label.textContent='Ukuran kertas';var paper=document.createElement('select');paper.id='lpdExport-paper';['A4','A3','LETTER','LEGAL'].forEach(function(s){var o=document.createElement('option');o.textContent=s;o.value=s;paper.appendChild(o);});label.appendChild(paper);get('lpdExportFields').appendChild(label);
+    get('lpdInboxLoad').onclick=function(){run('Memuat nota belum digunakan…',async function(){var result=await rpc('notaList',{projectId:state.projectId,lpdId:state.record&&state.record.id||''});inboxNotas=(result.records||[]).filter(function(r){return r.available&&!state.notas.some(function(n){return n.financeId===r.id||n.id===r.id;});});get('lpdInboxSelect').replaceChildren();inboxNotas.forEach(function(r){var o=document.createElement('option');o.value=r.id;o.textContent=r.date+' · '+r.name+' · '+money(r.fields.amount);get('lpdInboxSelect').appendChild(o);});setStatus(inboxNotas.length+' nota tersedia. Satu nota digunakan utuh untuk satu LPD.','');});};
+    get('lpdInboxAdd').onclick=function(){if(state.busy||!editable())return;var r=inboxNotas.find(function(n){return n.id===get('lpdInboxSelect').value;});if(!r||state.notas.some(function(n){return n.financeId===r.id;}))return;state.notas=state.notas.filter(function(n){return n.description||n.attachments.length;});state.notas.push({key:uuid(),id:r.id,financeId:r.id,date:r.date,description:r.note||r.name,amount:r.fields.amount,items:[],attachments:r.attachments||[]});markDirty();renderNotas();};
+    get('lpdGenerate').onclick=function(){run('Membuat laporan…',async function(){var p=documentPayload();p.options={};fields.forEach(function(f){p.options[f[0]]=get('lpdExport-'+f[0]).value;});p.options.paper=paper.value;var result=await rpc('export',p);if(result.conflict)throw new Error('LPD berubah. Muat ulang dahulu.');await loadArtifacts();setStatus(result.warning||'Laporan tersimpan. Periksa hasil sebelum dicetak dan ditandatangani.','');});};
+    get('lpdArtifactsLoad').onclick=function(){run('Memuat arsip…',loadArtifacts);};
+    get('lpdSignedSave').onclick=function(){var input=get('lpdSignedFile'),file=input.files[0];if(!file)return;var requestId=input.dataset.requestId||(input.dataset.requestId=uuid());run('Menyimpan scan…',async function(){if(file.size>5*1024*1024)throw new Error('Scan maksimal 5 MB.');var p=documentPayload();p.exportId=get('lpdSignedExport').value;if(!p.exportId)throw new Error('Pilih laporan yang ditandatangani.');p.requestId=requestId;p.name=file.name;p.mime=file.type;p.base64=await readBase64(file);var result=await rpc('signedUpload',p);if(result.conflict)throw new Error('LPD berubah. Muat ulang dahulu.');input.value='';delete input.dataset.requestId;await loadArtifacts();setStatus(result.warning||'Scan bertanda tangan tersimpan sebagai arsip akhir.','ok');});};
+    get('lpdSignedFile').onchange=function(){delete this.dataset.requestId;};
+    get('lpdTemplateSave').onclick=function(){var file=get('lpdTemplateFile').files[0];if(!file)return;run('Memasang template kosong…',async function(){if(file.size>5*1024*1024)throw new Error('Maksimal 5 MB.');var pin=await askPin('pasang template LPD');if(!pin)return;var result=await rpc('templateUpload',{projectId:state.projectId,name:file.name,base64:await readBase64(file),pin:pin});setStatus('Template kosong dipasang.','ok');});};
+  }
   function notePayload() {
     return state.notas.map(function (nota) {
       var items = (nota.items || []).filter(function (item) {
@@ -1132,6 +1156,7 @@
       });
       return {
         id: nota.id || nota.key,
+        financeId: nota.financeId || '',
         date: nota.date || '',
         description: String(nota.description || '').trim(),
         amount: items.length ? 0 : (nota.amount === '' ? 0 : Number(nota.amount)),
@@ -1147,11 +1172,12 @@
     if (state.busy) return;
     if (!state.projectId) { setStatus('Pilih satu proyek.', 'error'); return; }
     var rpbId = get('lpdRpbSelect').value;
-    if (!rpbId) { setStatus('Pilih tepat satu RPB/tranche sebagai sumber dana.', 'error'); return; }
+    if (!rpbId && !state.selectedRpdIds.length) { setStatus('Pilih sumber RPB atau RPD.', 'error'); return; }
     if (!state.notas.length) { setStatus('Tambahkan minimal satu nota sebelum menyimpan.', 'error'); return; }
     var scope = state.scopeTicket;
     var payload = {
       id: state.record ? state.record.id : '',
+      clientRequestId: state.record ? state.record.clientRequestId||'' : (state.clientRequestId||(state.clientRequestId=uuid())),
       version: state.record ? state.record.version : 0,
       projectId: state.projectId,
       month: get('lpdEditorMonth').value,
@@ -1189,7 +1215,7 @@
     if (state.busy) return;
     if (!state.record) { setStatus('Simpan Draf terlebih dahulu sebelum mengirim.', 'error'); return; }
     if (state.dirty) { setStatus('Ada perubahan belum disimpan. Simpan Draf terlebih dahulu, lalu kirim.', 'error'); return; }
-    if (!window.confirm('Kirim LPD ini ke HO? Setelah dikirim, perubahan hanya melalui Koreksi.')) return;
+    if (!window.confirm('Konfirmasi bahwa LPD sudah Anda sampaikan ke HO? Setelah dicatat, perubahan melalui Koreksi.')) return;
     var scope = state.scopeTicket;
     askPin('pengiriman LPD').then(function (pin) {
       return run('Mengirim LPD…', function () {
@@ -1464,6 +1490,7 @@
   }
 
   function bind() {
+    bindDocuments();
     get('lpdRefresh').addEventListener('click', function () {
       if (state.dirty) { setStatus('Isian belum disimpan. Simpan Draf atau koreksi sebelum memuat ulang.', 'error'); return; }
       loadWorkspace();
@@ -1552,6 +1579,7 @@
 
   window.LPDWorkspace = {
     open: open,
+    requestRecord: function(id){pendingDocumentId=id;},
     isBusy: function () { return state.busy; },
     isDirty: function () { return state.dirty; },
     reset: function () {

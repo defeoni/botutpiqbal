@@ -34,6 +34,8 @@ function doGet(event) {
     : 'PN';
   template.appVersion = APP.version;
   let output = template.evaluate();
+  const telegramDocument=JSON.stringify({id:String(event&&event.parameter&&event.parameter.tgdoc||''),project:String(event&&event.parameter&&event.parameter.tgproject||'')}).replace(/</g,'\\u003c');
+  output.setContent(output.getContent().replace('<head>','<head><script>window.UTP_TELEGRAM_DOCUMENT='+telegramDocument+';</script>'));
   // Public display-only demo: no session token and no access to stored project data.
   if (event && event.parameter && event.parameter.preview === '1') {
     let html = output.getContent()
@@ -1464,6 +1466,7 @@ function processTelegramUpdate_(update,transportLocked) {
   }
 
   if (handleTelegramWorkspaceMedia_(update,chatId,transportLocked)) return;
+  if (handleTelegramPanel_(update,chatId,transportLocked)) return;
   if (callback) {
     answerTelegramCallback_(callback.id);
     if (callback.data === 'status') {
@@ -1607,6 +1610,7 @@ function sendTelegramMessage_(chatId, text, replyMarkup) {
   });
   const result = JSON.parse(response.getContentText());
   if (!result.ok) throw new Error(`Telegram gagal mengirim pesan: ${result.description}`);
+  return result.result;
 }
 
 function answerTelegramCallback_(callbackId) {

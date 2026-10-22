@@ -1,5 +1,9 @@
 # Status integrasi
 
+## Pembaruan lokal setelah c7b473b
+
+Telegram panel dan integrasi LPD/Nota diterapkan dan dipublikasikan bersama ke GitHub atas instruksi pengguna; deployment Apps Script belum dilakukan. Implementasi LPD kini mencakup inbox nota, larangan satu nota dipakai dua LPD, LPD khusus RPD, deadline manual, OCR Google Drive draf teks, Spreadsheet foto terpisah, generator laporan Spreadsheet/PDF dan unggahan scan per versi. Tidak menunggu serahan Freebuff untuk implementasi tersebut. Bukti pengujian final serta keterbatasan produksi dicatat di `LPD.md`; snapshot historis di bawah tidak mewakili status implementasi baru. Template/konversi/OCR dan Drive produksi masih perlu diverifikasi saat finishing VSCode.
+
 Snapshot ini dicatat setelah penerimaan hasil SPEC-FORM-INTEGRATION-01 dan MATERIAL-UI-FINISH-01. Bukan klaim deployment.
 
 | Pekerjaan | Status |

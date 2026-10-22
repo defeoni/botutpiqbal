@@ -1,5 +1,9 @@
 # Material dan workspace
 
+LPD/nota: LpdDocuments.gs menyatukan identitas workspaceFinance dengan realisasi.financeId. Penggunaan nota diturunkan dari workspaceLpd yang tersimpan dalam lock; satu nota utuh hanya untuk satu LPD, termasuk draf. Penggunaan ganda/lintas proyek atau pembagian nominal nota inbox ditolak. Nota terpakai tidak dapat diedit/dihapus langsung melalui apiWorkspace; koreksi/lepaskan melalui LPD terlebih dahulu. Perubahan nominal nota dibuat dari LPD memperbarui seluruh catatan nota terkait, bukan membagi nota.
+
+LPD boleh khusus RPD, beberapa laporan per periode dengan sumber berbeda; satu tranche RPB dan satu RPD tidak dipakai dua LPD. Deadline baru kosong sampai ditentukan admin. Kirim ke HO hanya konfirmasi pengiriman manual. Generator menyimpan snapshot per versi dalam lpdExports dan scan final dalam lpdSignedArchives. Scan bukan pengesahan otomatis atau perubahan status pencairan. OCR atas permintaan pada Nota/Keuangan hanya mengembalikan draf teks dan tidak mengubah nominal, tanggal, atau LPD. Foto asli tidak masuk generator LPD; photoSheet membuat berkas foto terpisah.
+
 Riwayat RPB hanya dikeluarkan dari daftar aktif melalui sesi pemilik, frasa konfirmasi tertulis, dan PIN; penghapusan bersifat lunak, mempertahankan snapshot/tracking serta file Drive, dan tidak menggunakan ulang nomor atau revisi. Tracking dan revisi record terhapus ditolak.
 
 Pusat Dokumen menyimpan draf kerja pada `workspaceDocuments`. Form RPB, RPD, Memo, Permintaan Material, dan Approval Material dapat membawa `workspaceDocumentId` hanya untuk proyek yang sama; sesudah record sumber tersimpan, kartu draf digantikan record sumber pada indeks/kanban. Tracking kanban tersimpan terpisah dan tidak mengubah status bisnis sumber atau menghapus file Drive.

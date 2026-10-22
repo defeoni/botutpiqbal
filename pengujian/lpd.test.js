@@ -27,6 +27,9 @@ function fixture() {
     requireAuthorized_(token) { if (token !== 'owner') throw new Error('Unauthorized'); },
     requireDeletePin_(pin) { if (pin !== 'valid') throw new Error('PIN salah'); },
     Utilities: {
+      DigestAlgorithm:{SHA_256:'sha256'},
+      computeDigest(_algorithm,value){return Array.from(require('node:crypto').createHash('sha256').update(value).digest());},
+      base64Encode(value){return Buffer.from(value).toString('base64');},
       getUuid() { sequence++; return 'server-uuid-' + String(sequence).padStart(4, '0'); },
       formatDate() { return '2026-10-21'; }
     },
@@ -68,7 +71,7 @@ function fixture() {
     uploaded: []
   };
   vm.createContext(context);
-  ['UtpDomain.gs', 'Workspace.gs', 'Projects.gs', 'SistemDrive.gs', 'LPD.gs'].forEach((name) => {
+  ['UtpDomain.gs', 'Workspace.gs', 'Projects.gs', 'SistemDrive.gs', 'LPD.gs', 'LpdDocuments.gs'].forEach((name) => {
     vm.runInContext(source(name), context);
   });
   return { c: context, rows };
@@ -123,7 +126,7 @@ function disburseTranche(env, projectId, rpbId, period, amount, version) {
 }
 
 function nota(amount, id) {
-  return { id: id || 'nota-0001', date: MONTH + '-05', description: 'Nota uji', amount, items: [], attachments: [] };
+  return { id: id || 'nota-0001', date: MONTH + '-05', description: 'Nota uji', amount, items: [], attachments: [{name:'Bukti uji',url:'https://drive.google.com/file/d/proof-test',mime:'image/jpeg'}] };
 }
 
 function draft(env, projectId, overrides) {
@@ -143,6 +146,68 @@ function send(env, projectId, record) {
   }, 'owner');
 }
 
+test('deadline LPD manual, dapat diubah dan dikosongkan tanpa tenggat otomatis',()=>{
+  const e=fixture();let r=draft(e,P1).record;assert.equal(r.deadline.due,'');assert.equal(e.c.lpdDeadlineState_(r).late,false);
+  r=e.c.apiLpd('setDeadline',{projectId:P1,id:r.id,version:r.version,deadline:'2026-10-25'},'owner').record;assert.equal(r.deadline.due,'2026-10-25');
+  r=e.c.apiLpd('setDeadline',{projectId:P1,id:r.id,version:r.version,deadline:''},'owner').record;assert.equal(r.deadline.due,'');assert.equal(r.deadline.history.length,2);
+});
+test('LPD khusus RPD tidak wajib RPB dan beberapa LPD diperbolehkan dalam periode yang sama',()=>{
+  const e=fixture();for(const id of ['rpd-one-001','rpd-two-002']){addRpd(e,id,P1,100,'Operasional');enroll(e,P1,id);disburseRpd(e,P1,id);}
+  const a=draft(e,P1,{rpdIds:['rpd-one-001'],realisasi:[nota(100,'nota-one-001')]});
+  const b=draft(e,P1,{rpdIds:['rpd-two-002'],realisasi:[nota(100,'nota-two-002')]});
+  assert.notEqual(a.record.id,b.record.id);assert.equal(send(e,P1,a.record).record.status,'SENT');assert.equal(send(e,P1,b.record).record.status,'SENT');
+});
+test('nota inbox dipakai utuh satu LPD, label usage muncul dan penggunaan kedua ditolak',()=>{
+  const e=fixture();e.rows.workspaceFinance=[{id:'inbox-nota-001',projectId:P1,version:1,name:'Nota toko',date:MONTH+'-05',fields:{amount:100},attachments:nota(100).attachments}];
+  const line=Object.assign(nota(100),{financeId:'inbox-nota-001'});
+  assert.throws(()=>draft(e,P1,{realisasi:[Object.assign({},line,{amount:50})]}),/utuh/);
+  const saved=draft(e,P1,{realisasi:[line]});
+  assert.equal(e.c.apiWorkspace('list',{module:'finance',projectId:P1},'owner').records[0].lpdUsage[0].id,saved.record.id);
+  assert.throws(()=>draft(e,P1,{realisasi:[line]}),/LPD lain/);
+  assert.throws(()=>draft(e,P2,{realisasi:[line]}),/LPD lain|proyek/);
+  assert.throws(()=>e.c.apiWorkspace('delete',{module:'finance',id:'inbox-nota-001',version:1,pin:'valid'},'owner'),/sudah dipakai/);
+  const result=e.c.apiLpd('notaList',{projectId:P1},'owner');assert.equal(result.records[0].available,false);
+});
+test('unggah dari LPD tercatat pada inbox dan retry create tidak menggandakan laporan',()=>{
+  const e=fixture();e.c.workspaceProjectFolder_=()=>({});let saved=draft(e,P1).record;
+  const uploaded=e.c.apiLpd('upload',{projectId:P1,lpdId:saved.id,notaId:'nota-upload-001',name:'nota.jpg',mime:'image/jpeg',base64:'eA=='},'owner');
+  assert.equal(uploaded.financeId,'nota-upload-001');assert.equal(e.rows.workspaceFinance[0].attachments.length,1);
+  const payload={clientRequestId:'request-once-001',projectId:P1,month:MONTH,period:'M1-M2',realisasi:[nota(200,'nota-retry-001')]};
+  const a=e.c.apiLpd('saveDraft',{projectId:P1,record:payload},'owner'),b=e.c.apiLpd('saveDraft',{projectId:P1,record:payload},'owner');assert.equal(a.record.id,b.record.id);assert.equal(b.deduplicated,true);
+  assert.throws(()=>e.c.apiLpd('saveDraft',{projectId:P1,record:{...payload,note:'different'}},'owner'),/isi berbeda/);
+});
+test('scan akhir terkait versi ekspor, idempotent dan tidak menghapus laporan sebelumnya',()=>{
+  const e=fixture();e.c.workspaceProjectFolder_=()=>({});const r=draft(e,P1).record;
+  e.rows.lpdExports=[{id:'export-signed-001',lpdId:r.id,projectId:P1,recordVersion:1}];
+  const p={projectId:P1,id:r.id,version:r.version,exportId:'export-signed-001',requestId:'scan-request-001',name:'signed.pdf',mime:'application/pdf',base64:'eA=='};
+  e.c.apiLpd('signedUpload',p,'owner');e.c.apiLpd('signedUpload',p,'owner');assert.equal(e.rows.lpdSignedArchives.length,1);assert.equal(e.c.uploaded.length,1);
+  assert.equal(e.c.apiLpd('artifacts',{projectId:P1,id:r.id},'owner').signed[0].recordVersion,1);
+  assert.throws(()=>e.c.apiLpd('signedUpload',{...p,projectId:P2},'owner'),/proyek/);
+});
+test('generator membagi 28 nota ke dua lembar dan mempertahankan semua rincian',()=>{
+  const e=fixture(),r={projectId:P1,month:MONTH,realisasi:Array.from({length:28},(_,i)=>nota(i+1,'nota-'+String(i).padStart(6,'0')))};
+  const options={transaction:'TR-01',rpd:'RPD-01',rpm:'RPM-01',documentDate:'2026-10-22',admin:'Admin',pic:'PM',manager:'HO'};
+  const calc={totals:{danaTersedia:500,realisasi:406,saldo:94}};
+  const a=e.c.lpdExportCells_(r,options,calc,0),b=e.c.lpdExportCells_(r,options,calc,1);
+  assert.equal(a.G11,1);assert.equal(a.G37,27);assert.equal(b.G11,28);assert.equal(b.G12,'');assert.equal(b.G39,406);assert.equal(a.J4,'TR-01');
+});
+test('generator mempertahankan Spreadsheet jika PDF gagal dan retry tidak membuat laporan ganda',()=>{
+  const e=fixture();addRpd(e,'rpd-export-001',P1,100,'Operasional');enroll(e,P1,'rpd-export-001');disburseRpd(e,P1,'rpd-export-001');
+  const r=draft(e,P1,{rpdIds:['rpd-export-001'],realisasi:[nota(100,'nota-export-001')]}).record;
+  let imports=0,status=500;const blob={getDataAsString:()=>'%PDF-test',setName(){return this;}};
+  const range={setValue(){return this;},setWrap(){return this;}};
+  const sheet={setName(){},getRange:()=>range,setHiddenGridlines(){},setRowHeight(){},getMaxRows:()=>48,getMaxColumns:()=>10};
+  e.c.PropertiesService={getScriptProperties:()=>({getProperty:()=> 'template-empty-001'})};
+  e.c.DriveApp={getFileById:()=>({isTrashed:()=>false,getBlob:()=>blob})};e.c.ScriptApp={getOAuthToken:()=> 'private'};
+  e.c.workspaceProjectFolder_=()=>({createFile:()=>({getId:()=> 'pdf-001',getUrl:()=> 'https://drive.google.com/file/d/pdf-001'})});
+  e.c.documentFillXlsx_=()=>blob;e.c.lpdImportSheet_=()=>{imports++;return {getSheets:()=>[sheet],getId:()=> 'sheet-001',getUrl:()=> 'https://docs.google.com/spreadsheets/d/sheet-001'};};
+  e.c.SpreadsheetApp={flush(){}};e.c.UrlFetchApp={fetch:()=>({getResponseCode:()=>status,getBlob:()=>blob})};
+  const p={projectId:P1,id:r.id,version:r.version,options:{department:'Project',section:'Lapangan',documentDate:'2026-10-22',admin:'Admin',pic:'PM',paper:'A4'}};
+  const first=e.c.apiLpd('export',p,'owner');assert.match(first.warning,/PDF belum tersedia/);assert.ok(first.record.spreadsheetUrl);assert.equal(e.rows.lpdExports.length,1);
+  status=200;const second=e.c.apiLpd('export',p,'owner');assert.ok(second.record.pdfUrl);assert.equal(imports,1);assert.equal(e.rows.lpdExports.length,1);
+  e.c.apiLpd('export',p,'owner');assert.equal(imports,1);
+});
+
 test('deadline pengiriman LPD menggunakan tanggal Asia/Jakarta pada batas tengah malam', () => {
   const { c } = fixture();
   c.Utilities.formatDate = (date, zone, format) => {
@@ -151,7 +216,7 @@ test('deadline pengiriman LPD menggunakan tanggal Asia/Jakarta pada batas tengah
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
     return ['year', 'month', 'day'].map(key => parts.find(part => part.type === key).value).join('-');
   };
-  const base = { status: 'SENT', month: MONTH, period: 'M1-M2' };
+  const base = { status: 'SENT', month: MONTH, period: 'M1-M2',deadline:{due:'2026-10-15'} };
   for (const [timestamp, expectedDate, late] of [
     ['2026-10-15T16:59:59.000Z', '2026-10-15', false],
     ['2026-10-15T17:00:00.000Z', '2026-10-16', true],
@@ -196,6 +261,7 @@ test('klien mempertahankan ID draf gagal parsial dan retry mengirim ID serta ver
   const values = { lpdRpbSelect: 'rpb-001', lpdEditorMonth: MONTH, lpdEditorPeriod: 'M1-M2', lpdNote: '', lpdDeadline: '', lpdDeadlineReason: '' };
   let pending;
   const c = {
+    uuid:()=> 'client-request-test-001',
     state: { busy: false, projectId: P1, notas: [{}], scopeTicket: 1, selectedRpdIds: [], record: null },
     get: id => ({ value: values[id] || '' }), notePayload: () => [],
     run: (label, task) => { pending = task(); },
@@ -291,7 +357,7 @@ test('satu RPD tidak dapat direferensikan dua LPD', () => {
 
   assert.throws(() => draft(env, P1, {
     rpbId: 'rpb-alpha-0001', rpdIds: ['rpd-alpha-0001']
-  }), /sudah ada/);
+  }), /sudah digunakan/);
   assert.equal(finance(env, 'rpd-alpha-0001').lpdId, first.record.id);
 
   assert.throws(() => env.c.lpdReserveRpds_({

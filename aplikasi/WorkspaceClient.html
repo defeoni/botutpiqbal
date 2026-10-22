@@ -124,7 +124,7 @@
   window.workspaceRpc = (action, payload) => {
     if (!accessToken) return Promise.reject(new Error('Masuk dahulu untuk mengakses data proyek.'));
     const p=Object.assign({},payload),projectId=window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';
-    if(action==='list')p.projectId=projectId;
+    if(['list','ocr','photoSheet'].includes(action))p.projectId=projectId;
     if(action==='upload'){if(projectId==='all')return Promise.reject(new Error('Pilih satu proyek untuk lampiran.'));p.projectId=projectId;}
     if(action==='save'){if(projectId==='all')return Promise.reject(new Error('Pilih satu proyek sebelum menyimpan catatan.'));p.record=Object.assign({},p.record,{projectId:p.record&&p.record.projectId||projectId});}
     return rpc('apiWorkspace', [action, p, accessToken]);

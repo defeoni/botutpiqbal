@@ -7,6 +7,7 @@ const source=fs.readFileSync(path.join(root,'pengujian/material-penyimpanan.test
 const environment=new Function('require','__dirname',source.slice(0,source.indexOf('\nconst draft ='))+'\nreturn environment;')(require,path.join(root,'pengujian'));
 (async()=>{
   const env=environment();vm.runInContext(fs.readFileSync(path.join(root,'aplikasi/Workspace.gs'),'utf8'),env.sandbox);
+  vm.runInContext(fs.readFileSync(path.join(root,'aplikasi/LpdDocuments.gs'),'utf8'),env.sandbox);
   const browser=await chromium.launch({headless:true,...(process.argv[3]?{executablePath:process.argv[3]}:{})});
   try{
     const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];

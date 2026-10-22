@@ -3,7 +3,7 @@
     <div>
       <p class="lpd-kicker">Keuangan proyek</p>
       <h2>Laporan Penggunaan Dana (LPD)</h2>
-      <p>Pilih satu RPB/tranche dan RPD periode yang sama, catat nota, lalu kirim ke HO. Semua saldo dan kewajiban dihitung server.</p>
+      <p>Pilih sumber RPB atau RPD, ambil nota, lalu buat laporan. Deadline ditentukan admin; pengiriman ke HO dicatat setelah dilakukan manual.</p>
     </div>
     <div class="lpd-actions"><button class="btn" type="button" id="lpdRefresh">Muat ulang</button><button class="btn" type="button" id="lpdNew">LPD baru</button></div>
   </div>
@@ -43,24 +43,26 @@
         <h4>Nota dan realisasi</h4>
         <p class="lpd-help">Satu nota satu baris. Sub-item dihitung server; beberapa foto/dokumen dapat dilampirkan per nota.</p>
         <div id="lpdNotaList"></div>
+        <div class="actions"><button class="btn" type="button" id="lpdInboxLoad">Ambil dari Nota &amp; Keuangan</button><select id="lpdInboxSelect" aria-label="Nota belum digunakan"></select><button class="btn" type="button" id="lpdInboxAdd">Tambahkan nota pilihan</button></div>
         <div class="actions"><button class="btn" type="button" id="lpdAddNota">Tambah nota</button></div>
 
         <div class="lpd-actions">
           <button class="btn primary" type="button" id="lpdSaveDraft">Simpan Draf</button>
-          <button class="btn green" type="button" id="lpdSend">Kirim ke HO</button>
+          <button class="btn green" type="button" id="lpdSend">Catat sudah dikirim ke HO</button>
           <button class="btn" type="button" id="lpdCorrect">Koreksi</button>
           <button class="btn" type="button" id="lpdRepay">Catat pengembalian</button>
           <button class="btn" type="button" id="lpdPayCompany">Bayar kewajiban</button>
           <button class="btn green" type="button" id="lpdComplete">Selesaikan</button>
         </div>
         <p id="lpdFormError" class="lpd-message error" role="alert"></p>
+        <details><summary>Generator laporan dan arsip tanda tangan</summary><div class="lpd-grid-3" id="lpdExportFields"></div><div class="actions"><button class="btn" type="button" id="lpdGenerate">Buat Spreadsheet / PDF</button><button class="btn" type="button" id="lpdArtifactsLoad">Lihat hasil dan arsip</button></div><div id="lpdArtifacts"></div><label>Laporan yang ditandatangani<select id="lpdSignedExport"></select></label><label>Unggah scan bertanda tangan (PDF/JPG/PNG)<input id="lpdSignedFile" type="file" accept=".pdf,.jpg,.jpeg,.png"></label><button class="btn" type="button" id="lpdSignedSave">Simpan scan sebagai arsip akhir</button><hr><label>Setup: template kosong repository (.xlsx)<input id="lpdTemplateFile" type="file" accept=".xlsx"></label><button class="btn" type="button" id="lpdTemplateSave">Pasang template LPD</button></details>
       </div>
     </div>
 
     <div class="lpd-column">
       <div class="lpd-card">
         <h3>Sumber dana</h3>
-        <p class="lpd-help">Tepat satu RPB/tranche. RPD harus terdaftar pada bulan dan periode yang sama.</p>
+        <p>RPB opsional untuk LPD khusus RPD. Sumber yang dipilih harus berada pada proyek, bulan, dan periode yang sama.</p>
         <div class="lpd-field"><label for="lpdRpbSelect">RPB / tranche</label><select id="lpdRpbSelect"><option value="">Pilih RPB</option></select></div>
         <div id="lpdTrancheInfo" class="lpd-settle"></div>
         <h4>RPD periode ini</h4>

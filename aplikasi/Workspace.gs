@@ -33,7 +33,8 @@ function workspaceRecord_(module, input) {
 function apiWorkspace(action,payload,token) {
   requireAuthorized_(token);var p=payload||{},module=p.module,entity=Object.prototype.hasOwnProperty.call(WORKSPACE_MODULES_,module)?WORKSPACE_MODULES_[module]:null;
   if(action==='summary'){var scope=workspaceProjectId_(p.projectId,true),counts={},activities=[];Object.keys(WORKSPACE_MODULES_).forEach(function(k){var rows=utpRead_(WORKSPACE_MODULES_[k]).filter(function(r){return workspaceProjectMatches_(r,scope);});counts[k]=rows.length;rows.forEach(function(r){activities.push({module:k,id:r.id,name:r.name||r.purpose,status:r.status,updatedAt:r.updatedAt,date:r.updatedAt,text:(r.name||r.purpose)+' · '+r.status});});});activities.sort(function(a,b){return String(b.updatedAt).localeCompare(String(a.updatedAt));});return {counts:counts,activities:activities.slice(0,15)};}
-  if(!entity)throw new Error('Modul tidak dikenal.');if(action==='list'){var projectId=workspaceProjectId_(p.projectId,true);return {records:utpRead_(entity).filter(function(r){return workspaceProjectMatches_(r,projectId);})};}
+  if(!entity)throw new Error('Modul tidak dikenal.');if(action==='list'){var projectId=workspaceProjectId_(p.projectId,true);return {records:utpRead_(entity).filter(function(r){return workspaceProjectMatches_(r,projectId);}).map(function(r){return module==='finance'?Object.assign({},r,{lpdUsage:lpdNotaUsage_(r.id).map(function(l){return {id:l.id,month:l.month,status:l.status};})}):r;})};}
+  if(module==='finance'&&['ocr','photoSheet'].indexOf(action)>=0)return lpdFinanceAction_(action,p);
   if(['save','delete','upload'].indexOf(action)<0)throw new Error('Tindakan tidak dikenal.');
   var lock=LockService.getScriptLock();lock.waitLock(30000);
   try {
@@ -43,6 +44,7 @@ function apiWorkspace(action,payload,token) {
     if(input.id!=null&&(typeof input.id!=='string'||! /^[a-zA-Z0-9-]{8,100}$/.test(input.id)))throw new Error('Identitas catatan tidak valid.');
     if(input.version!=null&&typeof input.version!=='number'&&!(typeof input.version==='string'&&/^\d+$/.test(input.version)))throw new Error('Versi tidak valid.');
     var old=input.id?utpGet_(entity,input.id):null,version=Number(input.version||0);
+    if(module==='finance'&&old&&lpdNotaUsage_(old.id).length)throw new Error('Nota sudah dipakai LPD. Lepaskan melalui koreksi LPD sebelum mengubah atau menghapus nota.');
     if(!Number.isInteger(version)||version<0)throw new Error('Versi tidak valid.');
     if(old&&old.archived)throw new Error('Catatan sudah dihapus.');
     if(old?old.version!==version:version!==0)return {conflict:true,record:old};
