@@ -12,6 +12,8 @@
 
 ## Sinkronisasi Chat Codex dan Codex VS Code
 
+Instruksi tetap pengguna terbaru: setiap pekerjaan kode selesai dan lolos pemeriksaan langsung commit dan push ke GitHub. Tidak perlu meminta izin push ulang per pekerjaan. Deployment Apps Script tetap menunggu finishing VSCode; instruksi ini bukan izin deployment Cloud otomatis.
+
 Ada dua lingkungan kerja:
 
 - Chat Codex dapat membuat perubahan kode lalu commit dan push ke `origin/main`.

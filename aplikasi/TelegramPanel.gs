@@ -12,7 +12,7 @@ function telegramPanelDocuments_() {
   const tracking=utpRead_('workspaceDocumentTracking'),follow=utpRead_('telegramDocumentFollowups');
   return docs.map(d=>{
     const t=tracking.find(r=>r.id===d.id),f=follow.find(r=>r.id===d.id);
-    return Object.assign({},d,t?{status:t.status,due:t.due,hidden:t.hidden}: {},{trackingVersion:t&&t.version||0,follow:f||{}});
+    return Object.assign({},d,t?Object.assign({status:t.status,due:t.due,hidden:t.hidden},documentMonitorFields_(t)): {},{trackingVersion:t&&t.version||0,follow:f||{}});
   }).filter(d=>!d.archived&&!d.hidden);
 }
 function telegramDocumentReminder_(){
@@ -23,8 +23,8 @@ function telegramDocumentReminder_(){
   const slot=Utilities.formatDate(now,'Asia/Jakarta','yyyy-MM-dd')+'-'+hour,lock=LockService.getScriptLock();if(!lock.tryLock(1000))return;
   try{
     if(props.getProperty('TG_REMINDER_SLOT')===slot)return;
-    const cutoff=new Date(Utilities.formatDate(now,'Asia/Jakarta','yyyy-MM-dd')+'T00:00:00Z');cutoff.setUTCDate(cutoff.getUTCDate()+3);
-    const count=telegramPanelDocuments_().filter(d=>!['SELESAI','DITOLAK'].includes(d.status)&&((d.follow.state!=='answerPending'&&(d.follow.state==='waiting'||['DIAJUKAN','DIPROSES','REVISI'].includes(d.status)))||d.due&&d.due<=cutoff.toISOString().slice(0,10))).length;
+    const today=Utilities.formatDate(now,'Asia/Jakarta','yyyy-MM-dd'),cutoff=new Date(today+'T00:00:00Z');cutoff.setUTCDate(cutoff.getUTCDate()+3);
+    const count=telegramPanelDocuments_().filter(d=>!['SELESAI','DITOLAK'].includes(d.status)&&((d.follow.state!=='answerPending'&&(d.followUpDate?d.followUpDate<=today:d.follow.state==='waiting'||['DIAJUKAN','DIPROSES','REVISI'].includes(d.status)))||d.due&&d.due<=cutoff.toISOString().slice(0,10))).length;
     if(count)sendTelegramMessage_(owner,'⚠️ Anda punya '+count+' dokumen yang perlu diperhatikan.',{inline_keyboard:[[{text:'Buka monitoring',callback_data:'panel:home'}]]});
     props.setProperty('TG_REMINDER_SLOT',slot);
   }finally{lock.releaseLock();}
@@ -66,7 +66,7 @@ function handleTelegramPanel_(update,chatId,transportLocked) {
       const docs=telegramPanelDocuments_().filter(d=>state.project==='all'||d.projectId===state.project);
       const today=Utilities.formatDate(new Date(),'Asia/Jakarta','yyyy-MM-dd'),soon=new Date(today+'T00:00:00Z');soon.setUTCDate(soon.getUTCDate()+3);
       const deadline=docs.filter(d=>!['SELESAI','DITOLAK'].includes(d.status)&&d.due&&d.due<=soon.toISOString().slice(0,10)).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
-      const follow=docs.filter(d=>!['SELESAI','DITOLAK'].includes(d.status)&&d.follow.state!=='answerPending'&&(d.follow.state==='waiting'||['DIAJUKAN','DIPROSES','REVISI'].includes(d.status)));
+      const follow=docs.filter(d=>!['SELESAI','DITOLAK'].includes(d.status)&&d.follow.state!=='answerPending'&&(d.followUpDate?d.followUpDate<=today:d.follow.state==='waiting'||['DIAJUKAN','DIPROSES','REVISI'].includes(d.status)));
       if(['draft','sent','answer','confirm','status','setstatus','party'].includes(action)){
         const target=state.items&&state.items[index],doc=docs.find(d=>d.id===target);
         if(!doc){body+='\nDokumen berubah. Buka daftar kembali.';rows=[home];}
@@ -75,7 +75,7 @@ function handleTelegramPanel_(update,chatId,transportLocked) {
           if(action==='party')rows=[['PM','MK','HO'].map(p=>button(p,'draft:'+index+':'+p)),[button('‹ Kembali','item:'+index)]];
           if(action==='draft'){
             const party=['PM','MK','HO'].includes(args[3])?args[3]:'PM';
-            body+='\n\nYth. Bapak/Ibu '+party+', izin menindaklanjuti dokumen '+doc.title+' untuk proyek '+(projects.find(p=>p.id===doc.projectId)||{name:'Data lama'}).name+'. Mohon informasi tanggapan atau arahan selanjutnya. Terima kasih.';
+            body+='\n\nYth. Bapak/Ibu '+party+', izin menindaklanjuti dokumen '+doc.title+(doc.number?' ('+doc.number+')':'')+' untuk proyek '+(projects.find(p=>p.id===doc.projectId)||{name:'Data lama'}).name+'. '+(doc.requiredAction?'Mohon '+doc.requiredAction+'. ':'Mohon informasi tanggapan atau arahan selanjutnya. ')+'Terima kasih.';
             rows=[[button('Sudah saya kirim','confirm:'+index+':sent')],[button('‹ Kembali','item:'+index)]];
           }
           if(action==='confirm')rows=[[button('Ya, sudah dikirim','sent:'+index),button('Batal','item:'+index)]];
@@ -95,7 +95,7 @@ function handleTelegramPanel_(update,chatId,transportLocked) {
               if(Number(old&&old.version||0)!==Number(state.version)){body+='\nData berubah. Buka ulang dokumen sebelum mengubah status.';}
               else if(old&&old.archived){body+='\nDokumen sudah diarsipkan.';}
               else{
-                const record=Object.assign({},old||{id:doc.id,projectId:doc.projectId,source:doc.source},{status:args[3],due:doc.due||'',note:'Tracking dikonfirmasi admin melalui Telegram',history:(old&&old.history||[]).concat([{at:new Date().toISOString(),status:args[3],reason:'Tracking dikonfirmasi admin melalui Telegram'}])});
+                const record=Object.assign({},old||{id:doc.id,projectId:doc.projectId,source:doc.source},documentMonitorFields_(doc),{status:args[3],due:doc.due||'',note:'Tracking dikonfirmasi admin melalui Telegram',history:(old&&old.history||[]).concat([{at:new Date().toISOString(),status:args[3],reason:'Tracking dikonfirmasi admin melalui Telegram'}])});
                 utpWrite_(entity,record,old?old.version:0);delete state.version;
                 body+='\n✓ Tracking: '+labels[args[3]]+'\nKeputusan bisnis sumber tetap dilengkapi di web.';
               }

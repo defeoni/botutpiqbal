@@ -125,6 +125,44 @@ function env() {
   };
 }
 
+function ownerEnv(){
+  const e=env();e.c.utpUpload_=p=>({id:'source-template-1',url:'https://drive.google.com/file/d/source-template-1/view',name:p.name,mime:p.mime});
+  e.originals.get('source-template-1').moveTo=()=>{};return e;
+}
+test('template owner terisolasi proyek, unggah idempotent, dan selalu dipakai sebagai salinan',()=>{
+  const e=ownerEnv(),p={projectId:P1,requestId:'upload-owner-0001',name:'Harian.docx',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',base64:'eA==',frequency:'Harian'};
+  const t=e.c.apiDocumentWorkspace('uploadTemplate',p,'owner').record;
+  e.c.apiDocumentWorkspace('uploadTemplate',p,'owner');assert.equal(e.rows.ownerDocumentTemplates.length,1);
+  assert.equal(e.c.apiDocumentWorkspace('templates',{projectId:P2},'owner').templates.length,0);
+  assert.equal(e.c.apiDocumentWorkspace('templates',{projectId:'all'},'owner').templates.length,0);
+  assert.throws(()=>e.c.apiProjectDocument('save',{record:{projectId:P2,ownerTemplateId:t.id,title:'Salah proyek'}},'owner'),/bukan milik/);
+  for(const key of ['daily-one-0001','daily-two-0002']){const r=e.c.apiProjectDocument('save',{record:{projectId:P1,ownerTemplateId:t.id,templateId:t.id,title:key,clientRequestId:key}},'owner').record;assert.equal(r.origin,'OWNER');assert.equal(r.ownerTemplateId,t.id);}
+  assert.equal(e.copies.length,2);assert.equal(e.originals.get('source-template-1').trashed,undefined);
+  assert.equal(e.c.apiProjects('documents',{projectId:P2},'owner').documents.length,0);
+});
+test('monitor menyimpan nomor, pihak, tanggal dan tindakan; konflik tidak menimpa versi baru',()=>{
+  const e=env();const first=e.c.apiProjectDocument('save',{record:{projectId:P1,title:'Surat klarifikasi',number:'SK-01',documentDate:'2026-10-22',recipient:'MK',requiredAction:'Jawaban tertulis',sentDate:'2026-10-22',followUpDate:'2026-10-25'}},'owner').record;
+  const updated=e.c.apiProjectDocument('save',{record:{...first,followUpDate:'2026-10-26',note:'Jadwal disesuaikan'}},'owner').record;
+  assert.equal(updated.recipient,'MK');assert.equal(updated.history.at(-1).monitor.followUpDate,'2026-10-26');
+  assert.equal(e.c.apiProjectDocument('save',{record:{...first,recipient:'PM'}},'owner').conflict,true);
+  assert.throws(()=>e.c.apiProjectDocument('delete',{record:{...updated,projectId:P2}},'owner'),/Proyek/);
+});
+test('berkas kerja, revisi dan scan final tetap satu kartu dengan seluruh versi tersedia',()=>{
+  const e=ownerEnv(),d=e.c.apiProjectDocument('save',{record:{projectId:P1,title:'Dokumen tunggal'}},'owner').record;
+  for(const role of ['working','revision','signed']){const p={projectId:P1,documentId:d.id,requestId:'file-'+role+'-0001',name:role+'.pdf',mime:'application/pdf',base64:'eA==',role};e.c.apiDocumentWorkspace('attach',p,'owner');e.c.apiDocumentWorkspace('attach',p,'owner');}
+  assert.equal(e.rows.workspaceDocumentFiles.length,3);assert.equal(e.c.apiProjects('documents',{projectId:P1},'owner').documents.length,1);
+  assert.equal(e.c.apiDocumentWorkspace('files',{projectId:P1,documentId:d.id},'owner').files.length,3);
+  assert.throws(()=>e.c.apiDocumentWorkspace('files',{projectId:P2,documentId:d.id},'owner'),/tidak ditemukan/);
+});
+test('hasil ekspor menjadi berkas sumber dan bukan kartu Kanban tambahan',()=>{
+  const e=env();e.rows.workspaceRpd.push({id:'rpd-export-001',projectId:P1,name:'RPD',status:'DRAFT'});
+  e.rows.documentExports.push({id:'export-1',entity:'rpd',recordId:'rpd-export-001',recordVersion:1,outputs:{excelUrl:'https://drive.google.com/file/d/excel-1',pdfUrl:'https://drive.google.com/file/d/pdf-1'}});
+  const index=e.c.projectDocumentIndex_(P1,'owner');assert.equal(index.documents.length,1);assert.equal(index.documents[0].source,'rpd');
+  assert.equal(e.c.documentFiles_(index.documents[0]).length,2);
+});
+test('workspace dokumen menolak akses tanpa sesi sebelum membaca proyek atau berkas',()=>{
+  const e=env();for(const action of ['templates','uploadTemplate','saveTemplate','files','attach'])assert.throws(()=>e.c.apiDocumentWorkspace(action,{},'bad'),/Unauthorized/);
+});
 test('dokumen Drive baru menyalin template, menyimpan fileId, dan tidak menyentuh aslinya', () => {
   const e = env();
   const first = e.c.apiProjectDocument('save', {

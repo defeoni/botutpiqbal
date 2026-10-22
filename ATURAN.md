@@ -60,6 +60,8 @@ Alur lapangan menulis permintaan → admin input → PM → MK → HO sesuai bat
 
 ## UI yang disepakati
 
+Pusat Dokumen: default Kanban Dokumen Aktif; Template & Form serta Arsip terpisah. SELESAI masuk tampilan Arsip tanpa menghapus file. Template PT UTP tersedia di setiap proyek, tetapi transaksi tetap terpisah. Template/form/contoh owner hanya tersedia di proyek tempat diunggah; semuanya dapat disalin ulang tanpa menimpa asli. Frekuensi harian/mingguan/bulanan hanya metadata, tidak membuat kartu kosong otomatis. Setiap dokumen mempunyai satu kartu dengan seluruh berkas kerja, ekspor, revisi, jawaban dan scan final. Nomor/tanggal, jenis, pihak yang ditunggu, tindakan, tanggal penyerahan, deadline dan follow-up dicatat admin; sistem tidak menganggap berkas telah dibaca atau diputuskan pihak lain. Pengelompokan AI belum aktif; klasifikasi owner dapat diatur manual.
+
 Beranda sidebar: Beranda, Katalog Material, Persetujuan Material, Permintaan & Review, Barang Datang, Memo, RPB. Modul belum tersedia diberi label nonaktif, akses lama RPD dipertahankan. Ringkasan: Menunggu Input Review, Perlu Unggah Final HO, Menunggu Barang. Header proyek/PM/tanggal dinamis. Daftar terbaru, tugas, log Telegram. Data ilustrasi harus jelas, fitur belum terhubung jangan berpura-pura aktif.
 
 Putih/abu #F9FAFB dengan teal untuk utama/aktif. Ponsel menu lipat, kartu dua kolom, tabel geser. Risiko teks dan merah terpisah dari status. Istilah **Input Hasil Review**, bukan tindakan yang otomatis menaikkan REV. Kolom persetujuan diperlukan tidak mencampur By Owner sebagai otoritas.

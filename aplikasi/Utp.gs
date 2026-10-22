@@ -245,7 +245,7 @@ function utpMutate_(action,p,ctx) {
   throw new Error('Tindakan UTP belum didukung: '+action);
 }
 function utpUpload_(p) {
-  var allowed=['application/pdf','image/jpeg','image/png','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+  var allowed=['application/pdf','image/jpeg','image/png','application/msword','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
   if(allowed.indexOf(p.mime)<0)throw new Error('Gunakan PDF, JPG, PNG, Word, atau Excel.');
   if(typeof p.base64!=='string'||p.base64.length>7e6)throw new Error('Ukuran file maksimal 5 MB.');
   var bytes=Utilities.base64Decode(p.base64);if(!bytes.length||bytes.length>5*1024*1024)throw new Error('File kosong atau terlalu besar.');

@@ -1,4 +1,9 @@
-<dialog id="dcRecordDialog" class="dc-dialog"><form id="dcRecordForm"><h2 id="dcRecordHeading">Arsip dokumen</h2><div id="dcRecordDetails"></div><label>Judul<input name="title" required maxlength="300"></label><label>Deadline<input name="due" type="date"></label><label>Status<select name="status"></select></label><label>Catatan / alasan<textarea name="note" maxlength="2000"></textarea></label><details><summary>Riwayat perubahan</summary><div id="dcRecordHistory"></div></details><p id="dcRecordMessage" role="status"></p><menu><button class="btn" type="button" id="dcRecordOpen">↗ Buka formulir / arsip</button><button class="btn red" type="button" id="dcRecordDelete">Hapus kartu</button><button class="btn" type="button" id="dcRecordClose">Tutup</button><button class="btn primary" id="dcRecordSave">Simpan</button></menu></form></dialog>
+<dialog id="dcRecordDialog" class="dc-dialog"><form id="dcRecordForm">
+<h2 id="dcRecordHeading">Arsip dokumen</h2><div id="dcRecordDetails"></div>
+<label>Judul<input name="title" required maxlength="300"></label><div id="dcMonitorFields" class="grid"></div><label>Deadline<input name="due" type="date"></label><label>Status<select name="status"></select></label><label>Catatan / alasan<textarea name="note" maxlength="2000"></textarea></label>
+<details><summary>Berkas dan versi</summary><button type="button" id="dcFilesLoad" class="btn">Lihat seluruh berkas</button><div id="dcFiles"></div><label>Jenis berkas<select id="dcFileRole"><option value="working">Berkas kerja</option><option value="revision">Revisi</option><option value="reply">Balasan / keputusan</option><option value="signed">Scan final bertanda tangan</option><option value="evidence">Bukti penyerahan</option></select></label><input id="dcFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"><button type="button" id="dcFileSave" class="btn">Tambahkan berkas</button></details>
+<details><summary>Riwayat perubahan</summary><div id="dcRecordHistory"></div></details><p id="dcRecordMessage" role="status"></p><menu><button class="btn" type="button" id="dcRecordOpen">↗ Buka formulir / arsip</button><button class="btn red" type="button" id="dcRecordDelete">Hapus kartu</button><button class="btn" type="button" id="dcRecordClose">Tutup</button><button class="btn primary" id="dcRecordSave">Simpan</button></menu></form></dialog>
+<dialog id="dcOwnerDialog" class="dc-dialog"><form id="dcOwnerForm"><h2>Template owner proyek</h2><p>Berkas asli disimpan; setiap pemakaian membuat salinan baru. Pengelompokan manual dapat diubah.</p><label>Berkas (dapat beberapa sekaligus, maksimal 5 MB per berkas)<input id="dcOwnerFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></label><label>Nama (kosong: nama berkas)<input id="dcOwnerTitle" maxlength="200"></label><label>Kluster<select id="dcOwnerCluster"><option value="A">Pelaksanaan</option><option value="B">Pemeliharaan</option><option value="C" selected>Administrasi</option></select></label><label>Kelompok<input id="dcOwnerStage" maxlength="100" value="Dokumen Owner"></label><label>Disiplin / sistem<input id="dcOwnerSystem" maxlength="100" value="Administrasi"></label><label>Frekuensi<select id="dcOwnerFrequency"><option>Berdasarkan kejadian</option><option>Harian</option><option>Mingguan</option><option>Bulanan</option></select></label><p id="dcOwnerMessage" role="status"></p><menu><button id="dcOwnerClose" type="button" class="btn">Tutup</button><button id="dcOwnerSave" class="btn primary">Simpan</button></menu></form></dialog>
 <script>
 (function(){
   const get=id=>document.getElementById(id),root=get('documentCenter'),node=(tag,value,cls)=>{const e=document.createElement(tag);e.textContent=value||'';if(cls)e.className=cls;return e;};
@@ -22,7 +27,7 @@
   const driveSourceId=url=>(String(url||'').match(/\/d\/([a-zA-Z0-9_-]{10,})/)||[])[1]||'';
   templates.forEach(t=>{t.templateSourceId=t.page?'':driveSourceId(t.driveUrl);});
   let docs=[],editing=null,drag='',epoch=0,projectEpoch=0,loadedAt=0,loading=false;
-  const state={view:'board',query:'',quick:'all',stage:'',page:1,board:'status',filters:{cluster:new Set(),kind:new Set(),system:new Set(),frequency:new Set(),pic:new Set()}};
+  const state={view:'board',space:'active',origin:'all',query:'',quick:'all',stage:'',page:1,board:'status',uploadBusy:false,filters:{cluster:new Set(),kind:new Set(),system:new Set(),frequency:new Set(),pic:new Set()}};
   const rpc=(name,args)=>new Promise((resolve,reject)=>invokeServer(name,args,resolve,reject));
   const projectId=()=>window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';
   const scopeNow=()=>({projectId:projectId(),epoch:projectEpoch,token:accessToken});
@@ -36,13 +41,13 @@
   restorePending();
   const requestId=()=>{try{return crypto.randomUUID();}catch(e){return 'doc-'+Date.now()+'-'+Math.random().toString(36).slice(2);}};
   const showStatus=message=>{get('dcStatus').textContent=message||'';};
-  const templateOf=doc=>templates.find(t=>t.id===doc.templateId)||{code:doc.source||'DOC',title:doc.title,cluster:'C',stage:'Arsips proyek',system:'Administrasi',pic:'Admin Proyek',origin:'UTP'};
+  const templateOf=doc=>Object.assign({},templates.find(t=>t.id===doc.templateId)||{code:doc.source||'DOC',cluster:'C',stage:'Arsip proyek',system:'Administrasi',pic:'Admin Proyek'},doc,{origin:doc.origin||'UTP'});
   const projectName=id=>{const p=window.ProjectWorkspace&&window.ProjectWorkspace.getProjects().find(p=>p.id===id);return p?p.name:id==='legacy'?'Data lama — belum dipetakan':'Proyek';};
   const kinds={template:'▤ Template UTP',form:'✎ Form aplikasi',example:'▧ Contoh terisi',reference:'▣ Referensi'};
   function urgency(due){if(!due)return 'NONE';const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value])),iso=parts.year+'-'+parts.month+'-'+parts.day,days=Math.round((Date.parse(due.slice(0,10)+'T00:00:00Z')-Date.parse(iso+'T00:00:00Z'))/86400000);return days<0?'OVERDUE':days===0?'TODAY':days<=3?'H'+days:'NONE';}
   function match(t){const hay=[t.code,t.title,t.stage,t.system,t.pic].join(' ').toLocaleLowerCase('id');return state.query.split(/\s+/).filter(Boolean).every(w=>hay.includes(w))&&(!state.stage||t.stage===state.stage)&&Object.entries(state.filters).every(([k,set])=>!set.size||set.has(t[k]))&&(state.quick!=='material'||t.system==='Material')&&(state.quick!=='maintenance'||t.cluster==='B')&&(state.quick!=='routine'||t.frequency!=='Berdasarkan kejadian');}
-  const visibleTemplates=()=>templates.filter(match);
-  const visibleDocs=()=>docs.filter(d=>(projectId()==='all'||(d.projectId||'legacy')===projectId())&&match(templateOf(d))&&(state.quick!=='attention'||(urgency(d.due)!=='NONE'&&d.status!=='SELESAI')));
+  const visibleTemplates=()=>templates.filter(t=>(t.origin!=='OWNER'||t.projectId===projectId())&&(state.origin==='all'||t.origin===state.origin)&&match(t));
+  const visibleDocs=()=>docs.filter(d=>(projectId()==='all'||(d.projectId||'legacy')===projectId())&&(state.origin==='all'||(d.origin||'UTP')===state.origin)&&(state.space==='archive'?d.status==='SELESAI':d.status!=='SELESAI')&&match(templateOf(d))&&(state.quick!=='attention'||(urgency(d.due)!=='NONE'||!!d.followUpDate)));
   function button(label,handler,cls){const b=node('button',label,'btn '+(cls||''));b.type='button';b.onclick=handler;return b;}
   function openLink(url){if(/^https?:\/\//i.test(url||''))window.open(url,'_blank','noopener');}
   function route(t,doc,blank,scope){
@@ -66,10 +71,44 @@
   }
   function openTemplate(t){get('dcTemplateTitle').textContent=t.code+' · '+t.title;get('dcTemplateMeta').textContent=[kinds[t.kind],clusters[t.cluster],t.stage,t.format].join(' · ');get('dcTemplateAvailability').textContent=t.page?'Form aplikasi tersedia melalui Tambah dokumen → pilih form.':t.driveUrl?'Buka sumber template / contoh di Drive.':'File unggahan belum ditautkan ke Drive.';const link=get('dcTemplateLink');link.hidden=!t.driveUrl;if(t.driveUrl)link.href=t.driveUrl;else link.removeAttribute('href');get('dcTemplateDialog').showModal();}
   function filters(){const groups={cluster:Object.keys(clusters),kind:Object.keys(kinds),system:[...new Set(templates.map(t=>t.system))],frequency:[...new Set(templates.map(t=>t.frequency))],pic:[...new Set(templates.map(t=>t.pic))]},titles={cluster:'▣ Kluster',kind:'▤ Jenis berkas',system:'⚒ Sistem / barang',frequency:'◷ Rutinitas',pic:'♙ Penanggung jawab'},box=get('dcFilterPanel');box.replaceChildren();box.appendChild(button('↺ Bersihkan filter',()=>{state.query='';state.stage='';state.quick='all';Object.values(state.filters).forEach(s=>s.clear());get('dcSearch').value='';state.page=1;render();}));Object.entries(groups).forEach(([key,values])=>{const section=node('details',null,'dc-filter-group');section.open=true;section.appendChild(node('summary',titles[key]));values.filter(Boolean).forEach(value=>{const label=node('label'),input=node('input'),caption=node('span',clusters[value]||kinds[value]||value),count=node('small',templates.filter(t=>t[key]===value).length);input.type='checkbox';input.checked=state.filters[key].has(value);input.onchange=()=>{input.checked?state.filters[key].add(value):state.filters[key].delete(value);state.page=1;render();};label.append(input,caption,count);section.appendChild(label);});box.appendChild(section);});get('dcFilterTotal').textContent=Object.values(state.filters).reduce((n,s)=>n+s.size,0);}
-  function list(){const box=get('dcList'),items=visibleTemplates(),pages=Math.max(1,Math.ceil(items.length/18));state.page=Math.min(state.page,pages);box.replaceChildren();items.slice((state.page-1)*18,state.page*18).forEach(t=>{const card=node('article',null,'dc-form-card');card.tabIndex=0;card.setAttribute('role','button');card.onclick=()=>openTemplate(t);card.onkeydown=e=>{if(e.key==='Enter'&&e.target===card)openTemplate(t);};card.append(node('small',kinds[t.kind]+' · '+t.code),node('h3','(UTP) '+t.title),node('p',[t.stage,t.system,t.frequency].join(' · ')));const actions=node('div',null,'dc-card-actions');actions.append(button('ⓘ Detail',e=>{e.stopPropagation();openTemplate(t);}));if(t.driveUrl)actions.append(button('↗ Buka berkas',e=>{e.stopPropagation();openLink(t.driveUrl);}));if(t.page)actions.append(button('＋ Form kosong',e=>{e.stopPropagation();newDraft(t.id);}));card.appendChild(actions);box.appendChild(card);});if(!items.length)box.append(node('p','Tidak ada form yang cocok.'));const pager=node('nav',null,'dc-list-pager'),prev=button('← Sebelumnya',()=>{state.page--;list();}),next=button('Berikutnya →',()=>{state.page++;list();});prev.disabled=state.page===1;next.disabled=state.page===pages;pager.append(prev,node('span','Halaman '+state.page+' dari '+pages+' · '+items.length+' form'),next);box.appendChild(pager);}
+  function list(){
+    const box=get('dcList'),items=visibleTemplates(),pages=Math.max(1,Math.ceil(items.length/18));state.page=Math.min(state.page,pages);box.replaceChildren();
+    items.slice((state.page-1)*18,state.page*18).forEach(t=>{
+      const card=node('article',null,'dc-form-card');card.tabIndex=0;card.setAttribute('role','button');card.onclick=()=>openTemplate(t);card.onkeydown=e=>{if(e.key==='Enter'&&e.target===card)openTemplate(t);};
+      card.append(node('small',(t.origin==='OWNER'?'Template owner':kinds[t.kind])+' · '+t.code),node('h3','('+(t.origin==='OWNER'?'OWNER':'UTP')+') '+t.title),node('p',[t.stage,t.system,t.frequency].join(' · ')));
+      const actions=node('div',null,'dc-card-actions');actions.append(button('ⓘ Detail',e=>{e.stopPropagation();openTemplate(t);}));
+      if(t.driveUrl)actions.append(button('↗ Buka berkas',e=>{e.stopPropagation();openLink(t.driveUrl);}));
+      if(t.page||t.templateSourceId)actions.append(button(t.page?'＋ Form kosong':'Gunakan template',e=>{e.stopPropagation();newDraft(t.id);}));
+      if(t.origin==='OWNER')actions.append(button('Kelompok / frekuensi',e=>{e.stopPropagation();ownerDialog(t);}));
+      card.appendChild(actions);box.appendChild(card);
+    });
+    if(!items.length)box.append(node('p','Tidak ada form yang cocok.'));
+    const pager=node('nav',null,'dc-list-pager'),prev=button('← Sebelumnya',()=>{state.page--;list();}),next=button('Berikutnya →',()=>{state.page++;list();});prev.disabled=state.page===1;next.disabled=state.page===pages;pager.append(prev,node('span','Halaman '+state.page+' dari '+pages+' · '+items.length+' form'),next);box.appendChild(pager);
+  }
   function graph(){const box=get('dcGraph');box.replaceChildren();Object.entries(clusters).forEach(([key,title])=>{const items=visibleTemplates().filter(t=>t.cluster===key),section=node('section',null,'dc-cluster');section.dataset.cluster=key;section.append(node('h3',title+' · '+items.length));[...new Set(items.map(t=>t.stage))].forEach(stage=>section.appendChild(button(stage+' ('+items.filter(t=>t.stage===stage).length+')',()=>{state.stage=stage;state.view='list';state.page=1;render();get('dcListView').scrollIntoView({block:'start',behavior:'auto'});},'dc-cluster-node')));box.appendChild(section);});}
-  function board(){const box=get('dcBoard');box.replaceChildren();Object.entries(state.board==='status'?statuses:deadlines).forEach(([value,label])=>{const section=node('section',null,'dc-board-column'),items=visibleDocs().filter(d=>(state.board==='status'?d.status:urgency(d.due))===value);section.append(node('h3',label+' · '+items.length));items.forEach(d=>{const card=node('article',null,'dc-board-card');card.draggable=true;card.tabIndex=0;card.append(node('small',projectName(d.projectId)),node('h4',d.title),node('p',deadlines[urgency(d.due)]+' · '+(d.due||'Belum dijadwalkan')),button('▣ Arsip / edit / proses',()=>openRecord(d)));card.onclick=e=>{if(!e.target.closest('button'))openRecord(d);};card.onkeydown=e=>{if(e.key==='Enter'&&e.target===card)openRecord(d);};card.ondragstart=()=>drag=d.id;card.ondragend=()=>drag='';section.appendChild(card);});if(!items.length)section.appendChild(node('p','Belum ada dokumen','dc-board-empty'));section.ondragover=e=>e.preventDefault();section.ondrop=e=>{e.preventDefault();const doc=docs.find(d=>d.id===drag);if(!doc)return;if(state.board==='status'){state.pending={doc,target:value,kind:'status'};}else{state.pending={doc,target:value,kind:'deadline'};}get('dcTransitionTitle').textContent='Konfirmasi perpindahan';get('dcTransitionHelp').textContent=doc.title+' → '+label;get('dcTransitionReason').value='';get('dcTransitionDialog').showModal();};box.appendChild(section);});const boardEmpty=get('dcBoardEmpty');if(boardEmpty)boardEmpty.hidden=visibleDocs().length>0;}
-  function render(){filters();list();graph();board();root.querySelectorAll('.dc-view').forEach(e=>e.classList.toggle('active',e.id==='dc'+state.view[0].toUpperCase()+state.view.slice(1)+'View'));root.querySelectorAll('[data-dc-view]').forEach(b=>b.classList.toggle('active',b.dataset.dcView===state.view));root.querySelectorAll('[data-dc-quick]').forEach(b=>b.classList.toggle('active',b.dataset.dcQuick===state.quick));root.querySelectorAll('[data-dc-board]').forEach(b=>b.classList.toggle('active',b.dataset.dcBoard===state.board));const chips=get('dcActiveFilters');chips.replaceChildren();if(state.stage)chips.append(button('✕ '+state.stage,()=>{state.stage='';render();}));get('dcSummary').textContent=visibleTemplates().length+' form / referensi · '+visibleDocs().length+' dokumen proyek · '+(loading?'Memuat arsip…':!accessToken?'Masuk data server untuk memuat arsip':'Data server');const reminder=get('dcReminderList');reminder.replaceChildren();visibleDocs().filter(d=>urgency(d.due)!=='NONE'&&d.status!=='SELESAI').sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,5).forEach(d=>reminder.appendChild(button(deadlines[urgency(d.due)]+' · '+d.title,()=>openRecord(d))));}
+  function board(){
+    const box=get('dcBoard');box.replaceChildren();
+    Object.entries(state.board==='status'?statuses:deadlines).forEach(([value,label])=>{
+      const section=node('section',null,'dc-board-column'),items=visibleDocs().filter(d=>(state.board==='status'?d.status:urgency(d.due))===value);section.append(node('h3',label+' · '+items.length));
+      items.forEach(d=>{
+        const card=node('article',null,'dc-board-card');card.draggable=state.space!=='archive';card.tabIndex=0;
+        card.append(node('small',projectName(d.projectId)+' · '+(d.origin==='OWNER'?'Owner':'UTP')),node('h4',d.title),node('p',deadlines[urgency(d.due)]+' · '+(d.due||'Belum dijadwalkan')));
+        if(d.recipient||d.requiredAction)card.append(node('p',[d.recipient,d.requiredAction].filter(Boolean).join(' · ')));
+        if(d.followUpDate)card.append(node('small','Follow-up '+d.followUpDate));
+        card.append(button('▣ Arsip / edit / proses',()=>openRecord(d)));card.onclick=e=>{if(!e.target.closest('button'))openRecord(d);};card.onkeydown=e=>{if(e.key==='Enter'&&e.target===card)openRecord(d);};card.ondragstart=()=>drag=d.id;card.ondragend=()=>drag='';section.appendChild(card);
+      });
+      if(!items.length)section.appendChild(node('p','Belum ada dokumen','dc-board-empty'));
+      section.ondragover=e=>e.preventDefault();section.ondrop=e=>{e.preventDefault();const doc=docs.find(d=>d.id===drag);if(!doc||state.space==='archive')return;state.pending={doc,target:value,kind:state.board==='status'?'status':'deadline'};get('dcTransitionTitle').textContent='Konfirmasi perpindahan';get('dcTransitionHelp').textContent=doc.title+' → '+label;get('dcTransitionReason').value='';get('dcTransitionDialog').showModal();};box.appendChild(section);
+    });
+    const boardEmpty=get('dcBoardEmpty');if(boardEmpty)boardEmpty.hidden=visibleDocs().length>0;
+  }
+  function render(){
+    filters();list();graph();board();root.querySelectorAll('.dc-view').forEach(e=>e.classList.toggle('active',e.id==='dc'+state.view[0].toUpperCase()+state.view.slice(1)+'View'));
+    root.querySelectorAll('[data-dc-view]').forEach(b=>b.classList.toggle('active',b.dataset.dcView===state.view));root.querySelectorAll('[data-dc-space]').forEach(b=>b.classList.toggle('primary',b.dataset.dcSpace===state.space));root.querySelectorAll('[data-dc-quick]').forEach(b=>b.classList.toggle('active',b.dataset.dcQuick===state.quick));root.querySelectorAll('[data-dc-board]').forEach(b=>b.classList.toggle('active',b.dataset.dcBoard===state.board));
+    const chips=get('dcActiveFilters');chips.replaceChildren();if(state.stage)chips.append(button('✕ '+state.stage,()=>{state.stage='';render();}));
+    get('dcSummary').textContent=visibleTemplates().length+' form / referensi · '+visibleDocs().length+' dokumen proyek · '+(loading?'Memuat arsip…':!accessToken?'Masuk data server untuk memuat arsip':'Data server');
+    const reminder=get('dcReminderList');reminder.replaceChildren();visibleDocs().filter(d=>(urgency(d.due)!=='NONE'||d.followUpDate)&&d.status!=='SELESAI').sort((a,b)=>String(a.followUpDate||a.due).localeCompare(String(b.followUpDate||b.due))).slice(0,5).forEach(d=>reminder.appendChild(button((d.followUpDate?'Follow-up '+d.followUpDate:deadlines[urgency(d.due)])+' · '+d.title,()=>openRecord(d))));
+  }
   async function reload(force=true){
     if(!accessToken){docs=[];render();return;}
     if(loading||(!force&&Date.now()-loadedAt<30000))return;
@@ -86,8 +125,8 @@
       if(ticket!==epoch||token!==accessToken||requestProject!==projectId())return;
       const result=await rpc('apiProjects',['documents',{projectId:requestProject},token]);
       if(ticket!==epoch||token!==accessToken||requestProject!==projectId())return;
-      docs=result.documents||[];loadedAt=Date.now();showStatus((result.warnings||[]).join(' · '));
-      if(link&&link.id){const doc=docs.find(d=>d.id===link.id);if(doc){window.UTP_TELEGRAM_DOCUMENT=null;openRecord(doc);}else showStatus('Dokumen dari Telegram tidak tersedia pada proyek ini.');}
+      docs=result.documents||[];for(let i=templates.length-1;i>=0;i--)if(templates[i].origin==='OWNER')templates.splice(i,1);templates.push(...(result.ownerTemplates||[]));loadedAt=Date.now();showStatus((result.warnings||[]).join(' · '));
+      if(link&&link.id){const doc=docs.find(d=>d.id===link.id||d.workspaceDocumentId===link.id);if(doc){window.UTP_TELEGRAM_DOCUMENT=null;openRecord(doc);}else showStatus('Dokumen dari Telegram tidak tersedia pada proyek ini.');}
     }catch(e){
       if(ticket===epoch&&token===accessToken&&requestProject===projectId())showStatus(e.message);
     }finally{if(ticket===epoch){loading=false;render();}}
@@ -105,7 +144,7 @@
     projects.value=scope.projectId==='all'?'':scope.projectId;
     get('dcNewDraftMessage').textContent='';
     const select=get('dcNewDraftTemplate');select.replaceChildren();
-    templates.forEach(t=>select.add(new Option((t.page?'✎ ':'▤ ')+t.code+' · '+t.title,t.id)));
+    templates.filter(t=>t.origin!=='OWNER'||t.projectId===scope.projectId).forEach(t=>select.add(new Option((t.page?'✎ ':'▤ ')+t.code+' · '+t.title,t.id)));
     if(id)select.value=id;
     get('dcNewDraftTitle').value='';get('dcNewDraftDue').value='';
     state.draftScope=scope;state.draftRequestId=requestId();
@@ -130,6 +169,9 @@
     const select=form.elements.status;select.replaceChildren();Object.entries(statuses).forEach(([value,label])=>select.add(new Option(label,value)));select.value=doc.status;
     const local=doc.source==='document';form.elements.title.disabled=!local;['due','note','status'].forEach(k=>form.elements[k].disabled=false);get('dcRecordSave').hidden=get('dcRecordDelete').hidden=false;
     get('dcRecordDetails').replaceChildren(node('p',projectName(doc.projectId)+' · '+(doc.source||'document')));
+    const monitor=get('dcMonitorFields');monitor.replaceChildren();
+    [['number','Nomor dokumen'],['documentType','Jenis dokumen'],['documentDate','Tanggal dokumen','date'],['periodLabel','Periode pengisian'],['recipient','Pihak yang ditunggu'],['requiredAction','Tindakan yang diperlukan'],['sentDate','Tanggal disampaikan','date'],['followUpDate','Follow-up pada','date']].forEach(([key,label,type])=>{const wrap=node('label',label),input=node('input');input.name=key;input.type=type||'text';input.maxLength=200;input.value=doc[key]||'';wrap.appendChild(input);monitor.appendChild(wrap);});
+    get('dcFiles').replaceChildren();get('dcFileInput').value='';delete get('dcFileInput').dataset.requestId;
     if(doc.telegramFollowup){const f=doc.telegramFollowup;get('dcRecordDetails').append(node('p',f.state==='answerPending'?'Telegram: ada jawaban — lengkapi keputusan pada dokumen sumber.':'Telegram: follow-up dikirim — menunggu jawaban.'));(f.history||[]).slice(-5).forEach(h=>get('dcRecordDetails').append(node('small',h.at+' · '+(h.action==='sent'?'Pengiriman dikonfirmasi admin':'Ada jawaban'))));}
     const history=get('dcRecordHistory');history.replaceChildren();(doc.history||[]).forEach(h=>history.append(node('p',h.at+' · '+h.reason)));
     const original=doc.record||{};[['Salinan template',doc.fileUrl],['Google Sheets',original.spreadsheetUrl||original.sheetUrl],['Excel',original.excelUrl],['PDF',original.pdfUrl],['Folder arsip',original.folderUrl]].forEach(([label,url])=>{if(/^https?:\/\//i.test(url||'')){const a=node('a',label,'btn');a.href=url;a.target='_blank';a.rel='noopener';get('dcRecordDetails').appendChild(a);}});
@@ -172,6 +214,31 @@
     }catch(error){if(scopeAlive(scope))get('dcRecordMessage').textContent=error.message;}
     finally{b.disabled=false;}
   };
+  function base64(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('Berkas tidak dapat dibaca.'));reader.readAsDataURL(file);});}
+  const docRpc=(action,payload,scope)=>rpc('apiDocumentWorkspace',[action,Object.assign({projectId:scope.projectId},payload),scope.token]);
+  let ownerEditing=null,ownerScope=null;
+  function ownerDialog(t){
+    if(!accessToken){showLoginPanel_('Masuk dahulu.');return;}
+    if(['all','legacy'].includes(projectId())){showStatus('Pilih satu proyek untuk template owner.');return;}
+    ownerEditing=t||null;ownerScope=scopeNow();get('dcOwnerFiles').value='';get('dcOwnerFiles').hidden=!!t;
+    get('dcOwnerTitle').value=t?t.title:'';get('dcOwnerCluster').value=t?t.cluster:'C';get('dcOwnerStage').value=t?t.stage:'Dokumen Owner';get('dcOwnerSystem').value=t?t.system:'Administrasi';get('dcOwnerFrequency').value=t?t.frequency:'Berdasarkan kejadian';get('dcOwnerMessage').textContent='';get('dcOwnerDialog').showModal();
+  }
+  get('dcOwnerUpload').onclick=()=>ownerDialog();get('dcOwnerClose').onclick=()=>{if(!state.uploadBusy)get('dcOwnerDialog').close();};
+  get('dcOwnerForm').onsubmit=async e=>{
+    e.preventDefault();if(state.uploadBusy||!scopeAlive(ownerScope))return;
+    const scope=ownerScope,p={title:get('dcOwnerTitle').value,cluster:get('dcOwnerCluster').value,stage:get('dcOwnerStage').value,system:get('dcOwnerSystem').value,frequency:get('dcOwnerFrequency').value};
+    state.uploadBusy=true;get('dcOwnerSave').disabled=true;
+    try{
+      if(ownerEditing){const r=await docRpc('saveTemplate',Object.assign(p,{id:ownerEditing.id,version:ownerEditing.version}),scope);if(r.conflict)throw new Error('Template berubah. Tutup dan muat ulang dahulu.');}
+      else{const files=Array.from(get('dcOwnerFiles').files||[]);if(!files.length)throw new Error('Pilih berkas owner.');let count=0;for(const file of files){if(file.size>5*1024*1024)throw new Error(file.name+' melebihi 5 MB. '+count+' berkas sebelumnya sudah tersimpan.');await docRpc('uploadTemplate',Object.assign({},p,{requestId:file.utpRequestId||(file.utpRequestId=requestId()),name:file.name,mime:file.type,base64:await base64(file)}),scope);count++;get('dcOwnerMessage').textContent=count+'/'+files.length+' berkas tersimpan.';}}
+      if(scopeAlive(scope)){get('dcOwnerDialog').close();state.space='templates';state.view='list';await reload();}
+    }catch(error){if(scopeAlive(scope))get('dcOwnerMessage').textContent=error.message;}
+    finally{state.uploadBusy=false;get('dcOwnerSave').disabled=false;}
+  };
+  get('dcFilesLoad').onclick=async()=>{const scope=state.recordScope,doc=editing;if(!doc||!scopeAlive(scope))return;try{const result=await docRpc('files',{documentId:doc.id},scope);if(!scopeAlive(scope)||editing!==doc)return;get('dcFiles').replaceChildren();(result.files||[]).forEach(f=>{const a=node('a',(f.role||'berkas')+' · '+f.name+(f.sourceVersion?' · v'+f.sourceVersion:''),'btn');a.href=f.url;a.target='_blank';a.rel='noopener';get('dcFiles').appendChild(a);});}catch(error){get('dcRecordMessage').textContent=error.message;}};
+  get('dcFileSave').onclick=async()=>{const scope=state.recordScope,doc=editing,input=get('dcFileInput'),file=input.files[0];if(!doc||!file||state.uploadBusy||!scopeAlive(scope))return;state.uploadBusy=true;get('dcFileSave').disabled=true;try{if(file.size>5*1024*1024)throw new Error('Berkas maksimal 5 MB.');const result=await docRpc('attach',{documentId:doc.id,requestId:input.dataset.requestId||(input.dataset.requestId=requestId()),role:get('dcFileRole').value,name:file.name,mime:file.type,base64:await base64(file)},scope);if(scopeAlive(scope)&&editing===doc){input.value='';delete input.dataset.requestId;get('dcRecordMessage').textContent=result.warning||'Berkas ditambahkan ke dokumen yang sama. Versi lama tetap disimpan.';get('dcFilesLoad').onclick();}}catch(error){if(scopeAlive(scope))get('dcRecordMessage').textContent=error.message;}finally{state.uploadBusy=false;get('dcFileSave').disabled=false;}};
+  get('dcFileInput').onchange=()=>{delete get('dcFileInput').dataset.requestId;};
+  get('dcFileRole').onchange=()=>{delete get('dcFileInput').dataset.requestId;};
   get('dcRecordDelete').onclick=async()=>{
     if(!confirm('Hapus kartu dari daftar aktif? File Drive tetap tersimpan.'))return;
     const b=get('dcRecordDelete'),scope=state.recordScope||scopeNow();b.disabled=true;
@@ -192,10 +259,10 @@
     if(!t){get('dcNewDraftMessage').textContent='Template dokumen tidak ditemukan.';return;}
     b.disabled=true;
     try{
-      const result=await saveDocument({projectId:scope.projectId,clientRequestId:state.draftRequestId,templateId:t.id,templateSourceId:t.templateSourceId||'',title:get('dcNewDraftTitle').value.trim()||t.title,page:t.page||'',memoType:t.memoType||'',due:get('dcNewDraftDue').value,status:'DRAFT'});
+      const result=await saveDocument({projectId:scope.projectId,clientRequestId:state.draftRequestId,templateId:t.id,ownerTemplateId:t.origin==='OWNER'?t.id:'',templateSourceId:t.templateSourceId||'',title:get('dcNewDraftTitle').value.trim()||t.title,page:t.page||'',memoType:t.memoType||'',due:get('dcNewDraftDue').value,status:'DRAFT'});
       if(result.stale||!scopeAlive(scope))return;
       await reload();if(!scopeAlive(scope))return;
-      get('dcNewDraftDialog').close();state.view='board';render();
+      get('dcNewDraftDialog').close();state.space='active';state.view='board';render();
       if(result.warning)showStatus('Tersimpan dengan peringatan: '+result.warning);
       if(t.page||result.record.fileUrl)route(t,result.record,true,scope);
       state.draftScope=null;state.draftRequestId=null;
@@ -218,11 +285,12 @@
     }catch(error){if(scopeAlive(scope))get('dcTransitionHelp').textContent=error.message;}
     finally{b.disabled=false;}
   };
-  root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.dcView)state.view=b.dataset.dcView;if(b.dataset.dcBoard)state.board=b.dataset.dcBoard;if(b.dataset.dcQuick){state.quick=b.dataset.dcQuick;state.page=1;}if(b.id==='dcFilterToggle')get('dcFilterPanel').classList.toggle('open');if(b.id==='dcMapReset'){state.stage='';state.page=1;}if(b.id==='dcNewDraft'){newDraft();return;}if(b.id==='dcReload'){reload();return;}render();});get('dcSearch').oninput=e=>{state.query=e.target.value.toLocaleLowerCase('id').trim();state.page=1;render();};get('dcProject').setAttribute('data-project-select','');
+  root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.dcSpace){state.space=b.dataset.dcSpace;state.view=state.space==='templates'?'list':'board';state.page=1;}if(b.dataset.dcView){state.view=b.dataset.dcView;if(['list','map'].includes(state.view))state.space='templates';else if(state.space==='templates')state.space='active';}if(b.dataset.dcBoard)state.board=b.dataset.dcBoard;if(b.dataset.dcQuick){state.quick=b.dataset.dcQuick;state.page=1;}if(b.id==='dcFilterToggle')get('dcFilterPanel').classList.toggle('open');if(b.id==='dcMapReset'){state.stage='';state.page=1;}if(b.id==='dcNewDraft'){newDraft();return;}if(b.id==='dcReload'){reload();return;}render();});
+  get('dcOrigin').onchange=e=>{state.origin=e.target.value;state.page=1;render();};get('dcSearch').oninput=e=>{state.query=e.target.value.toLocaleLowerCase('id').trim();state.page=1;render();};get('dcProject').setAttribute('data-project-select','');
   document.addEventListener('click',e=>{if(e.target.closest('[data-dc-close]'))['dcTransitionDialog','dcNewDraftDialog','dcTemplateDialog'].forEach(id=>get(id).close());});
-  function closeForProject(){projectEpoch++;epoch++;loading=false;window.UTP_PENDING_DOCUMENT_ID='';['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog','dcTemplateDialog'].forEach(id=>{const dialog=get(id);if(dialog&&dialog.open)dialog.close();});editing=null;drag='';state.pending=null;state.draftScope=null;state.draftRequestId=null;state.recordScope=null;loadedAt=0;docs=[];}
+  function closeForProject(){projectEpoch++;epoch++;loading=false;window.UTP_PENDING_DOCUMENT_ID='';['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog','dcTemplateDialog','dcOwnerDialog'].forEach(id=>{const dialog=get(id);if(dialog&&dialog.open)dialog.close();});editing=null;ownerScope=null;ownerEditing=null;drag='';state.pending=null;state.draftScope=null;state.draftRequestId=null;state.recordScope=null;loadedAt=0;docs=[];for(let i=templates.length-1;i>=0;i--)if(templates[i].origin==='OWNER')templates.splice(i,1);}
   document.addEventListener('utp-project-change',()=>{closeForProject();reload();});
   document.addEventListener('utp-record-change',()=>{loadedAt=0;if(accessToken)reload();});
-  window.DocumentCenter={open(){render();reload(false);},reload(){epoch++;loading=false;reload();},isBusy:()=>loading||['dcRecordSave','dcRecordDelete'].some(id=>get(id).disabled),isDirty:()=>['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog'].some(id=>get(id).open),resetSession(){projectEpoch++;epoch++;loading=false;closeForProject();render();},reset(){state.query='';state.stage='';state.quick='all';Object.values(state.filters).forEach(s=>s.clear());state.page=1;render();}};render();
+  window.DocumentCenter={open(){render();reload(false);},reload(){epoch++;loading=false;reload();},isBusy:()=>loading||state.uploadBusy||['dcRecordSave','dcRecordDelete'].some(id=>get(id).disabled),isDirty:()=>['dcRecordDialog','dcNewDraftDialog','dcTransitionDialog','dcOwnerDialog'].some(id=>get(id).open),resetSession(){projectEpoch++;epoch++;loading=false;closeForProject();render();},reset(){state.query='';state.stage='';state.quick='all';state.space='active';state.view='board';state.origin='all';get('dcOrigin').value='all';Object.values(state.filters).forEach(s=>s.clear());state.page=1;render();}};render();
 })();
 </script>

@@ -179,6 +179,8 @@ test('kartu pada Semua proyek memilih proyek dokumen lalu membuka record sumber 
   const first = env.calls.findIndex((row) => row.name === 'apiProjects');
   env.calls[first].resolve({ documents: [{ id: 'memo:PN/1', source: 'memo', sourceId: 'PN/1', projectId: P2, title: 'Memo PN/1', status: 'SELESAI', date: '2026-10-01' }], warnings: [] });
   await tick();
+  assert.equal(env.get('dcBoard').children.flatMap(section=>section.children).filter(item=>item.className==='dc-board-card').length,0,'dokumen selesai tidak memenuhi papan aktif');
+  env.get('archiveButton').dataset.dcSpace='archive';click(env,'archiveButton');
   const card = env.get('dcBoard').children.flatMap((section) => section.children).find((item) => item.className === 'dc-board-card');
   assert.ok(card, 'kartu dokumen tampil');
   card.onclick({ target: { closest: () => null } });
