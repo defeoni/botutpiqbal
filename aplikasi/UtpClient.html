@@ -54,9 +54,8 @@
   }
   function materialFilterMarkup(filters, scope) {
     const attr = key => 'data-' + scope + '-filter="' + key + '"';
-    return ['BRANDED','GENERIC','UNKNOWN'].map(value => check('brandClasses', {BRANDED:'Bermerk',GENERIC:'Tidak bermerek (terkonfirmasi)',UNKNOWN:'Belum diketahui'}[value], (filters.brandClasses || []).includes(value), attr('brandClasses') + ' value="' + value + '"')).join('') +
-      input('brand', 'Merek', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>' +
-      check('approvedOnly', 'Sesuai approval aktif', filters.approvedOnly, attr('approvedOnly'));
+    return '<div class="utp-brand-flags" role="group" aria-label="Jenis merek · kosong berarti semua">' + ['BRANDED','GENERIC','UNKNOWN'].map(value => check('brandClasses', {BRANDED:'Bermerk',GENERIC:'Tidak bermerek (terkonfirmasi)',UNKNOWN:'Belum diketahui'}[value], (filters.brandClasses || []).includes(value), attr('brandClasses') + ' value="' + value + '"')).join('') + check('approvedOnly', 'Sesuai approval aktif', filters.approvedOnly, attr('approvedOnly')) + (scope==='catalog'?check('favoriteOnly','Favorit saja',filters.favoriteOnly,attr('favoriteOnly')):'') + '</div>' +
+      input('brand', 'Merek', filters.brand, 'text', attr('brand') + ' list="utpBrands-' + scope + '" placeholder="Pilih atau ketik merek" autocomplete="off"') + '<datalist id="utpBrands-' + scope + '">' + knownBrands().map(brand => '<option value="' + esc(brand) + '"></option>').join('') + '</datalist>';
   }
   function searchWord(term, word) {
     if (word.includes(term)) return true;
@@ -196,19 +195,20 @@
   function renderCatalog() {
     const c = state.catalog;
     el('utpContent').innerHTML = header(pages.CATALOG, 'Identitas dan spesifikasi resmi · bukan saldo stok proyek', button('Muat ulang hasil', 'search-catalog') + (!preview && liveWorkflow() ? button('Impor master CSV','import-master') : '')) +
-      '<div class="utp-toolbar" id="utpCatalogFilters">' + input('query', 'Nama barang', c.query, 'search', 'data-catalog="query" placeholder="Ketik sebagian nama atau kode barang" autocomplete="off"') +
-      materialFilterMarkup(c, 'catalog') + check('favoriteOnly', 'Favorit saja', c.favoriteOnly, 'data-catalog-filter="favoriteOnly"') + '</div><div id="utpCatalogResults" aria-live="polite"></div>';
+      '<div class="utp-toolbar utp-material-search" id="utpCatalogFilters">' + input('query', 'Nama barang / kode', c.query, 'search', 'data-catalog="query" placeholder="Contoh: pipa pvc 20 mm · urutan kata bebas" autocomplete="off"') +
+      materialFilterMarkup(c, 'catalog') + '<div class="utp-actions">'+button('Cari','search-catalog','','primary')+button('Reset filter','reset-catalog')+'</div></div><div id="utpCatalogResults" aria-live="polite"></div>';
     renderCatalogResults();
   }
   function renderCatalogResults() {
     const box = el('utpCatalogResults'); if (!box) return;
     const c = state.catalog;
-    if (c.loading) { box.innerHTML = '<div class="utp-empty" role="status">Mencari material…</div>'; return; }
+    box.setAttribute('aria-busy',String(c.loading));
+    if (c.loading) { if(!box.querySelector('[data-search-loading]'))box.insertAdjacentHTML('afterbegin','<p class="utp-muted" role="status" data-search-loading>Mencari… hasil sebelumnya belum diperbarui.</p>');box.querySelectorAll('button').forEach(node=>node.disabled=true);return; }
     if (c.error) { box.innerHTML = errorBox(c.error + ' Kata pencarian dipertahankan.', 'search-catalog'); return; }
     const range = c.total ? (c.offset + 1) + '–' + (c.offset + c.items.length) : '0';
     if (!c.items.length) { box.innerHTML = (state.data.masterCount === 0 && !preview ? empty('Master material belum tersedia', 'Impor master resmi melalui tombol Impor master CSV. Data contoh tidak digunakan pada katalog server.') : empty('Material tidak ditemukan', 'Coba kode singkat, ubah kata pencarian, atau longgarkan filter.')) + '<p class="utp-muted">' + range + ' dari ' + c.total + ' hasil · 50 per halaman.</p>'; return; }
     const sortLabels={code:'kode',name:'nama material',brand:'merek',model:'tipe',group:'kelompok',unit:'satuan',approved:'approval'};
-    const order=c.sortBy?sortLabels[c.sortBy]+' '+(c.sortDirection==='asc'?'menaik':'menurun'):'approval aktif, favorit, nama';
+    const order=c.sortBy?sortLabels[c.sortBy]+' '+(c.sortDirection==='asc'?'menaik':'menurun'):c.query.trim()?'kecocokan nama/kode, approval aktif, favorit':'approval aktif, favorit, nama';
     box.innerHTML = '<p class="utp-muted">' + range + ' dari ' + esc(c.total) + ' hasil · 50 per halaman. Urutan seluruh hasil: '+esc(order)+'. Klik judul kolom untuk mengurutkan.</p><div class="utp-tablewrap"><table><thead><tr><th><div class="utp-sort-group">'+catalogSortButton('code','Kode')+catalogSortButton('name','Material')+'</div></th><th><div class="utp-sort-group">'+catalogSortButton('brand','Merek')+catalogSortButton('model','Tipe')+'</div></th><th><div class="utp-sort-group">'+catalogSortButton('group','Kelompok')+catalogSortButton('unit','Satuan')+'</div></th><th>'+catalogSortButton('approved','Approval')+'</th><th>Tindakan</th></tr></thead><tbody>' + c.items.map(item => '<tr><td><strong>' + esc(item.code) + '</strong><br>' + esc(item.name) + '</td><td>' + esc(item.brand || (itemClassification(item) === 'GENERIC' ? 'Generik terkonfirmasi' : 'Merek belum diketahui')) + '<br><span class="utp-muted">' + esc(item.model || '—') + '</span></td><td>' + esc(item.group || '—') + '<br>' + esc(item.unit || '—') + '</td><td>' + badge(item.approved ? 'Cocok approval ' + (item.approvalAuthority || '') : 'Belum sesuai approval', item.approved ? 'success' : '') + '</td><td><div class="utp-actions">' + button(item.favorite ? '★ Favorit' : '☆ Favorit', 'favorite', 'data-code="' + esc(item.code) + '" aria-pressed="' + !!item.favorite + '"', '', !preview && !liveWorkflow()) + button('Detail', 'catalog-detail', 'data-code="' + esc(item.code) + '"') + button('Pakai di draf', 'use-item', 'data-code="' + esc(item.code) + '"', '', !preview && !liveDrafts()) + '</div></td></tr>').join('') + '</tbody></table></div>';
     box.insertAdjacentHTML('beforeend', pageControls(c.offset, c.total, 'catalog-page'));
   }
@@ -220,6 +220,7 @@
   function scheduleCatalogSearch(key, value) {
     const catalog = state.catalog;
     catalog[key] = value; catalog.offset = 0; catalog.requestId = ++sequence;
+    const box=el('utpCatalogResults');if(box)box.querySelectorAll('button').forEach(node=>node.disabled=true);
     clearTimeout(timer); timer = setTimeout(searchCatalog, 250);
   }
   function scheduleLookupSearch(key, value) {
@@ -227,12 +228,14 @@
     if (key === 'query') modal.query = value;
     else modal.filters[key] = value;
     modal.offset = 0; modal.searchId += 1;
+    const box=el('utpLookupResults');if(box)box.querySelectorAll('button').forEach(node=>node.disabled=true);
     clearTimeout(timer);
     const query = key === 'query' ? value : modal.query || '';
     timer = setTimeout(() => lookup(query), 250);
   }
   function previewSearch(filters) {
     const terms = norm(filters.query).split(' ').filter(Boolean);
+    const scores=new Map(),query=terms.join(' ');
     const items = state.data.catalog.filter(item => {
       const classification = itemClassification(item);
       return (!filters.favoriteOnly || item.favorite) &&
@@ -242,10 +245,11 @@
         (!filters.group || norm(item.group) === norm(filters.group)) &&
         terms.every(term => norm([item.code, item.name, item.brand, item.brandCandidate, item.brandStatus, item.model, item.unit, item.group, item.family, item.note].join(' ')).includes(term) || filters.fuzzy && norm(item.name).split(/[^a-z0-9]+/).some(word => searchWord(term, word)));
     }).map(item => {
+      if(query&&filters.relevance){const name=norm(item.name),text=norm([item.code,item.name,item.brand,item.brandCandidate,item.brandStatus,item.model,item.unit,item.group,item.family,item.note].join(' '));scores.set(item.code,norm(item.code)===query?0:name===query?1:!terms.every(t=>text.includes(t))?5:name.startsWith(query)?2:terms.every(t=>name.includes(t))?3:4);}
       const approval = approvalFor(item);
       return Object.assign({}, item, { approved: !!approval, approvalId: approval ? approval.id : '', approvalAuthority: approval ? approval.authority : '' });
     }).filter(item => !filters.approvedOnly || item.approved);
-    items.sort((a, b) => compareCatalogItems(a,b,filters));
+    items.sort((a, b) => (!filters.sortBy&&((scores.get(a.code)||0)-(scores.get(b.code)||0))) || compareCatalogItems(a,b,filters));
     const limit = Math.min(50, filters.limit || 50), offset = items.length ? Math.min(filters.offset || 0, Math.floor((items.length-1)/limit)*limit) : 0;
     return { items: items.slice(offset, offset + limit), total: items.length, offset, limit, brands: Array.from(new Set(state.data.catalog.map(item=>item.brand).filter(Boolean))) };
   }
@@ -253,7 +257,7 @@
     if (!state.data) return;
     clearTimeout(timer); const generation = epoch, requestId = ++sequence, c = state.catalog;
     c.requestId = requestId; c.loading = true; c.error = ''; renderCatalogResults();
-    const filters = { query: c.query, fuzzy: true, brandClasses: c.brandClasses || [], brandClass: c.brandClass, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
+    const filters = { query: c.query, fuzzy: true, relevance:true, brandClasses: c.brandClasses || [], brandClass: c.brandClass, brand: c.brand, group: c.group, approvedOnly: c.approvedOnly, favoriteOnly: c.favoriteOnly, sortBy:c.sortBy, sortDirection:c.sortDirection, limit: 50, offset: c.offset };
     try {
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || c.requestId !== requestId) return;
@@ -516,7 +520,7 @@
   function masterLookup() {
     const filters = { brandClass: 'ALL', brand: '', group: '', approvedOnly: false, favoriteOnly: false };
     dialog('Cari material', input('lookup', 'Nama barang', '', 'search', 'id="utpLookupQuery" autocomplete="off" placeholder="Ketik sebagian nama atau kode barang"') +
-      '<div class="utp-toolbar">' + materialFilterMarkup(filters, 'lookup') + '</div><div id="utpLookupResults" aria-live="polite"></div>', null);
+      '<div class="utp-toolbar utp-material-search">' + materialFilterMarkup(filters, 'lookup') + '<div class="utp-actions">'+button('Cari','retry-lookup','','primary')+button('Reset filter','reset-lookup')+'</div></div><div id="utpLookupResults" aria-live="polite"></div>', null);
     modal.filters = filters;
     lookup('');
   }
@@ -525,7 +529,7 @@
     const context = modal, id = ++context.searchId, generation = epoch, box = el('utpLookupResults'); if (!box) return;
     context.query = query; context.offset = offset; box.innerHTML = '<p class="utp-muted" role="status">Mencari material…</p>';
     try {
-      const filters = Object.assign({}, context.filters, { query, fuzzy: true, limit: 50, offset });
+      const filters = Object.assign({}, context.filters, { query, fuzzy: true, relevance:true, limit: 50, offset });
       const result = preview ? await Promise.resolve(previewSearch(filters)) : await read('searchItems', filters);
       if (generation !== epoch || context !== modal || id !== context.searchId) return;
       context.items = result.items.slice(0, 50);
@@ -738,6 +742,8 @@
     if(name==='print-request')return printRequest();
     if (name === 'retry-bootstrap') return bootstrap();
     if (name === 'search-catalog') return searchCatalog();
+    if (name === 'reset-catalog') {Object.assign(state.catalog,{query:'',brand:'',group:'',brandClass:'ALL',brandClasses:[],approvedOnly:false,favoriteOnly:false,sortBy:'',offset:0});renderCatalog();return searchCatalog();}
+    if (name === 'reset-lookup') return masterLookup();
     if (name === 'catalog-sort') { const c=state.catalog,key=target.dataset.sort;if(!['code','name','brand','model','group','unit','approved'].includes(key))return;c.sortDirection=c.sortBy===key&&c.sortDirection==='asc'?'desc':'asc';c.sortBy=key;c.offset=0;return searchCatalog(); }
     if (name === 'catalog-page') { if (state.catalog.loading) return; state.catalog.offset = Number(target.dataset.offset); return searchCatalog(); }
     if (name === 'lookup-page') return lookup(modal.query, Number(target.dataset.offset));
@@ -833,6 +839,8 @@
       Promise.resolve(moveBoard(drag.id,column.dataset.boardStage)).catch(error=>{if(d.open)dialogError(error.message);else toast(error.message,true);});
     });
     app.addEventListener('click', click); d.addEventListener('click', click);
+    app.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing&&event.target.matches('[data-catalog="query"],[data-catalog-filter="brand"]')){event.preventDefault();searchCatalog();}});
+    d.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing&&(event.target.id==='utpLookupQuery'||event.target.dataset.lookupFilter==='brand')){event.preventDefault();clearTimeout(timer);lookup(el('utpLookupQuery').value);}});
     el('utpCloseDialog').addEventListener('click', closeDialog); d.addEventListener('close', () => { if (!d.open) modal = null; });
     d.addEventListener('submit', event => {
       event.preventDefault(); if (!modal || !modal.onSubmit) return;

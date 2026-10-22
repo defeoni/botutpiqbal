@@ -404,6 +404,7 @@ function utpSearchWord_(term, word) {
 }
 function utpSearchItems_(items, filters, approvals) {
   var options = filters || {}, terms = utpNorm_(options.query).split(' ').filter(Boolean);
+  var query=terms.join(' '),brandQuery=utpNorm_(options.brand),groupQuery=utpNorm_(options.group),scores=new Map();
   var brandClass = String(options.brandClass || options.classification || 'ALL').toUpperCase();
   if (['ALL', 'BRANDED', 'GENERIC', 'UNKNOWN'].indexOf(brandClass) < 0) throw new Error('Filter jenis merek tidak valid.');
   var selectedClasses = options.brandClasses || [];
@@ -420,20 +421,24 @@ function utpSearchItems_(items, filters, approvals) {
     if (item.archived || (options.favoriteOnly && !item.favorite)) return false;
     if (brandClass !== 'ALL' && utpItemClassification_(item) !== brandClass) return false;
     if (selectedClasses.length && selectedClasses.indexOf(utpItemClassification_(item)) < 0) return false;
-    if (options.brand && utpNorm_(item.brand) !== utpNorm_(options.brand)) return false;
+    if (brandQuery && utpNorm_(item.brand) !== brandQuery) return false;
     if (typeQuery && utpNorm_(item.model).indexOf(typeQuery) < 0) return false;
-    if (options.group && utpNorm_(item.group) !== utpNorm_(options.group)) return false;
+    if (groupQuery && utpNorm_(item.group) !== groupQuery) return false;
     if(!terms.length)return true;
-    var text = utpNorm_(UTP_MASTER_FIELDS.map(function (key) { return item[key] || ''; }).concat(item.note || '').join(' '));
-    var words;
-    return terms.every(function (term) { if(text.indexOf(term)>=0)return true;if(!options.fuzzy)return false;words=words||utpNorm_(item.name).split(/[^a-z0-9]+/);return words.some(function(word){return utpSearchWord_(term,word);}); });
+    var text = utpNorm_([item.code,item.name,item.brand,item.brandCandidate,item.brandStatus,item.model,item.unit,item.group,item.family,item.note].join(' '));
+    var words, fuzzy=false;
+    var matched=terms.every(function (term) { if(text.indexOf(term)>=0)return true;if(!options.fuzzy)return false;words=words||utpNorm_(item.name).split(/[^a-z0-9]+/);fuzzy=true;return words.some(function(word){return utpSearchWord_(term,word);}); });
+    if(matched&&options.relevance){var name=utpNorm_(item.name);scores.set(item,utpNorm_(item.code)===query?0:name===query?1:fuzzy?5:name.indexOf(query)===0?2:terms.every(function(t){return name.indexOf(t)>=0;})?3:4);}
+    return matched;
   }).map(function (item) {
     var classification=utpItemClassification_(item),candidates=classification==='GENERIC'?generic:classification==='BRANDED'?byBrand[utpNorm_(item.brand)]||[]:[];
-    return {item:item,approval:utpFindApproval_(item,candidates)};
+    return {item:item,score:scores.get(item)||0,approval:candidates.length?utpFindApproval_(item,candidates):null};
   }).filter(function (row) { return !options.approvedOnly || row.approval; });
   var sortBy=String(options.sortBy||''),direction=options.sortDirection==='desc'?-1:1;
   if(sortBy&&['code','name','brand','model','group','unit','approved'].indexOf(sortBy)<0)throw new Error('Kolom pengurutan tidak valid.');
-  matches.sort(function (x, y) {var a=x.item,b=y.item;return sortBy?direction*(sortBy==='approved'?Number(!!x.approval)-Number(!!y.approval):String(a[sortBy]||'').localeCompare(String(b[sortBy]||''),'id',{numeric:true}))||String(a.code).localeCompare(String(b.code)):Number(!!y.approval)-Number(!!x.approval)||Number(!!b.favorite)-Number(!!a.favorite)||String(a.name).localeCompare(String(b.name),'id')||String(a.code).localeCompare(String(b.code));});
+  // Reuse collators rather than constructing locale options inside every comparison.
+  var compare=new Intl.Collator('id').compare,numericCompare=new Intl.Collator('id',{numeric:true}).compare;
+  matches.sort(function (x, y) {var a=x.item,b=y.item;return sortBy?direction*(sortBy==='approved'?Number(!!x.approval)-Number(!!y.approval):numericCompare(String(a[sortBy]||''),String(b[sortBy]||'')))||compare(String(a.code),String(b.code)):x.score-y.score||Number(!!y.approval)-Number(!!x.approval)||Number(!!b.favorite)-Number(!!a.favorite)||compare(String(a.name),String(b.name))||compare(String(a.code),String(b.code));});
   offset = matches.length ? Math.min(offset, Math.floor((matches.length - 1) / limit) * limit) : 0;
   return { items: matches.slice(offset, offset + limit).map(function(row){var copy=utpClone_(row.item),a=row.approval;copy.approved=!!a;copy.approvalId=a?a.id:'';copy.approvalAuthority=a?a.authority:'';return copy;}), total: matches.length, offset: offset, limit: limit, hasMore: offset + limit < matches.length,brands:Array.from(new Set((items||[]).filter(function(r){return !r.archived&&r.brand;}).map(function(r){return r.brand;}))).sort() };
 }

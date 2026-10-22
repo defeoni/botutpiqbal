@@ -285,7 +285,7 @@ function fakeMaterialSpec(
             all.length
         });
       },
-      15
+      payload.query === 'lambat' ? 150 : 15
     );
 
     return;
@@ -681,6 +681,18 @@ ${spekView}
     click('[data-spek-brand-class][value="BRANDED"]');
     await sleep(380);
     check(rpcLog.some(entry => entry.action === 'searchCatalog' && entry.payload.fuzzy === true && entry.payload.brand === 'Aqua' && entry.payload.brandClasses.includes('BRANDED')), 'filter merek Spek diteruskan ke backend');
+
+    input('[data-spek-catalog-search]', 'lambat');
+    click('[data-spek-action="catalog-search"]');
+    click('[data-spek-action="catalog-reset"]');
+    await sleep(190);
+    check(root.querySelectorAll('[data-spek-catalog-results] .spek-catalog-result').length === 0, 'jawaban lama tidak muncul kembali setelah reset');
+    check(root.querySelector('#spek-catalog-brand').value === '' && !root.querySelector('[data-spek-brand-class]:checked'), 'reset mengosongkan filter merek');
+    const beforeEnter = rpcLog.filter(entry=>entry.action === 'searchCatalog').length;
+    input('[data-spek-catalog-search]', 'keramik');
+    root.querySelector('[data-spek-catalog-search]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await sleep(380);
+    check(rpcLog.filter(entry=>entry.action === 'searchCatalog').length === beforeEnter + 1, 'Enter segera mencari tanpa request debounce ganda');
 
     check(
       root.querySelectorAll(

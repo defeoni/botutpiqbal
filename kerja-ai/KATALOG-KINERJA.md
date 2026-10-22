@@ -1,5 +1,15 @@
 # Kinerja katalog Spek/Approval dan review merek
 
+## Fokus pencarian 2026-10-22 — pelabelan ditunda pengguna
+
+Pencarian sekarang memakai `relevance:true` dari UI katalog, lookup material dan Spek: kode persis, nama persis, awalan nama, seluruh kata literal pada nama, teks lain, baru toleransi typo. Approval/favorit menjadi pembeda setelah relevansi; pengurutan kolom eksplisit tetap diutamakan, aturan kecocokan approval tidak berubah. Pemanggil API lama tanpa relevance mempertahankan prioritas lama.
+
+Kolom nama diperlebar, contoh pencarian dengan urutan kata bebas, checkbox dirapatkan, Cari/Enter dan Reset filter tersedia. Dialog Spek menonjolkan nama penuh dengan kode/merek/satuan sebagai keterangan, bukan merangkai semua properti internal. Hasil katalog sebelumnya tidak dikosongkan saat loading; tombol hasil dinonaktifkan sampai data baru siap. Input Spek langsung membatalkan hak render respons lama sebelum debounce, reset mengosongkan filter, dan Enter membatalkan timer agar tidak mengirim request ganda. Lookup juga menonaktifkan pilihan lama selama debounce.
+
+Optimasi CPU: normalisasi merek/kelompok filter sekali, penggabungan field tanpa callback per sel, melewati matcher saat tidak ada kandidat approval, serta dua Intl.Collator per pencarian alih-alih opsi locale per perbandingan sort. Tidak menambah dependency/cache hasil approval atau mengubah master.
+
+Bukti source akhir: 51 tes terarah lulus; 21 pemeriksaan browser material/navigasi lulus, termasuk lebar kolom, Enter, Reset, kategori gabungan. Tes Spek mencakup jawaban lambat setelah Reset dan tidak ada request ganda setelah Enter. Benchmark `node alat/ukur-pencarian-material.cjs 173b9a9`: 30000 barang sintetis, 100 approval, 6 kasus parity legacy, 4 operasi terukur (termasuk urut nama), median 3 run: 1996 ms → 847 ms, 2,36x CPU lokal. Bukan jaminan latency Apps Script/Sheets produksi. Generator 43 file, diff check bersih. Deployment Apps Script tetap menunggu VSCode; pelabelan/validasi merek ditunda.
+
 ## Lanjutan 2026-10-22 — pencarian dan kesepakatan merek
 
 Pencarian katalog/material dan dialog Spek memakai Nama barang, Merek (datalist), serta checkbox Bermerk/Tidak bermerek terkonfirmasi/Belum diketahui. Beberapa kategori memakai union; kosong berarti semua. Tidak menambah isian tipe/model; nama/model sumber dan aturan approval tetap utuh. Filter kelompok disembunyikan dari pencarian material, API lama tetap kompatibel.

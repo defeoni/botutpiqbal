@@ -4,6 +4,20 @@ test('broad catalog search clones only the visible page, without mutating master
   const c=setup(),items=Array.from({length:30000},(_,i)=>({code:String(i).padStart(8,'0'),name:'Barang '+i,brand:'AUX',unit:'unit'}));let clones=0;const copy=c.utpClone_;c.utpClone_=value=>{clones++;return copy(value);};
   const result=c.utpSearchItems_(items,{limit:50,offset:50},[]);assert.equal(result.total,30000);assert.equal(result.items.length,50);assert.equal(clones,50);assert.equal(items[0].approved,undefined);
 });
+test('relevance puts exact code/name and literal names ahead of fuzzy approved matches; explicit sorts still win',()=>{
+  const c=setup(),items=[{code:'01',name:'Adaptar',brand:'AUX',favorite:true},{code:'02',name:'Adaptor',brand:'KIIP'},{code:'03',name:'Adaptor Daya',brand:'KIIP'},{code:'04',name:'Kabel Adaptor',brand:'KIIP'},{code:'adaptor',name:'Kode cocok',brand:'KIIP'}];
+  const approvals=[{id:'a',status:'APPROVED',brand:'AUX',material:'Adaptar',types:[]}];
+  const filters={query:'adaptor',fuzzy:true,relevance:true};
+  assert.equal(c.utpSearchItems_(items,filters,approvals).items.map(i=>i.code).join(','),'adaptor,02,03,04,01');
+  assert.equal(c.utpSearchItems_(items,{...filters,sortBy:'code'},approvals).items[0].code,'01');
+  assert.equal(c.utpSearchItems_(items,{...filters,approvedOnly:true},approvals).items[0].code,'01');
+  assert.equal(c.utpSearchItems_(items,{query:'daya adaptor',relevance:true},[]).items[0].code,'03');
+  assert.equal(items[0].name,'Adaptar');
+  const source=fs.readFileSync(path.join(__dirname,'../aplikasi/UtpClient.html'),'utf8');
+  c.state={data:{catalog:items}};c.norm=c.utpNorm_;c.itemClassification=c.utpItemClassification_;c.approvalFor=item=>c.utpFindApproval_(item,approvals);c.searchWord=c.utpSearchWord_;
+  vm.runInContext(source.match(/  function compareCatalogItems\(a,b,filters\) \{[\s\S]*?\n  \}/)[0]+source.match(/  function previewSearch\(filters\) \{[\s\S]*?\n  \}/)[0],c);
+  assert.equal(c.previewSearch(filters).items.map(i=>i.code).join(','),'adaptor,02,03,04,01');
+});
 test('indexed approval matching preserves first exact match, generic classification and brand boundaries',()=>{
   const c=setup(),items=[{code:'0001',name:'Pipa',brand:'AUX',model:'A1'},{code:'0002',name:'Pipa',brand:'',brandStatus:'GENERIC'},{code:'0003',name:'Pipa',brand:'',brandStatus:'UNKNOWN'}];
   const approvals=[{id:'rejected',status:'REJECTED',brand:'AUX',material:'Pipa'},{id:'first',status:'APPROVED',brand:' AUX ; KIIP',material:'Pipa',authority:'MK',types:['A1']},{id:'second',status:'APPROVED',brand:'AUX',material:'Pipa',types:[]},{id:'generic',status:'APPROVED',generic:true,material:'Pipa',types:[]}];

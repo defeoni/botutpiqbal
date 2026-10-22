@@ -398,7 +398,7 @@
 
 #blank-SPEC .spek-catalog-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, .6fr);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, .4fr);
   gap: 8px;
 }
 
@@ -413,7 +413,7 @@
 
 #blank-SPEC .spek-catalog-result {
   display: grid;
-  grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, .35fr) auto;
   gap: 10px;
   align-items: center;
   padding: 8px 9px;
@@ -702,6 +702,7 @@
           >
             Cari
           </button>
+          <button class="spek-btn" type="button" data-spek-action="catalog-reset">Reset filter</button>
         </div>
 
         <div
@@ -1983,11 +1984,8 @@
 
     const values = [];
 
-    Object.keys(item)
+    ['code','brand','unit']
       .forEach((key) => {
-        if (key === 'code') {
-          return;
-        }
 
         const value = item[key];
 
@@ -2048,9 +2046,9 @@
             'span',
             'spek-main',
             item &&
-            item.code
-              ? item.code
-              : 'Kode tidak tersedia'
+            item.name
+              ? item.name
+              : item && (item.label || item.code) || 'Nama tidak tersedia'
           );
 
         const meta =
@@ -2136,6 +2134,11 @@
   async function searchCatalog(
     resetOffset
   ) {
+    clearTimeout(state.catalogTimer);
+    const ticket = ++state.catalogTicket;
+    state.catalogResultItems=[];
+    refs.catalogResults.querySelectorAll('button').forEach(node=>node.disabled=true);
+    refs.catalogPrev.disabled=true;refs.catalogNext.disabled=true;
     const query =
       refs.catalogSearch
         .value
@@ -2171,9 +2174,6 @@
     const generation =
       state.generation;
 
-    const ticket =
-      ++state.catalogTicket;
-
     const projectId =
       state.projectId;
 
@@ -2192,6 +2192,7 @@
             projectId,
             query,
             fuzzy: true,
+            relevance: true,
             brand: $('#spek-catalog-brand').value.trim(),
             brandClasses: $$('[data-spek-brand-class]:checked').map(node => node.value),
             limit:
@@ -2254,6 +2255,10 @@
 
     refs.catalogSearch.value =
       '';
+    $('#spek-catalog-brand').value='';
+    $$('[data-spek-brand-class]').forEach(node=>node.checked=false);
+    state.catalogTicket += 1;
+    state.catalogResultItems=[];
 
     refs.catalogResults
       .replaceChildren();
@@ -2921,6 +2926,7 @@
         searchCatalog(true);
         return;
       }
+      if (action === 'catalog-reset') {openCatalog(state.catalogTarget);return;}
 
       if (
         action ===
@@ -3019,6 +3025,10 @@
         event.target ===
         refs.catalogSearch || event.target.id === 'spek-catalog-brand' || event.target.matches('[data-spek-brand-class]')
       ) {
+        state.catalogTicket += 1;
+        state.catalogResultItems=[];
+        refs.catalogResults.querySelectorAll('button').forEach(node=>node.disabled=true);
+        refs.catalogPrev.disabled=true;refs.catalogNext.disabled=true;
         if (
           state.catalogTimer
         ) {
@@ -3050,6 +3060,10 @@
       }
     }
   );
+
+  refs.catalogDialog.addEventListener('keydown',event=>{
+    if(event.key==='Enter'&&!event.isComposing&&(event.target===refs.catalogSearch||event.target.id==='spek-catalog-brand')){event.preventDefault();searchCatalog(true);}
+  });
 
   refs.form.addEventListener(
     'submit',
