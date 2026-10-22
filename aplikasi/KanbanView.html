@@ -1,0 +1,98 @@
+<section id="blank-KANBAN" class="document-center" data-main-page="KANBAN" hidden>
+  <header class="dc-header">
+    <div><p class="home-eyebrow">LINTAS PROYEK</p><h2>Kanban Global</h2><p id="kgSummary">Posisi seluruh dokumen proyek dalam satu papan. Papan ini hanya membaca; perubahan status dilakukan di modul asal atau Pusat Dokumen.</p></div>
+    <div class="dc-project-picker"><label for="kgProject">Proyek</label><select id="kgProject" data-project-select></select></div>
+  </header>
+  <div class="dc-toolbar">
+    <label class="dc-search"><input id="kgSearch" type="search" aria-label="Cari judul atau nomor dokumen" placeholder="Cari judul atau nomor dokumen"></label>
+    <label class="dc-search"><select id="kgModule" aria-label="Filter modul"><option value="">Semua modul</option><option value="document">Dokumen proyek</option><option value="memo">Memo</option><option value="rpb">RPB</option><option value="rpd">RPD</option><option value="requests">Permintaan material</option><option value="approvals">Approval material</option><option value="finance">Nota &amp; keuangan</option><option value="archives">Arsip proyek</option><option value="tasks">Tugas</option><option value="export">Ekspor dokumen</option></select></label>
+  </div>
+  <div class="dc-board-mode"><button type="button" class="active" data-kg-board="status">Status Proses</button><button type="button" data-kg-board="deadline">Deadline</button><button type="button" class="btn" id="kgReload">Muat ulang</button><span id="kgStatus" class="dc-status" role="status"></span></div>
+  <div id="kgBoard" class="dc-board" aria-label="Kanban global dokumen"></div>
+  <p id="kgEmpty" class="dc-empty" hidden>Belum ada dokumen pada filter ini. Buat dokumen dari Pusat Dokumen atau modul asal.</p>
+</section>
+<script>
+(function(){
+  'use strict';
+  var get=function(id){return document.getElementById(id);};
+  var statuses={DRAFT:'Draf',DIAJUKAN:'Diajukan',DIPROSES:'Diproses',REVISI:'Direvisi',DITOLAK:'Ditolak',DITERIMA:'Diterima',SELESAI:'Selesai'};
+  var deadlines={OVERDUE:'Terlambat',H3:'H-3',H2:'H-2',H1:'H-1',TODAY:'Hari ini',NONE:'Tanpa tenggat'};
+  var moduleLabel={document:'Dokumen',memo:'Memo',rpb:'RPB',rpd:'RPD',requests:'Permintaan',approvals:'Approval',finance:'Nota',archives:'Arsip',tasks:'Tugas',export:'Ekspor'};
+  var state={opened:false,token:'',rows:[],busy:false,epoch:0,board:'status',query:'',module:''};
+  function projectId(){return window.ProjectWorkspace?window.ProjectWorkspace.getActiveId():'all';}
+  function projectName(id){var list=window.ProjectWorkspace?window.ProjectWorkspace.getProjects():[];for(var i=0;i<list.length;i++)if(list[i].id===id)return list[i].name;return id==='legacy'?'Data lama — belum dipetakan':'Proyek lintas arsip';}
+  function today(){var parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),values={};parts.forEach(function(part){values[part.type]=part.value;});return values.year+'-'+values.month+'-'+values.day;}
+  function urgency(due){
+    if(!due)return 'NONE';
+    var days=Math.round((Date.parse(String(due).slice(0,10)+'T00:00:00Z')-Date.parse(today()+'T00:00:00Z'))/86400000);
+    return days<0?'OVERDUE':days===0?'TODAY':days<=3?'H'+days:'NONE';
+  }
+  function node(tag,value,cls){var element=document.createElement(tag);if(value!=null)element.textContent=value;if(cls)element.className=cls;return element;}
+  function show(message){var status=get('kgStatus');if(status)status.textContent=message||'';}
+  function visible(){
+    var query=state.query.toLocaleLowerCase('id');
+    return state.rows.filter(function(row){
+      if(state.module&&row.source!==state.module)return false;
+      if(!query)return true;
+      return (String(row.title||'')+' '+String(row.number||'')).toLocaleLowerCase('id').indexOf(query)>=0;
+    });
+  }
+  function render(){
+    var board=get('kgBoard'),empty=get('kgEmpty'),summary=get('kgSummary');
+    if(!board)return;
+    var rows=visible(),columns=state.board==='status'?statuses:deadlines;
+    board.replaceChildren();
+    Object.keys(columns).forEach(function(key){
+      var items=rows.filter(function(row){return (state.board==='status'?row.status:urgency(row.due))===key;});
+      var column=node('section',null,'dc-board-column');
+      column.append(node('h3',columns[key]+' · '+items.length));
+      if(!items.length)column.appendChild(node('p','Belum ada dokumen','dc-board-empty'));
+      items.slice(0,30).forEach(function(row){
+        var card=node('article',null,'dc-board-card');
+        card.append(node('small',projectName(row.projectId)),node('h4',row.title||'Tanpa judul'),node('p',(moduleLabel[row.source]||'Dokumen')+' · '+(row.due||'Belum dijadwalkan')+' · '+deadlines[urgency(row.due)]));
+        card.appendChild(node('small','Perubahan status dilakukan di modul asal atau Pusat Dokumen.','muted'));
+        column.appendChild(card);
+      });
+      board.appendChild(column);
+    });
+    if(empty)empty.hidden=rows.length>0;
+    if(summary)summary.textContent=rows.length+' dokumen · '+projectName(projectId())+' · '+(state.busy?'Memuat…':'Data server');
+  }
+  function load(force){
+    if(state.busy)return;
+    if(!accessToken){state.rows=[];show('Masuk data server untuk memuat dokumen.');render();return;}
+    if(!force&&state.token===accessToken&&Date.now()-state.loadedAt<30000){render();return;}
+    var ticket=++state.epoch,token=accessToken,scope=projectId();
+    state.busy=true;show('Memuat dokumen lintas modul…');render();
+    invokeServer('apiProjects',['documents',{projectId:scope},token],function(result){
+      if(ticket!==state.epoch||token!==accessToken||scope!==projectId())return;
+      state.rows=(result&&result.documents)||[];state.token=token;state.loadedAt=Date.now();state.busy=false;
+      show(((result&&result.warnings)||[]).join(' · '));
+      render();
+    },function(error){
+      if(ticket!==state.epoch||token!==accessToken)return;
+      state.rows=[];state.busy=false;show('Gagal memuat dokumen: '+(error&&error.message?error.message:String(error)));
+      render();
+    });
+  }
+  function bind(){
+    var root=get('blank-KANBAN');
+    if(!root)return;
+    root.addEventListener('click',function(event){
+      var button=event.target.closest('button');
+      if(!button)return;
+      if(button.dataset.kgBoard){state.board=button.dataset.kgBoard;render();}
+      else if(button.id==='kgReload')load(true);
+      root.querySelectorAll('[data-kg-board]').forEach(function(tab){tab.classList.toggle('active',tab.dataset.kgBoard===state.board);});
+    });
+    var search=get('kgSearch');
+    if(search)search.oninput=function(){state.query=search.value.trim();render();};
+    var module=get('kgModule');
+    if(module)module.onchange=function(){state.module=module.value;render();};
+  }
+  window.KanbanGlobal={open:function(){state.opened=true;render();load(false);},reset:function(){state.epoch++;state.rows=[];state.token='';state.loadedAt=0;state.busy=false;render();}};
+  document.addEventListener('utp-project-change',function(){state.epoch++;state.rows=[];state.loadedAt=0;render();if(state.opened)load(true);});
+  bind();
+  render();
+})();
+</script>

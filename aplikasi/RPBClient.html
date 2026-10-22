@@ -257,6 +257,21 @@ function saveRpbDraft_() {
 function updateRpbTotal_() {
   const total = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).reduce((sum, row) => sum + (Number(row.querySelector('[data-rpb-field="quantity"]').value) || 0) * (Number(row.querySelector('[data-rpb-field="unitPrice"]').value) || 0), 0);
   $('rpbTotal').textContent = `Perkiraan total: Rp ${total.toLocaleString('id-ID')}`;
+  refreshRpbSummary_(total);
+}
+
+function refreshRpbSummary_(total) {
+  const rows = Array.from(document.querySelectorAll('#rpbItemsTable tbody tr')).filter((row) => row.querySelector('[data-rpb-field="itemId"]') && row.querySelector('[data-rpb-field="itemId"]').value);
+  if (total == null) total = rows.reduce((sum, row) => sum + (Number(row.querySelector('[data-rpb-field="quantity"]').value) || 0) * (Number(row.querySelector('[data-rpb-field="unitPrice"]').value) || 0), 0);
+  const items = $('rpbSummaryItems'), sum = $('rpbSummaryTotal'), history = $('rpbSummaryHistory'), status = $('rpbSummaryStatus'), period = $('rpbSummaryPeriod'), empty = $('rpbItemsEmpty'), scope = $('rpbScopeLabel');
+  const project = window.ProjectWorkspace ? window.ProjectWorkspace.getActive() : null;
+  if (scope) scope.textContent = project ? project.name + ' · ' + (project.code || 'kode belum diisi') : 'Semua proyek · pilih satu proyek untuk membuat RPB';
+  if (items) items.textContent = rows.length;
+  if (sum) sum.textContent = 'Rp ' + Number(total || 0).toLocaleString('id-ID');
+  if (history) history.textContent = rpbScopeHistory_().length;
+  if (status) status.textContent = rpbSubmitting_ ? 'Mengirim' : rpbDirty_ ? 'Belum disimpan' : 'Siap';
+  if (period) period.textContent = $('rpbLpdMonth').value ? 'Bulan LPD: ' + $('rpbLpdMonth').value : 'Tanpa periode';
+  if (empty) empty.hidden = rows.length > 0;
 }
 
 function submitRpb_() {
@@ -399,6 +414,7 @@ function setRpbItemActive_(id, active) {
 }
 
 function renderRpbHistory_() {
+  refreshRpbSummary_();
   const root = $('rpbHistoryList'); root.innerHTML = '';
   const records=rpbScopeHistory_();
   if (!records.length) { root.textContent = 'Belum ada riwayat RPB pada lingkup proyek yang dipilih.'; return; }
@@ -408,7 +424,7 @@ function renderRpbHistory_() {
     const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${record.requestDate} · ${record.status} · ${record.data.items ? record.data.items.length : 0} barang`; card.appendChild(meta);
     const actions = document.createElement('div'); actions.className = 'actions';
     [['excelUrl','Excel'],['pdfUrl','PDF'],['spreadsheetUrl','Google Sheets'],['folderUrl','Folder Arsip']].forEach(([key,label]) => { if (!record[key]) return; const a=document.createElement('a');a.className='btn';a.href=record[key];a.target='_blank';a.rel='noopener';a.textContent=label;actions.appendChild(a); });
-    const revise = document.createElement('button'); revise.type='button'; revise.className='btn primary'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
+    const revise = document.createElement('button'); revise.type='button'; revise.className='btn'; revise.textContent='Buat Revisi'; revise.dataset.rpbRevise=record.id; actions.appendChild(revise);
     const copy = document.createElement('button'); copy.type='button'; copy.className='btn'; copy.textContent='Salin sebagai Draf'; copy.dataset.rpbCopy=record.id; actions.appendChild(copy);
     const remove = document.createElement('button'); remove.type='button'; remove.className='btn red'; remove.textContent='Hapus dari daftar aktif'; remove.dataset.rpbHistoryDelete=record.id; remove.disabled=rpbDeletionInProgress_; actions.appendChild(remove);
     card.appendChild(actions);

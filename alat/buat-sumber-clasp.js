@@ -23,6 +23,8 @@ const sourceFiles = [
   ["aplikasi/Index.html", "Index.html"],
   ["aplikasi/HomeView.html", "HomeView.html"],
   ["aplikasi/HoHomeView.html", "HoHomeView.html"],
+  ["aplikasi/KanbanView.html", "KanbanView.html"],
+  ["aplikasi/NotifikasiView.html", "NotifikasiView.html"],
   ["aplikasi/DocumentCenter.html", "DocumentCenter.html"],
   ["aplikasi/DocumentCenterClient.html", "DocumentCenterClient.html"],
   ["aplikasi/ProjectTools.html", "ProjectTools.html"],

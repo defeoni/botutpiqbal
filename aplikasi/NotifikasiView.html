@@ -1,0 +1,31 @@
+<section id="blank-NOTIFIKASI" class="settings-page" data-main-page="NOTIFIKASI" hidden>
+  <div class="page-intro"><p class="home-eyebrow">PENGINGAT &amp; PEMBERITAHUAN</p><h2>Notifikasi</h2><p>Wadah pengaturan pengingat administrasi. <strong>Belum diaktifkan</strong>; tidak ada pesan yang dikirim dan tidak ada jadwal yang berjalan.</p></div>
+  <div class="notice" role="status">Belum diaktifkan. Halaman ini hanya menyiapkan tempat konfigurasi, jadwal, penerima, dan riwayat. Pengiriman otomatis belum tersedia.</div>
+  <div class="card"><h2>Konfigurasi</h2>
+    <p class="muted">Tempat pengaturan kanal dan isi pesan pengingat.</p>
+    <div class="grid">
+      <div class="field"><label for="notifChannel">Kanal</label><select id="notifChannel" disabled><option>Belum diaktifkan</option></select></div>
+      <div class="field"><label for="notifScope">Lingkup pengingat</label><select id="notifScope" disabled><option>Belum diaktifkan</option></select></div>
+    </div>
+    <p id="notifConfigStatus" class="muted" role="status">Belum ada konfigurasi tersimpan.</p>
+  </div>
+  <div class="card"><h2>Jadwal</h2>
+    <p class="muted">Rencana jadwal pengingat hari kerja. Jadwal ini belum berjalan.</p>
+    <div class="grid">
+      <div class="field"><label for="notifTimeMorning">Pagi</label><input id="notifTimeMorning" type="time" value="09:00" disabled></div>
+      <div class="field"><label for="notifTimeNoon">Siang</label><input id="notifTimeNoon" type="time" value="14:00" disabled></div>
+      <div class="field"><label for="notifTimeAfternoon">Sore</label><input id="notifTimeAfternoon" type="time" value="16:00" disabled></div>
+    </div>
+    <p id="notifScheduleStatus" class="muted" role="status">Belum diaktifkan — tidak ada trigger yang terpasang.</p>
+  </div>
+  <div class="card"><h2>Penerima</h2>
+    <p class="muted">Tempat daftar penerima pengingat administrasi.</p>
+    <div class="tablewrap"><table><thead><tr><th>Penerima</th><th>Peran</th><th>Status</th></tr></thead><tbody id="notifRecipientRows"><tr><td colspan="3">Belum ada penerima terdaftar.</td></tr></tbody></table></div>
+    <p id="notifRecipientStatus" class="muted" role="status">Belum diaktifkan.</p>
+  </div>
+  <div class="card"><h2>Riwayat</h2>
+    <p class="muted">Tempat catatan pengiriman pengingat setelah fitur diaktifkan.</p>
+    <div id="notifHistoryList" class="tablewrap"><p class="muted">Belum ada riwayat pengiriman.</p></div>
+    <p id="notifHistoryStatus" class="muted" role="status">Belum diaktifkan.</p>
+  </div>
+</section>

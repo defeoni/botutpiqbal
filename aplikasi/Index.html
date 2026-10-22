@@ -33,6 +33,7 @@
       <section class="sidebar-menu-group" data-workspace-scope="shared" aria-label="Operasional bersama">
         <h2>OPERASIONAL BERSAMA</h2>
         <button class="tab main-nav-button" type="button" data-main="DOCUMENTS" data-icon="file">Pusat Dokumen</button>
+        <button class="tab main-nav-button" type="button" data-main="KANBAN" data-icon="board">Kanban Global</button>
         <button class="tab" type="button" data-project-tool="Tugas" data-icon="task">Tugas</button>
         <button class="tab" type="button" data-project-tool="Nota/Keuangan" data-icon="wallet">Nota &amp; Keuangan</button>
         <button class="tab" type="button" data-project-tool="Arsip Proyek" data-icon="folder">Arsip Proyek</button>
@@ -59,6 +60,7 @@
         <button type="button" class="tab main-nav-button" data-main="RPB" data-icon="chart">Pengeluaran Bulanan</button>
         <button type="button" class="tab main-nav-button" data-main="RPD" data-icon="wallet">Pengajuan Dana</button>
         <button type="button" class="tab main-nav-button" data-main="MANPOWER" data-icon="users">Data Manpower</button>
+        <button type="button" class="tab main-nav-button" data-main="NOTIFIKASI" data-icon="clock">Notifikasi</button>
         <div class="nav-divider"></div><button type="button" class="tab main-nav-button" data-main="SETTINGS" data-icon="settings">Pengaturan HO</button>
       </section>
     </nav>
@@ -80,9 +82,18 @@
 
   <?!= include('HomeView'); ?>
   <?!= include('HoHomeView'); ?>
+  <?!= include('KanbanView'); ?>
+  <?!= include('NotifikasiView'); ?>
   <?!= include('DocumentCenter'); ?>
   <?!= include('ProjectTools'); ?>
   <?!= include('UtpView'); ?>
+
+  <section id="memoPageHeader" class="home-card memo-area" aria-labelledby="memoPageTitle">
+    <div class="home-section-heading"><div><p class="home-eyebrow">HEAD OFFICE · DOKUMEN</p><h2 id="memoPageTitle">Memo Internal</h2><p>Penambahan, penggantian, dan surplus manpower. Nomor baru dipakai setelah arsip berhasil dibuat.</p></div><span id="memoScopeLabel" class="subtle-tag">Proyek aktif</span></div>
+    <div class="actions"><span id="memoRecentStatus" class="muted" role="status">Riwayat memo belum dimuat.</span></div>
+    <div id="memoRecentList" class="people-preview"></div>
+    <p id="memoRecentEmpty" class="muted">Belum ada memo tersimpan. Buat memo pertama dari formulir di bawah.</p>
+  </section>
 
   <section class="panel memo-area">
     <h2>Jenis Memo dan Proyek</h2>
@@ -129,6 +140,12 @@
   <section id="section-DIRECTORY" class="blank-page manpower-page" data-main-page="MANPOWER" hidden>
     <div class="card"><h2>Data Manpower</h2>
       <p class="muted">Direktori disimpan di Google Sheets terpisah dari arsip memo. Status terbaru ditentukan dari memo masuk, penggantian, atau surplus.</p>
+      <div class="home-summary-grid workspace-metrics" aria-label="Ringkasan manpower">
+        <article class="home-summary-card"><div class="metric-caption"><h3>Total personel</h3><span class="metric-icon blue" data-icon="users"></span></div><span id="manpowerTotalCount" class="home-summary-number">—</span><p>Baris direktori</p></article>
+        <article class="home-summary-card"><div class="metric-caption"><h3>Masih bekerja</h3><span class="metric-icon teal" data-icon="check"></span></div><span id="manpowerActiveCount" class="home-summary-number">—</span><p>Status aktif</p></article>
+        <article class="home-summary-card"><div class="metric-caption"><h3>Proyek tercatat</h3><span class="metric-icon violet" data-icon="building"></span></div><span id="manpowerProjectCount" class="home-summary-number">—</span><p>Dari kolom proyek</p></article>
+        <article class="home-summary-card"><div class="metric-caption"><h3>Hasil filter</h3><span class="metric-icon amber" data-icon="search"></span></div><span id="manpowerFilterCount" class="home-summary-number">—</span><p>Baris yang ditampilkan</p></article>
+      </div>
       <div class="roster-filters">
         <div class="field"><label for="rosterSearch">Cari nama / proyek / bidang</label><input id="rosterSearch" type="search" placeholder="Ketik untuk mencari"></div>
         <div class="field"><label for="rosterStatus">Status</label><select id="rosterStatus"><option value="">Semua status</option><option value="AKTIF">Masih bekerja</option><option value="NONAKTIF">Sudah tidak aktif</option></select></div>
@@ -138,9 +155,9 @@
         <div class="field"><label for="rosterStartFrom">Tanggal mulai dari</label><input id="rosterStartFrom" type="date"></div>
         <div class="field"><label for="rosterStartTo">Tanggal mulai sampai</label><input id="rosterStartTo" type="date"></div>
       </div>
-      <div class="actions"><button class="btn primary" type="button" id="btnRefreshManpower">Muat Ulang Data</button></div>
+      <div class="actions"><button class="btn" type="button" id="btnRefreshManpower">Muat Ulang Data</button></div>
       <p id="manpowerStatus" class="muted"></p>
-      <div id="manpowerList" class="tablewrap"></div>
+      <div id="manpowerList" class="tablewrap"><p class="muted">Belum ada data manpower dimuat. Tekan Muat Ulang Data.</p></div>
     </div>
     <div class="card"><h2>Tambah Data Personel Manual</h2>
       <p class="muted">Gunakan untuk mencatat personel yang sudah bekerja sebelum aplikasi ini digunakan.</p>
@@ -162,8 +179,32 @@
   </section>
 
   <section id="projectSettingsPage" class="settings-page" data-main-page="PROJECT_SETTINGS" hidden>
-    <div class="page-intro"><p class="home-eyebrow">PREFERENSI &amp; DATA</p><h2>Pengaturan Proyek</h2><p>Kelola sumber material dan data operasional proyek.</p></div>
+    <div class="page-intro"><p class="home-eyebrow">PREFERENSI &amp; DATA</p><h2>Pengaturan Proyek</h2><p>Identitas, tenggat, akses, dan sumber data operasional proyek.</p></div>
+    <div class="card"><h2>Identitas proyek</h2>
+      <div class="grid">
+        <div class="field"><label>Nama proyek</label><p id="settingsProjectName" data-project-name>Semua proyek</p></div>
+        <div class="field"><label>Kode proyek</label><p id="settingsProjectCode" data-project-code>Rekap lintas proyek</p></div>
+        <div class="field"><label>Project Manager</label><p id="settingsProjectPm" data-project-pm>Pilih proyek untuk melihat identitas</p></div>
+        <div class="field"><label>Lokasi</label><p id="settingsProjectLocation">Belum diisi</p></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="button" data-project-edit>Ubah identitas proyek</button><button class="btn" type="button" data-project-add>＋ Tambah proyek</button></div>
+      <p id="settingsProjectStatus" class="muted" role="status"></p>
+    </div>
+    <div class="card"><h2>Tenggat proyek</h2>
+      <div class="grid">
+        <div class="field"><label>Mulai proyek</label><p id="settingsProjectStart">Belum diisi</p></div>
+        <div class="field"><label>Selesai proyek</label><p id="settingsProjectEnd">Belum diisi</p></div>
+      </div>
+      <p class="muted">Tenggat pengajuan RPB dan LPD dihitung pada halaman masing-masing. Halaman ini hanya menampilkan tanggal proyek.</p>
+    </div>
+    <div class="card"><h2>Akses dan otorisasi</h2>
+      <p class="muted">Satu admin mengelola aplikasi. Tindakan krusial (hapus, pengajuan dana, reset data) meminta PIN 6 angka; peran tambahan belum dibangun.</p>
+      <p id="settingsAccessStatus" class="muted" role="status">Sesi aktif memakai kata sandi admin. PIN diminta per tindakan.</p>
+    </div>
     <div class="card"><h2>Ruang kerja Material</h2><p>Simulasi review, revisi, lampiran, dan final terpisah dari data server. Simulasi hanya dalam memori; hilang saat halaman dimuat ulang. File hanya dicatat namanya.</p><button id="materialLocalMode" type="button" class="btn">Buka simulasi material</button><button id="materialServerMode" type="button" class="btn">Kembali ke data server</button></div>
+    <div class="card"><h2>Status simpan</h2>
+      <p id="settingsSaveStatus" class="muted" role="status">Belum ada perubahan disimpan pada halaman ini.</p>
+    </div>
     <div class="card"><h2>Reset Administrasi Proyek di perangkat</h2><p>Hanya draf modul proyek perangkat ini. Arsip Google dan administrasi HO tetap dipertahankan.</p><button id="resetProjectLocal" type="button" class="btn red">Hapus draf proyek perangkat</button><p id="projectResetStatus" role="status"></p></div>
     <div class="card"><h2>Reset data Proyek di server</h2><p class="error">Arsipkan permintaan, persetujuan, tugas, keuangan, arsip proyek, catatan personel lama, dan absensi. Master, file Drive, Memo, RPB, RPD, dan akses login dipertahankan. Data tetap disimpan sebagai arsip audit.</p><label>Ketik RESET PROYEK<input id="projectResetConfirmation" autocomplete="off"></label><button id="resetProjectServer" class="btn red" type="button">Reset data Proyek dengan PIN</button></div>
   </section>

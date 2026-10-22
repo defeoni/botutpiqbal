@@ -10,6 +10,8 @@ PARTIALS = {
     "DocumentCenterClient": PROJECT_ROOT / "aplikasi" / "DocumentCenterClient.html",
     "PeopleProfilesClient": PROJECT_ROOT / "aplikasi" / "PeopleProfiles.html",
     "HoHomeView": PROJECT_ROOT / "aplikasi" / "HoHomeView.html",
+    "KanbanView": PROJECT_ROOT / "aplikasi" / "KanbanView.html",
+    "NotifikasiView": PROJECT_ROOT / "aplikasi" / "NotifikasiView.html",
     "DocumentCenter": PROJECT_ROOT / "aplikasi" / "DocumentCenter.html",
     "ProjectTools": PROJECT_ROOT / "aplikasi" / "ProjectTools.html",
     "WorkspaceClient": PROJECT_ROOT / "aplikasi" / "WorkspaceClient.html",
@@ -25,6 +27,9 @@ PARTIALS = {
     "RPBView": PROJECT_ROOT / "aplikasi" / "RPBView.html",
     "RPBClient": PROJECT_ROOT / "aplikasi" / "RPBClient.html",
     "RPD": PROJECT_ROOT / "aplikasi" / "RPD.html",
+    "LPDStyles": PROJECT_ROOT / "aplikasi" / "LPDStyles.html",
+    "LPDView": PROJECT_ROOT / "aplikasi" / "LPDView.html",
+    "LPDClient": PROJECT_ROOT / "aplikasi" / "LPDClient.html",
 }
 
 

@@ -1,12 +1,38 @@
 <section id="blank-HO" class="home-page" aria-labelledby="hoHomeTitle" hidden>
   <header class="workspace-hero ho-hero"><div><p class="home-eyebrow">HEAD OFFICE</p><h2 id="hoHomeTitle">Satu ruang untuk<br>dokumen dan tim Anda.</h2><p>Pantau Memo, pengajuan dana, dan data Manpower.</p><div class="actions"><button type="button" class="btn primary main-nav-button" data-main="MEMO">Buat Memo Internal ↗</button><button type="button" class="btn main-nav-button" data-main="RPD">Buka pengajuan dana</button></div></div><div class="hero-context"><span class="hero-context-label">ADMINISTRASI TERPUSAT</span><span class="hero-context-icon" data-icon="building"></span><strong id="hoCurrentDate"></strong><span>Dokumen · Pengajuan · Manpower</span></div></header>
-  <div class="home-summary-grid workspace-metrics">
+
+  <section class="home-card" aria-labelledby="hoFundTitle">
+    <div class="home-section-heading"><div><p class="home-eyebrow">POSISI DANA</p><h2 id="hoFundTitle">Ringkasan dana LPD</h2><p>Nilai dihitung server dari LPD tersimpan. Mengubah filter tidak mengubah data.</p></div></div>
+    <div class="actions" aria-label="Filter periode dana">
+      <div class="field"><label for="hoFundProject">Proyek</label><select id="hoFundProject" data-project-select></select></div>
+      <div class="field"><label for="hoFundMonth">Bulan</label><input id="hoFundMonth" type="month"></div>
+      <div class="field"><label for="hoFundPeriod">Periode</label><select id="hoFundPeriod"><option value="">Semua periode</option><option value="M1-M2">M1-M2</option><option value="M3-M4">M3-M4</option></select></div>
+      <button type="button" class="btn" id="hoFundApply">Tampilkan</button>
+    </div>
+    <div class="home-summary-grid workspace-metrics" aria-label="Lima metrik dana">
+      <article class="home-summary-card"><div class="metric-caption"><h3>Dana Cair</h3><span class="metric-icon teal" data-icon="wallet"></span></div><span id="hoFundAvailable" class="home-summary-number">—</span><p>Dana tersedia pada LPD</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Dana Terpakai</h3><span class="metric-icon blue" data-icon="chart"></span></div><span id="hoFundUsed" class="home-summary-number">—</span><p>Realisasi nota tercatat</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Menunggu Pengembalian</h3><span class="metric-icon amber" data-icon="clock"></span></div><span id="hoFundReturn" class="home-summary-number">—</span><p>Saldo yang harus dikembalikan</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Kewajiban Perusahaan</h3><span class="metric-icon violet" data-icon="file"></span></div><span id="hoFundObligation" class="home-summary-number">—</span><p>Kekurangan yang ditanggung perusahaan</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>RPD Disetujui Belum Cair</h3><span class="metric-icon amber" data-icon="calendar"></span></div><span id="hoFundPending" class="home-summary-number">—</span><p>Nominal RPD belum dicairkan</p></article>
+    </div>
+    <p id="hoFundStatus" class="muted" role="status">Ringkasan dana belum dimuat.</p>
+  </section>
+
+  <div class="home-summary-grid workspace-metrics" aria-label="Ringkasan dokumen HO">
     <article class="home-summary-card"><div class="metric-caption"><h3>Memo Internal</h3><span class="metric-icon blue" data-icon="file"></span></div><span id="hoMemoCount" class="home-summary-number">—</span><p id="hoMemoSummary">Memuat riwayat</p></article>
     <article class="home-summary-card"><div class="metric-caption"><h3>Pengeluaran bulanan</h3><span class="metric-icon violet" data-icon="chart"></span></div><span id="hoRpbCount" class="home-summary-number">—</span><p id="hoRpbSummary">Memuat RPB</p></article>
     <article class="home-summary-card"><div class="metric-caption"><h3>Pengajuan dana</h3><span class="metric-icon amber" data-icon="wallet"></span></div><span id="hoRpdCount" class="home-summary-number">—</span><p>RPD tersimpan di server</p></article>
     <article class="home-summary-card"><div class="metric-caption"><h3>Manpower aktif</h3><span class="metric-icon teal" data-icon="users"></span></div><span id="hoManpowerCount" class="home-summary-number">—</span><p id="hoManpowerSummary">Direktori belum dimuat</p></article>
   </div>
+
+  <section class="home-card" aria-labelledby="hoAttentionTitle"><div class="home-section-heading"><div><p class="home-eyebrow">PERHATIAN</p><h2 id="hoAttentionTitle">Perlu ditindaklanjuti</h2><p>LPD terlambat, saldo yang belum kembali, dan kewajiban terbuka.</p></div></div><div id="hoAttentionList" class="people-preview"></div><p id="hoAttentionEmpty" class="muted">Belum ada hal yang perlu ditindaklanjuti.</p></section>
+
   <section class="home-card home-board-panel"><div class="home-section-heading"><div><p class="home-eyebrow">DOCUMENT WORKFLOW</p><h2>Papan administrasi HO</h2><p class="muted">Status mengikuti proses masing-masing dokumen.</p></div><span class="subtle-tag">Memo · RPB · RPD</span></div><div id="hoHomeBoard" class="overview-board ho-overview-board" aria-label="Kanban beranda HO"></div></section>
+
   <div class="home-support-grid"><section class="home-card chart-card"><div class="home-section-heading"><div><p class="home-eyebrow">DISTRIBUSI</p><h2>Dokumen HO</h2></div></div><div id="hoDocumentChart" class="chart-content" aria-live="polite">Memuat grafik…</div></section><section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">PEOPLE DIRECTORY</p><h2>Data Manpower</h2></div><button class="btn main-nav-button" type="button" data-main="MANPOWER">Lihat semua ↗</button></div><p id="hoPeopleSummary" class="muted">Memuat direktori…</p><div id="hoPeopleList" class="people-preview"></div></section></div>
+
+  <section class="home-card" aria-labelledby="hoProjectsTitle"><div class="home-section-heading"><div><p class="home-eyebrow">PROYEK</p><h2 id="hoProjectsTitle">Daftar proyek</h2><p class="muted">Ringkasan proyek yang terdaftar pada ruang kerja.</p></div></div><div id="hoProjectList" class="people-preview"></div><p id="hoProjectEmpty" class="muted" hidden>Belum ada proyek terdaftar.</p></section>
+
   <section class="home-card"><div class="home-section-heading"><div><p class="home-eyebrow">AKTIVITAS</p><h2>Terbaru dari Head Office</h2></div></div><p id="hoRecent" role="status">Riwayat belum dimuat.</p></section>
 </section>

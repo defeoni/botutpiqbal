@@ -286,18 +286,18 @@ function formatUiDate_(value) {
 
 function switchMainPage(page, rpbRecordId) {
   const materialPages = ['CATALOG', 'APPROVALS', 'REQUESTS', 'ARRIVAL'];
-  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'LPD', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
-  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'LPD', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
+  if (!['HOME', 'HO', 'MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'SETTINGS', 'PROJECT_SETTINGS', 'MANPOWER', 'DOCUMENTS', 'TOOLS', ...materialPages].includes(page)) page = 'HOME';
+  if (!accessToken && ['MEMO', 'RPD', 'RPB', 'LPD', 'KANBAN', 'NOTIFIKASI', 'MANPOWER', 'SETTINGS', 'PROJECT_SETTINGS', ...materialPages].includes(page)) {
     resumeMainPage = page;
     showLoginPanel_('Masuk data server untuk membuka formulir dan menyimpan dokumen.');
     return;
   }
   currentMainPage = page;
-  if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','SETTINGS'].includes(page)?'ho':'project');
+  if(window.setWorkspaceScope)window.setWorkspaceScope(['HO','MEMO','RPB','RPD','MANPOWER','NOTIFIKASI','SETTINGS'].includes(page)?'ho':'project');
   if(page==='DOCUMENTS'&&$('workspaceLabel'))$('workspaceLabel').textContent='Operasional Bersama';
   if($('dashboardToolbar'))$('dashboardToolbar').hidden=!['HOME','HO'].includes(page);
   document.querySelectorAll('[data-project-tool]').forEach(button => button.classList.remove('active'));
-  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',LPD:'Laporan Penggunaan Dana',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
+  const titles = {HOME:'Beranda Proyek',HO:'Beranda Head Office',CATALOG:'Katalog Material',APPROVALS:'Persetujuan Material',REQUESTS:'Permintaan & Review',ARRIVAL:'Barang Datang',MEMO:'Administrasi Memo',RPB:'Rencana Pengeluaran Bulanan',RPD:'Rencana Pengeluaran Dana',LPD:'Laporan Penggunaan Dana',KANBAN:'Kanban Global',NOTIFIKASI:'Notifikasi',SETTINGS:'Pengaturan HO',PROJECT_SETTINGS:'Pengaturan Proyek',MANPOWER:'Data Manpower',DOCUMENTS:'Pusat Dokumen'};
   const heading = document.querySelector('.app-main > .header h1');
   if (heading) heading.textContent = titles[page] || 'Administrasi Proyek';
   document.title=(titles[page]||'Operasional Proyek')+' · UTP Workspace';
@@ -311,6 +311,7 @@ function switchMainPage(page, rpbRecordId) {
   });
   if (page === 'HOME' || page === 'HO') setHomeCurrentDate_();
   if (page === 'HO' && window.refreshHoSummary) window.refreshHoSummary();
+  if (page === 'HO' && window.loadHoFunds) window.loadHoFunds();
   if (page === 'HOME' && window.refreshProjectSummary) window.refreshProjectSummary();
   if (['HOME','HO'].includes(page) && window.loadWorkspaceDashboard) window.loadWorkspaceDashboard();
   if (page === 'RPD' && window.RpdWorkspace) window.RpdWorkspace.load();
@@ -319,6 +320,7 @@ function switchMainPage(page, rpbRecordId) {
   if (page === 'MEMO') switchType(['PN','PG','SP'].includes(currentType)?currentType:INITIAL_TYPE);
   if (page === 'RPB' && accessToken) loadRpbData_(rpbRecordId);
   if (page === 'DOCUMENTS' && window.DocumentCenter) window.DocumentCenter.open();
+  if (page === 'KANBAN' && window.KanbanGlobal) window.KanbanGlobal.open();
   if ($('utpApp')) $('utpApp').hidden = !materialPages.includes(page);
   if (materialPages.includes(page) && window.UTPFrontend) window.UTPFrontend.open(page);
   if (window.matchMedia('(max-width: 900px)').matches) $('mainMenu').open = false;
@@ -553,7 +555,7 @@ window.createBlankMemo_=function(type){
 
 document.addEventListener('input',event=>{if(event.target.closest('.memo-area'))memoDirty_=true;});
 document.addEventListener('change',event=>{if(event.target.closest('.memo-area'))memoDirty_=true;});
-document.addEventListener('utp-project-change',()=>{const project=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();pendingPayload=null;['tablePN','tablePG','tableSP'].forEach(id=>{const table=$(id);if(table&&table.tBodies[0])table.tBodies[0].replaceChildren();});$('projectName').value=project?project.name:'';$('projectCode').value=project?project.code:'';$('waRecipient').value=project&&project.pm?project.pm:'';memoDirty_=false;window.UTP_PENDING_DOCUMENT_ID='';if($('formError'))$('formError').textContent=project?'Proyek memo diganti ke '+project.name+'.':'Pilih satu proyek sebelum membuat memo.';});
+document.addEventListener('utp-project-change',()=>{const project=window.ProjectWorkspace&&window.ProjectWorkspace.getActive();pendingPayload=null;['tablePN','tablePG','tableSP'].forEach(id=>{const table=$(id);if(table&&table.tBodies[0])table.tBodies[0].replaceChildren();});$('projectName').value=project?project.name:'';$('projectCode').value=project?project.code:'';$('waRecipient').value=project&&project.pm?project.pm:'';memoDirty_=false;window.UTP_PENDING_DOCUMENT_ID='';if($('formError'))$('formError').textContent=project?'Proyek memo diganti ke '+project.name+'.':'Pilih satu proyek sebelum membuat memo.';renderMemoRecent_();});
 window.MemoWorkspace={isBusy:()=>uploadsInProgress>0||!!pendingPayload,isDirty:()=>memoDirty_,reset(){pendingPayload=null;memoDirty_=false;}};
 
 $('btnSubmit').addEventListener('click', () => {
@@ -798,6 +800,11 @@ function renderManpower() {
       left.name.localeCompare(right.name, 'id');
   });
 
+  const summary = (id, value) => { const target = $(id); if (target) target.textContent = value; };
+  summary('manpowerTotalCount', manpowerRecords.length);
+  summary('manpowerActiveCount', manpowerRecords.filter((record) => record.status === 'AKTIF').length);
+  summary('manpowerProjectCount', new Set(manpowerRecords.map((record) => record.project).filter(Boolean)).size);
+  summary('manpowerFilterCount', records.length);
   const container = $('manpowerList');
   container.replaceChildren();
   $('manpowerStatus').textContent = `${records.length} dari ${manpowerRecords.length} personel. ${manpowerRecords.filter((record) => record.status === 'AKTIF').length} masih bekerja.`;
@@ -888,7 +895,30 @@ $('btnSaveManpower').addEventListener('click', () => {
   });
 });
 
+function renderMemoRecent_() {
+  const list = $('memoRecentList'), empty = $('memoRecentEmpty'), status = $('memoRecentStatus'), scope = $('memoScopeLabel');
+  if (!list) return;
+  const active = window.ProjectWorkspace ? window.ProjectWorkspace.getActiveId() : 'all';
+  const project = window.ProjectWorkspace ? window.ProjectWorkspace.getActive() : null;
+  if (scope) scope.textContent = project ? project.name : 'Semua proyek';
+  list.replaceChildren();
+  const rows = memoHistoryRecords.filter((record) => active === 'all' || (record.projectId || 'legacy') === active).slice(0, 5);
+  rows.forEach((record) => {
+    const row = document.createElement('div'); row.className = 'person-row';
+    const text = document.createElement('div'), title = document.createElement('strong'), detail = document.createElement('small');
+    title.textContent = record.number || 'Memo';
+    detail.textContent = [TYPE_LABEL[record.type] || record.type, record.project, formatUiDate_(record.documentDate)].filter(Boolean).join(' · ');
+    text.append(title, detail); row.appendChild(text);
+    const url = record.pdfUrl || record.sheetUrl || record.folderUrl || '';
+    if (url) { const link = document.createElement('a'); link.className = 'btn'; link.href = url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Buka memo'; row.appendChild(link); }
+    list.appendChild(row);
+  });
+  if (empty) empty.hidden = rows.length > 0;
+  if (status) status.textContent = rows.length ? `${rows.length} memo terbaru pada lingkup ini. Daftar lengkap ada di Beranda HO.` : 'Belum ada memo tersimpan pada lingkup ini.';
+}
+
 function renderHistory() {
+  renderMemoRecent_();
   const container = $('historyList');
   container.replaceChildren();
   const query = $('historySearch').value.trim().toLocaleLowerCase('id');

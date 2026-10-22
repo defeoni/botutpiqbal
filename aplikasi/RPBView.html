@@ -1,6 +1,15 @@
   <section id="blank-RPB" class="rpb-page" hidden>
+    <header class="lpd-head">
+      <div><p class="lpd-kicker">Head Office · Pengeluaran</p><h2>Rencana Pengeluaran Bulanan (RPB)</h2><p id="rpbScopeLabel">Pilih satu proyek pada ruang kerja untuk memuat RPB.</p></div>
+      <div class="lpd-actions"><a id="rpbMasterLink" class="btn" target="_blank" rel="noopener" hidden>Buka Master di Google Sheets</a></div>
+    </header>
+    <div class="home-summary-grid workspace-metrics" aria-label="Ringkasan RPB">
+      <article class="home-summary-card"><div class="metric-caption"><h3>Barang di formulir</h3><span class="metric-icon blue" data-icon="box"></span></div><span id="rpbSummaryItems" class="home-summary-number">0</span><p>Baris yang disiapkan</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Perkiraan total</h3><span class="metric-icon teal" data-icon="wallet"></span></div><span id="rpbSummaryTotal" class="home-summary-number">Rp 0</span><p id="rpbSummaryPeriod">Tanpa periode</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Riwayat RPB</h3><span class="metric-icon violet" data-icon="file"></span></div><span id="rpbSummaryHistory" class="home-summary-number">0</span><p>Dokumen pada lingkup ini</p></article>
+      <article class="home-summary-card"><div class="metric-caption"><h3>Status formulir</h3><span class="metric-icon amber" data-icon="clock"></span></div><span id="rpbSummaryStatus" class="home-summary-number">Draf</span><p>Belum diajukan</p></article>
+    </div>
     <div class="card">
-      <div class="actions" style="justify-content:space-between;align-items:center"><h2>Rencana Pengeluaran Bulanan (RPB)</h2><a id="rpbMasterLink" class="btn" target="_blank" rel="noopener" hidden>Buka Master di Google Sheets</a></div>
       <p class="muted">Pilih barang dari master. File Excel, PDF, dan draf WhatsApp dibuat setelah pengajuan dikonfirmasi. Data master tetap dapat Anda edit langsung di Google Sheets.</p>
       <div class="grid">
         <div class="field"><label for="rpbRequestDate">Tanggal pengajuan</label><input id="rpbRequestDate" type="date"></div>
@@ -9,6 +18,7 @@
       </div>
       <div class="actions"><button class="btn" type="button" id="rpbAddLine">+ Tambah Barang</button><button class="btn" type="button" id="rpbSaveDraft">Simpan Draf</button><span id="rpbDraftStatus" class="muted" role="status"></span></div>
       <div class="tablewrap"><table id="rpbItemsTable"><thead><tr><th>Kategori</th><th>Barang</th><th>Jumlah</th><th>Satuan</th><th>Harga acuan (Rp)</th><th>Periode</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+      <p id="rpbItemsEmpty" class="muted" hidden>Belum ada barang pada formulir RPB. Gunakan Tambah Barang untuk memilih dari master.</p>
       <p id="rpbFormError" class="error" role="alert"></p>
       <label class="output-choice" for="rpbLpdConfirmed"><input id="rpbLpdConfirmed" type="checkbox"> <span>Saya memastikan LPD bulan sebelumnya sudah diterima oleh Project HO</span></label>
       <div class="actions"><button class="btn primary" type="button" id="rpbSubmit">Buat RPB / Kirim Pengajuan</button><span id="rpbTotal" class="muted"></span></div>
@@ -21,7 +31,7 @@
         <div class="field"><label for="rpbMasterActiveFilter">Status barang</label><select id="rpbMasterActiveFilter"><option value="">Semua status</option><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></div>
       </div>
       <p id="rpbMasterSummary" class="muted" role="status"></p>
-      <div class="grid"><div class="field"><label for="rpbNewCategory">Kategori</label><select id="rpbNewCategory"></select></div><div class="field"><label for="rpbNewName">Nama barang</label><input id="rpbNewName"></div><div class="field"><label for="rpbNewUnit">Satuan</label><input id="rpbNewUnit" placeholder="contoh: pcs, box, bulan"></div><div class="field"><label for="rpbNewPrice">Harga acuan awal (boleh kosong)</label><input id="rpbNewPrice" type="number" min="0"></div><div class="field"><label for="rpbNewNote">Keterangan</label><input id="rpbNewNote"></div></div><button type="button" class="btn primary" id="rpbAddMaster">Tambah ke Master</button><p id="rpbMasterStatus" class="muted" role="status"></p><div id="rpbMasterList" class="tablewrap"></div>
+      <div class="grid"><div class="field"><label for="rpbNewCategory">Kategori</label><select id="rpbNewCategory"></select></div><div class="field"><label for="rpbNewName">Nama barang</label><input id="rpbNewName"></div><div class="field"><label for="rpbNewUnit">Satuan</label><input id="rpbNewUnit" placeholder="contoh: pcs, box, bulan"></div><div class="field"><label for="rpbNewPrice">Harga acuan awal (boleh kosong)</label><input id="rpbNewPrice" type="number" min="0"></div><div class="field"><label for="rpbNewNote">Keterangan</label><input id="rpbNewNote"></div></div><button type="button" class="btn" id="rpbAddMaster">Tambah ke Master</button><p id="rpbMasterStatus" class="muted" role="status"></p><div id="rpbMasterList" class="tablewrap"></div>
       <div class="actions" aria-label="Navigasi halaman master">
         <button class="btn" type="button" id="rpbMasterFirst" data-rpb-master-page="first">Pertama</button>
         <button class="btn" type="button" id="rpbMasterPrevious" data-rpb-master-page="previous">Sebelumnya</button>
