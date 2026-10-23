@@ -8,7 +8,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 function fixture(enabled = true) {
   const nodes = new Map(), controls = [{ disabled: false }, { disabled: false }], calls = [];
   const get = id => {
-    if (!nodes.has(id)) nodes.set(id, { hidden: false, open: false, innerHTML: '', textContent: '', classList: { toggle() {} }, querySelectorAll: () => controls, showModal() { this.open = true; }, close() { this.open = false; }, scrollIntoView() {} });
+    if (!nodes.has(id)) nodes.set(id, { hidden: false, open: false, innerHTML: '', textContent: '', classList: { toggle() {} }, setAttribute() {}, querySelector() { return null; }, querySelectorAll: () => controls, insertAdjacentHTML() {}, showModal() { this.open = true; }, close() { this.open = false; }, scrollIntoView() {} });
     return nodes.get(id);
   };
   const context = { window: { utpRpc(action, payload) { return new Promise((resolve, reject) => calls.push({ action, payload, resolve, reject })); } }, document: { readyState: 'loading', addEventListener() {}, getElementById: get }, Intl, Date, setTimeout() {}, clearTimeout() {} };
