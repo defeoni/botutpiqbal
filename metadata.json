@@ -1,0 +1,8 @@
+{
+  "name": "UTP Project Memory",
+  "description": "Pusat memori dokumen dan pengendalian pekerjaan proyek PT UTP. Menyimpan berkas asli, membaca dan memetakan isi berkas, mengelola kartu kerja, tenggat, dan riwayat tindak lanjut.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

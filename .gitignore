@@ -9,4 +9,4 @@ node_modules/
 !*.example
 __pycache__/
 *.pyc
-.venv/
+dist/
