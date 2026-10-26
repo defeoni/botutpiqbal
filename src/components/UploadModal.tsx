@@ -32,7 +32,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onDocumentCreated,
 }) => {
   const [targetProject, setTargetProject] = useState<ProjectId>(
-    selectedProjectId === 'ALL' ? 'PRJ-BDG' : selectedProjectId
+    selectedProjectId
   );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -44,9 +44,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   if (!isOpen) return null;
 
   const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+    if (isProcessing || !files || files.length === 0) return;
     const newFiles = Array.from(files);
     setSelectedFiles(prev => [...prev, ...newFiles]);
+    setParsedResults([]);
     setErrorMsg(null);
   };
 
@@ -58,20 +59,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const handleProcessFiles = async () => {
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0 || targetProject === 'ALL') return;
 
     setIsProcessing(true);
     setErrorMsg(null);
     setParsedResults([]);
 
     try {
-      // Step 1: Ingesting & Saving original file
-      setProgressStep('1/3 Menyimpan berkas asli ke repositori Google Drive...');
-      await new Promise(r => setTimeout(r, 400));
-
-      // Step 2: Content Parsing & Structured Extraction
-      setProgressStep('2/3 Membaca isi berkas & mengekstrak fakta terstruktur...');
-      await new Promise(r => setTimeout(r, 600));
+      setProgressStep('Memeriksa metadata berkas...');
 
       const results: ParseResult[] = [];
       for (const file of selectedFiles) {
@@ -79,19 +74,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           {
             file,
             overrideProjectId: targetProject,
+            extractedText: file.type === 'text/plain' || /\.txt$/i.test(file.name)
+              ? await file.text() : undefined,
           },
           existingDocs
         );
         results.push(parsed);
       }
 
-      // Step 3: Mapping to Memory
-      setProgressStep('3/3 Menentukan kebutuhan kartu Kanban & tindak lanjut...');
-      await new Promise(r => setTimeout(r, 300));
-
       setParsedResults(results);
     } catch (err: any) {
-      setErrorMsg('Gagal memproses dokumen. Berkas asli tetap aman dan dapat dicoba kembali.');
+      setErrorMsg('Gagal membaca metadata. Belum ada berkas yang diunggah; pilih ulang berkas untuk mencoba kembali.');
     } finally {
       setIsProcessing(false);
     }
@@ -108,14 +101,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         fileSize: file.size,
         fileType: file.type || 'application/octet-stream',
         uploadedAt: new Date().toISOString(),
-        fileRole: parsed.suggestedRelation?.relationType === 'REVISI_DARI' 
-          ? 'REVISI' 
-          : parsed.suggestedRelation?.relationType === 'BALASAN_DARI'
-          ? 'SURAT_BALASAN'
-          : 'ASLI',
-        storageLocation: `Google Drive: /PT UTP/${parsed.projectId}/${parsed.category}/`,
-        driveFileId: `drv_${Date.now()}_${index}`,
-        textSnippet: `Teks dokumen ${file.name} terbaca dan dipetakan ke memori proyek.`
+        fileRole: 'ASLI',
+        storageLocation: 'Metadata lokal saja; berkas asli belum tersimpan',
       };
 
       const newDoc: DocumentRecord = {
@@ -137,19 +124,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         facts: parsed.facts,
         manpowerDetails: parsed.manpowerDetails,
         files: [initialFile],
-        relations: parsed.suggestedRelation ? [{
-          targetDocId: parsed.suggestedRelation.targetDocId,
-          targetDocTitle: parsed.suggestedRelation.targetDocTitle,
-          relationType: parsed.suggestedRelation.relationType,
-          isConfirmed: true
-        }] : [],
+        relations: [],
         activityLog: [
           {
             id: `ACT-${Date.now()}`,
             timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
             actor: 'Admin Proyek',
-            action: 'Unggah & Ekstraksi Berkas Asli',
-            details: `Berkas ${file.name} diproses ke memori proyek.`
+            action: 'Pencatatan Metadata Lokal',
+            details: `Metadata ${file.name} dicatat. Berkas asli belum diunggah atau disimpan.`
           }
         ],
         isArchived: false,
@@ -178,7 +160,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <span>Unggah Berkas ke Memori Proyek</span>
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Kirim berkas tanpa perlu isi formulir manual. Sistem membaca dan memetakan fakta secara otomatis.
+              Tinjau metadata tanpa formulir panjang. Isi PDF, Word, Excel, dan foto belum diekstrak.
             </p>
           </div>
           <button
@@ -196,10 +178,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <label className="text-slate-300 font-medium block">Konteks Proyek:</label>
             <select
               value={targetProject}
-              onChange={(e) => setTargetProject(e.target.value as ProjectId)}
+              disabled={isProcessing}
+              onChange={(e) => { setTargetProject(e.target.value as ProjectId); setParsedResults([]); }}
               className="w-full bg-slate-950 text-slate-100 border border-slate-700 rounded px-2.5 py-1.5 text-xs font-medium"
             >
-              {projects.map(p => (
+              <option value="ALL" disabled>Pilih proyek tujuan</option>
+              {projects.filter(p => p.id !== 'ALL').map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name} [{p.code}] - PM: {p.pmName}
                 </option>
@@ -211,13 +195,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { if (!isProcessing) fileInputRef.current?.click(); }}
             className="border-2 border-dashed border-slate-700 hover:border-amber-400/60 bg-slate-950/40 rounded-lg p-6 text-center cursor-pointer transition-colors"
           >
             <input
               type="file"
               ref={fileInputRef}
               multiple
+              disabled={isProcessing}
               onChange={(e) => handleFiles(e.target.files)}
               className="hidden"
             />
@@ -226,9 +211,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               Tarik berkas ke sini atau <span className="text-amber-400 underline">pilih dari komputer</span>
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
-              Mendukung PDF, Word (.docx), Excel (.xlsx), Scan/Foto (.jpg/.png)
+              Teks .txt dapat dibaca. PDF, Word, Excel, dan foto saat ini hanya dicatat metadatanya.
             </p>
           </div>
+
+          <p className="text-xs text-amber-300" role="note">
+            Mode lokal: hanya metadata disimpan di browser. Berkas asli belum disimpan atau diunggah ke Drive.
+            Simpan salinan asli Anda. Kategori dari nama berkas adalah dugaan; nomor, tanggal, dan keputusan yang belum terbaca dibiarkan kosong.
+          </p>
 
           {/* Selected Files List */}
           {selectedFiles.length > 0 && (
@@ -236,6 +226,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <div className="flex items-center justify-between text-[11px] text-slate-400">
                 <span>{selectedFiles.length} berkas dipilih:</span>
                 <button
+                  disabled={isProcessing}
                   onClick={() => { setSelectedFiles([]); setParsedResults([]); }}
                   className="text-rose-400 hover:underline"
                 >
@@ -283,7 +274,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <div className="flex items-center justify-between text-emerald-400 font-semibold text-xs">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{parsedResults.length} Dokumen Berhasil Dipetakan</span>
+                  <span>{parsedResults.length} Metadata Siap Ditinjau</span>
                 </span>
               </div>
 
@@ -292,14 +283,20 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <div key={idx} className="p-2.5 bg-slate-900 rounded border border-slate-800 space-y-1 text-xs">
                     <div className="flex items-center justify-between">
                       <strong className="text-slate-100 font-medium">{p.title}</strong>
-                      <span className="text-[10px] font-mono text-amber-400">{p.documentNumber}</span>
+                      <span className="text-[10px] font-mono text-amber-400">{p.documentNumber || 'Nomor belum diketahui'}</span>
                     </div>
                     <p className="text-[11px] text-slate-300">{p.summary}</p>
                     <div className="text-[10px] text-slate-400 flex items-center gap-2 pt-1 border-t border-slate-800">
-                      <span>Kategori: {p.category}</span>
+                      <span>Dugaan kategori: {p.category}</span>
                       <span aria-hidden="true">·</span>
-                      <span>Menunggu: {p.waitingParty} ({p.waitingPersonName})</span>
+                      <span>Pihak yang ditunggu belum ditentukan</span>
                     </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-200 pt-1">
+                      <input type="checkbox" checked={p.isActionable}
+                        onChange={(e) => setParsedResults(prev => prev.map((item, i) =>
+                          i === idx ? { ...item, isActionable: e.target.checked } : item))} />
+                      Ada tindakan yang perlu dikerjakan — tampilkan di Kanban
+                    </label>
                     {p.suggestedRelation && (
                       <div className="text-[10px] text-blue-300 flex items-center gap-1 pt-1">
                         <Link2 className="w-3 h-3 text-blue-400" />
@@ -325,12 +322,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <div className="flex items-center gap-2">
             {parsedResults.length === 0 ? (
               <button
-                disabled={selectedFiles.length === 0 || isProcessing}
+                disabled={selectedFiles.length === 0 || isProcessing || targetProject === 'ALL'}
                 onClick={handleProcessFiles}
                 className="px-4 py-1.5 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:pointer-events-none rounded transition-colors flex items-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Baca & Petakan Isi Berkas</span>
+                <span>Tinjau Metadata Berkas</span>
               </button>
             ) : (
               <button
@@ -338,7 +335,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 className="px-4 py-1.5 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded transition-colors flex items-center gap-1.5"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Simpan ke Memori Proyek</span>
+                <span>Simpan Metadata Lokal</span>
               </button>
             )}
           </div>

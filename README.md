@@ -1,5 +1,28 @@
 # BOT UTP IQBAL
 
+## UTP Project Memory — prototipe lokal
+
+Frontend baru berada di `src/` (React/TypeScript/Vite). Jalankan `npm ci`,
+`npm run build`, `npm run test:memory`, lalu `npm run dev` untuk membuka port 3000.
+Source Apps Script lama di bawah tetap dipertahankan.
+
+Status: metadata disimpan di localStorage browser, dengan data contoh awal.
+Berkas asli belum disimpan/diunggah; Drive, Cloudflare dan Telegram produksi belum terhubung.
+Jangan memakai prototipe ini sebagai satu-satunya arsip. Teks `.txt` dapat dibaca;
+PDF/Word/Excel/foto belum diekstrak. Nomor dokumen hanya diambil dari teks literal
+yang tersedia; data tanpa bukti tetap kosong. Kategori dari nama berkas ditandai
+dugaan. Kartu Kanban hanya dibuat jika pengguna memilih ada tindakan.
+Lampiran scan/balasan simulasi dinonaktifkan agar tidak menjadi bukti palsu.
+Memori baru tidak digabung otomatis berdasarkan nama berkas atau nomor dokumen.
+Data browser yang sudah ada tidak dihapus atau ditulis ulang oleh perbaikan ini;
+catatan lama dari parser simulasi perlu ditinjau manual.
+
+Backend `7569402` masih menunggu bundle transfer untuk ditinjau dan diuji lokal.
+Belum ada deployment. Instruksi deployment di `SERAHAN-CODEX.md` adalah rencana,
+bukan izin menjalankannya.
+
+## Aplikasi Apps Script lama
+
 Buka halaman: http://127.0.0.1:8765/aplikasi.html
 
 - aplikasi/: sumber Apps Script, HTML dan CSS.

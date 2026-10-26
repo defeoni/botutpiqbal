@@ -62,9 +62,9 @@ export const App: React.FC = () => {
   };
 
   const handleDocumentCreated = (newDoc: DocumentRecord) => {
-    storageService.createDocument(newDoc);
+    const saved = storageService.createDocument(newDoc);
     reloadData();
-    setSelectedDocument(newDoc);
+    setSelectedDocument(saved);
   };
 
   const handleTriggerQuickQuestion = (queryType: string) => {
@@ -105,6 +105,7 @@ export const App: React.FC = () => {
 
       {/* Main Viewport Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        <p className="mb-3 text-xs text-amber-300" role="note">Prototipe lokal dengan data contoh. Metadata tersimpan di browser ini; penyimpanan berkas asli dan koneksi backend belum tersedia.</p>
         {currentView === 'KANBAN' && (
           <KanbanBoard
             documents={documents}
@@ -156,14 +157,14 @@ export const App: React.FC = () => {
       />
 
       {/* Upload & Smart Ingestion Modal */}
-      <UploadModal
+      {isUploadOpen && <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         projects={projects}
         selectedProjectId={selectedProjectId}
         existingDocs={documents}
         onDocumentCreated={handleDocumentCreated}
-      />
+      />}
 
       {/* Minimal Footer */}
       <footer className="border-t border-slate-900 bg-slate-950/90 py-3 text-center text-[11px] text-slate-400">

@@ -55,9 +55,9 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
     `📄 *Perihal:* ${document.title}\n` +
     `📌 *No. Dokumen:* ${document.documentNumber}\n` +
     `🏢 *Proyek:* ${document.projectId}\n` +
-    `⏳ *Tenggat / Target:* ${document.deadline || 'Segera'}\n` +
+    `⏳ *Tenggat / Target:* ${document.deadline || 'Belum ditentukan'}\n` +
     `📝 *Tindakan Diperlukan:* ${document.nextAction}\n\n` +
-    `Dokumen asli dan lampiran tersimpan di UTP Project Memory. Terima kasih.\n` +
+    `Mohon periksa berkas asli sebelum mengirim pengingat ini. Terima kasih.\n` +
     `_Admin Proyek PT UTP_`;
 
   const handleCopyWA = () => {
@@ -77,24 +77,6 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
     setIsEditingFacts(false);
   };
 
-  const handleSimulateAttach = (role: DocumentFileAttachment['fileRole']) => {
-    const newFile: DocumentFileAttachment = {
-      id: `FILE-${Date.now()}`,
-      fileName: role === 'SCAN_BASAH' 
-        ? `Scan_Basah_Signed_${document.documentNumber.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`
-        : role === 'SURAT_BALASAN'
-        ? `Surat_Balasan_Resmi_MK_${document.projectId}.pdf`
-        : `Lampiran_Tambahan_${document.projectId}.pdf`,
-      fileSize: 520000,
-      fileType: 'application/pdf',
-      uploadedAt: new Date().toISOString(),
-      fileRole: role,
-      storageLocation: `Google Drive: /PT UTP/${document.projectId}/Arsip_Bukti/`,
-      driveFileId: `drv_${Date.now()}`,
-      textSnippet: 'Berkas verifikasi tambahan yang diunggah dan ditautkan ke memori dokumen.'
-    };
-    onAttachFile(document.id, newFile);
-  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/80 backdrop-blur-xs flex justify-end">
@@ -343,6 +325,7 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
                         ) : (
                           <span className="text-slate-200">{fact.value}</span>
                         )}
+                        {fact.pageOrLocation && <p className="mt-1 text-[10px] text-slate-400">Sumber: {fact.pageOrLocation}</p>}
                       </div>
                       <div className="w-1/6 text-right shrink-0">
                         <span className={`text-[10px] font-mono ${
@@ -388,14 +371,14 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
                 {/* Upload attachment shortcuts */}
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => handleSimulateAttach('SCAN_BASAH')}
+                    disabled title="Penyimpanan berkas belum terhubung"
                     className="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded border border-emerald-500/30 flex items-center gap-1 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                     <span>+ Scan Basah</span>
                   </button>
                   <button
-                    onClick={() => handleSimulateAttach('SURAT_BALASAN')}
+                    disabled title="Penyimpanan berkas belum terhubung"
                     className="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-blue-300 rounded border border-blue-500/30 flex items-center gap-1 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
@@ -405,6 +388,7 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
               </div>
 
               {/* Files List */}
+              <p className="text-xs text-amber-300">Penyimpanan berkas belum terhubung. Penambahan scan/balasan belum tersedia; daftar ini berisi metadata dan dapat memuat data contoh.</p>
               <div className="space-y-2.5">
                 {document.files.map((file) => (
                   <div 
@@ -474,7 +458,7 @@ export const DocumentDetail: React.FC<DocumentDetailProps> = ({
                     </button>
                   </div>
                   <div className="p-3 bg-slate-900 rounded font-mono text-[11px] text-slate-300 whitespace-pre-wrap">
-                    {previewFile.textSnippet || 'Isi dokumen telah terbaca dan diverifikasi. Terhubung aman di lokasi Google Drive resmi PT UTP.'}
+                    {previewFile.textSnippet || 'Belum tersedia isi berkas untuk ditampilkan. Metadata ini bukan bukti penyimpanan atau verifikasi berkas asli.'}
                   </div>
                   <p className="text-[10px] text-slate-500">
                     Lokasi: {previewFile.storageLocation} (ID Drive: {previewFile.driveFileId})

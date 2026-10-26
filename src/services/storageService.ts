@@ -76,15 +76,15 @@ class StorageService {
   }
 
   public createDocument(doc: DocumentRecord): DocumentRecord {
-    // Avoid accidental duplicate upload
+    // Only a shared memory identity allows linking; numbers and filenames are not unique.
     const existing = this.docs.find(d => 
       d.projectId === doc.projectId && 
-      (d.documentNumber === doc.documentNumber || d.files.some(f => doc.files.some(df => df.fileName === f.fileName)))
+      d.id === doc.id
     );
 
     if (existing) {
       // Append the new file to existing document instead of creating a clone
-      const newFiles = doc.files.filter(f => !existing.files.some(ef => ef.fileName === f.fileName));
+      const newFiles = doc.files.filter(f => !existing.files.some(ef => ef.id === f.id));
       existing.files.push(...newFiles);
       existing.activityLog.unshift({
         id: `ACT-${Date.now()}`,
