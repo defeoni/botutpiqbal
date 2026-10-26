@@ -9,6 +9,7 @@ import { MemoryExplorer } from './components/MemoryExplorer';
 import { SearchPanel } from './components/SearchPanel';
 import { TelegramSimulator } from './components/TelegramSimulator';
 import { CodexHandoverModal } from './components/CodexHandoverModal';
+import { ProjectHero } from './components/ProjectHero';
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'KANBAN' | 'MEMORY' | 'SEARCH' | 'TELEGRAM' | 'CODEX'>('KANBAN');
@@ -91,7 +92,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/20 selection:text-amber-300">
+    <div className="utp-workspace min-h-screen text-slate-100 flex flex-col selection:bg-amber-500/20 selection:text-amber-300">
       {/* Top Header & Workspace Context Toolbar */}
       <Header
         currentView={currentView}
@@ -104,8 +105,13 @@ export const App: React.FC = () => {
       />
 
       {/* Main Viewport Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        <p className="mb-3 text-xs text-amber-300" role="note">Prototipe lokal dengan data contoh. Metadata tersimpan di browser ini; penyimpanan berkas asli dan koneksi backend belum tersedia.</p>
+      <main className="workspace-main workspace-width flex-1 w-full mx-auto">
+        {currentView === 'KANBAN' ? <ProjectHero
+          documents={documents}
+          projectName={projects.find(p => p.id === selectedProjectId)?.name || 'Semua proyek PT UTP'}
+          onOpenMemory={() => setCurrentView('MEMORY')}
+          onOpenUpload={() => setIsUploadOpen(true)}
+        /> : <p className="view-local-note" role="note">Mode lokal dengan data contoh. Metadata di browser; berkas asli dan layanan cloud belum terhubung.</p>}
         {currentView === 'KANBAN' && (
           <KanbanBoard
             documents={documents}
@@ -167,10 +173,9 @@ export const App: React.FC = () => {
       />}
 
       {/* Minimal Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/90 py-3 text-center text-[11px] text-slate-400">
-        <span>PT Utama Tunggal Perkasa (PT UTP) · Sistem Pengendalian & Memori Dokumen Proyek</span>
-        <span aria-hidden="true" className="mx-2">·</span>
-        <span>Target Deploy: Cloudflare Pages & Workers</span>
+      <footer className="workspace-footer workspace-width">
+        <span>UTP WORKSPACE <span aria-hidden="true">/</span> Dibangun untuk setiap langkah di lapangan.</span>
+        <span>PROJECT MEMORY <span aria-hidden="true">↗</span></span>
       </footer>
     </div>
   );

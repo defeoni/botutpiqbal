@@ -2,6 +2,15 @@
 
 Dokumen ini menjadi acuan Figma dan implementasi frontend.
 
+## Arahan terbaru UTP Project Memory
+
+Pengguna meminta beranda premium/futuristik dengan miniatur konstruksi bergerak
+(26 Oktober 2026). Untuk frontend React `src/`, arahan ini mengizinkan animasi
+dekoratif SVG/CSS pada beranda, dengan jeda, pengurangan gerak, dan penghentian
+saat keluar layar. Tema obsidian/champagne, diorama berlabel ilustrasi, statistik
+berdasarkan metadata proyek. Aturan tanpa animasi di bawah tetap untuk source
+Apps Script lama; data, API, akses, dan status bisnis tidak berubah.
+
 ## Tujuan
 
 Pengguna harus dapat menjawab dengan cepat: apa yang sedang dikerjakan, kapan deadline, bagaimana posisi dana, dan apa tindakan berikutnya.

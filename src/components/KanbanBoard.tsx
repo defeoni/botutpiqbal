@@ -71,14 +71,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <section id="meja-kerja" className="memory-board space-y-4" aria-label="Meja pengendalian proyek">
+      <div className="board-title-row"><div><span className="section-eyebrow">YOUR PROJECT, IN PERSPECTIVE</span><h2>Meja pengendalian<span>.</span></h2></div><span className="board-hint">Satu langkah lebih dekat ke selesai.</span></div>
       {/* Board Summary Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-lg border border-slate-800 text-xs">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-200">Meja Pengendalian Proyek</span>
           <span aria-hidden="true" className="text-slate-600">·</span>
           <span className="text-slate-400">
-            {actionableDocs.length} berkas aktif membutuhkan perhatian
+            {actionableDocs.filter(d => d.kanbanStatus !== 'SELESAI').length} pekerjaan terbuka
           </span>
           <span aria-hidden="true" className="text-slate-600">·</span>
           <span className="text-slate-400">
@@ -88,18 +89,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
-          <span>Perpindahan kartu ke Selesai tidak menciptakan approval bisnis palsu</span>
+          <span>Selesai administratif ≠ persetujuan formal</span>
         </div>
       </div>
 
       {/* 3-Column Kanban Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-h-[580px]">
+      <div className="kanban-grid grid grid-cols-1 md:grid-cols-3 gap-4 min-h-[400px]">
         {columns.map(col => {
           const colDocs = actionableDocs.filter(d => d.kanbanStatus === col.status);
 
           return (
             <div
               key={col.status}
+              data-status={col.status}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.status)}
               className="flex flex-col bg-slate-900/40 rounded-lg border border-slate-800/80 p-3 transition-colors"
@@ -133,6 +135,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       <div
                         key={doc.id}
                         draggable
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Buka dokumen ${doc.title}`}
+                        onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpenDocument(doc); } }}
                         onDragStart={(e) => handleDragStart(e, doc.id)}
                         onClick={() => onOpenDocument(doc)}
                         className="group bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-slate-700/80 rounded-md p-3 shadow-xs cursor-pointer transition-all duration-150 relative"
@@ -251,6 +257,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };

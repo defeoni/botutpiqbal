@@ -6,6 +6,15 @@ Frontend baru berada di `src/` (React/TypeScript/Vite). Jalankan `npm ci`,
 `npm run build`, `npm run test:memory`, lalu `npm run dev` untuk membuka port 3000.
 Source Apps Script lama di bawah tetap dipertahankan.
 
+Beranda memakai tema obsidian/champagne dengan diorama konstruksi SVG: crane,
+ekskavator, truk dan pekerja bergerak. Tombol jeda tersedia; animasi berhenti
+saat bagian tersebut keluar layar dan menghormati `prefers-reduced-motion`.
+Statistik mengikuti metadata proyek terpilih; diorama bukan telemetri lapangan.
+`npm run test:ui` membangun frontend dan menjalankan Playwright pada desktop
+1366/1920px serta pengurangan gerak. Gunakan Chrome/Edge yang terpasang,
+`CHROMIUM_BIN`, atau browser Chromium Playwright. Screenshot ada di `.local/`.
+Konsep visual: https://www.figma.com/design/82fx6Thcu7WcNTNM6izxAA
+
 Status: metadata disimpan di localStorage browser, dengan data contoh awal.
 Berkas asli belum disimpan/diunggah; Drive, Cloudflare dan Telegram produksi belum terhubung.
 Jangan memakai prototipe ini sebagai satu-satunya arsip. Teks `.txt` dapat dibaca;
