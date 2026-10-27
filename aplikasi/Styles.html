@@ -234,4 +234,25 @@ body{padding:0;background:var(--bg);font-family:"Segoe UI",Arial,sans-serif;-web
 @media(max-width:1100px){.app-main{padding:14px}.document-center .dc-form-card{grid-template-columns:minmax(0,1fr) auto}.document-center .dc-form-card>p{grid-column:1;grid-row:3}.dc-form-card .dc-card-actions{grid-column:2;grid-row:1/4}}
 @media(max-width:900px){.application-shell{grid-template-columns:1fr}.app-sidebar{height:auto;max-height:none;overflow:visible}.app-menu{overflow:visible;flex:auto}.app-main{padding:12px}.workspace-hero{padding:12px}.home-summary-grid.workspace-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.document-center .dc-toolbar,#blank-KANBAN .dc-toolbar{grid-template-columns:1fr 1fr}.dc-toolbar .dc-search:first-child{grid-column:1/-1}.document-center .dc-form-card{grid-template-columns:1fr}.dc-form-card .dc-card-actions{grid-column:1;grid-row:4;flex-wrap:wrap}.workspace-hero .hero-context{padding-top:8px;align-items:flex-start}.dc-board-head{align-items:flex-start}.app-main .app-status-row{max-width:none}.home-support-grid{grid-template-columns:1fr}}
+
+/* Identitas terang PT Unicorn Tosan Perkasa dan miniatur proyek. */
+.application-shell{--utp-red:#c92030;--utp-red-dark:#981523;--utp-red-soft:#fff1f2;--utp-ink:#1f2937;background:#f7f8fa}
+.app-sidebar{background:#fff;border-color:#e5e7eb;box-shadow:0 12px 32px rgba(70,31,36,.06)}
+.sidebar-brand{color:var(--utp-ink)}
+.sidebar-brand .brand-monogram{background:linear-gradient(145deg,#e43846,var(--utp-red-dark));box-shadow:0 7px 16px rgba(185,30,46,.20)}
+.sidebar-brand strong{color:#38151a;letter-spacing:.02em}.sidebar-brand div>span{color:#8d7175}
+.sidebar-nav .tab.active,.sidebar-nav .main-nav-button.active{background:var(--utp-red-soft);color:var(--utp-red-dark);border-color:#ffd1d6}
+.sidebar-nav .tab:hover{background:#fff5f5;color:var(--utp-red-dark)}
+.app-main>.header{border-top-color:var(--utp-red)}
+.app-main .btn.primary{background:var(--utp-red);border-color:var(--utp-red);color:#fff}.app-main .btn.primary:hover{background:var(--utp-red-dark);border-color:var(--utp-red-dark)}
+.dc-quick-filter.active,.dc-tab.active,.dc-board-mode button.active{border-color:#ef9aa4;background:var(--utp-red-soft);color:var(--utp-red-dark)}
+.dc-cluster[data-cluster="A"]{border-top-color:var(--utp-red)}.dc-cluster-node.active{border-color:#ee9ba5;background:var(--utp-red-soft);color:var(--utp-red-dark)}
+.workspace-hero{display:grid;grid-template-columns:minmax(360px,.88fr) minmax(430px,1.12fr);min-height:285px;padding:20px 24px;overflow:hidden;background:linear-gradient(118deg,#fff 0%,#fff 43%,#fff4f4 100%);border-color:#f0d8db}
+.home-hero-copy{position:relative;z-index:1;align-self:center}.workspace-hero h2{color:#3a141a}.home-eyebrow{color:var(--utp-red)!important;font-weight:750}.workspace-hero .actions{margin-top:12px}.hero-context{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-width:0;padding:15px 0 0;text-align:left;color:#856d72}.hero-context-label{color:var(--utp-red-dark);font-weight:750}.hero-context strong{color:#5d3439}.hero-context span:last-child{padding-left:11px;border-left:1px solid #efd4d7}
+.home-hero-visual{position:relative;min-width:0;height:242px;align-self:end}.home-construction-scene{position:absolute;inset:-15px -36px -27px 0;width:calc(100% + 42px);height:calc(100% + 35px);overflow:visible}.hero-visual-tag,.hero-visual-caption{position:absolute;z-index:2;font-size:9px;letter-spacing:.11em;font-weight:800;color:var(--utp-red-dark)}.hero-visual-tag{top:8px;right:9px;padding:7px 9px;border:1px solid #f0c3c9;border-radius:999px;background:#fff9f9}.hero-visual-caption{bottom:-2px;right:9px;color:#8f686e}
+.scene-crane{transform-origin:170px 324px;animation:utp-crane 6s ease-in-out infinite}.scene-workers{animation:utp-workers 2.8s ease-in-out infinite}.scene-clouds{animation:utp-clouds 12s linear infinite}
+@keyframes utp-crane{0%,100%{transform:rotate(0deg)}50%{transform:rotate(.8deg)}}@keyframes utp-workers{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}@keyframes utp-clouds{0%,100%{transform:translateX(0)}50%{transform:translateX(13px)}}
+@media(max-width:1100px){.workspace-hero{grid-template-columns:minmax(300px,1fr) minmax(330px,1fr)}.home-hero-visual{height:218px}.home-construction-scene{inset:-7px -48px -30px -20px;width:calc(100% + 68px)}}
+@media(max-width:760px){.workspace-hero{grid-template-columns:1fr}.home-hero-visual{height:210px;margin-top:8px}.hero-context{flex-wrap:wrap}.hero-context span:last-child{border-left:0;padding-left:0;width:100%}}
+@media(prefers-reduced-motion:reduce){.scene-crane,.scene-workers,.scene-clouds{animation:none}}
 </style>

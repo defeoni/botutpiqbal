@@ -1,5 +1,49 @@
 <section id="blank-HOME" class="home-page" aria-labelledby="homeTitle">
-  <header class="workspace-hero"><div><p class="home-eyebrow">RUANG KERJA PROYEK</p><h2 id="homeTitle" data-project-name>Semua proyek</h2><label>Pilih tas kerja<select data-project-select></select></label><p data-project-pm></p><div class="actions"><button type="button" class="btn primary" data-project-add>＋ Tambah proyek</button><button type="button" class="btn" data-project-edit>Identitas proyek</button><button type="button" class="btn main-nav-button" data-main="DOCUMENTS">▤ Dokumen &amp; pekerjaan</button><span class="hero-project-code" data-project-code></span></div></div><div class="hero-context"><span class="hero-context-label">REKAP PROYEK AKTIF</span><span class="hero-context-icon" data-icon="building"></span><strong id="homeCurrentDate"></strong><span>Dokumen · Material · Operasional</span></div></header>
+  <header class="workspace-hero">
+    <div class="home-hero-copy">
+      <p class="home-eyebrow">PT UNICORN TOSAN PERKASA</p>
+      <h2 id="homeTitle" data-project-name>Semua proyek</h2>
+      <label>Pilih tas kerja<select data-project-select></select></label>
+      <p data-project-pm></p>
+      <div class="actions"><button type="button" class="btn primary" data-project-add>＋ Tambah proyek</button><button type="button" class="btn" data-project-edit>Identitas proyek</button><button type="button" class="btn main-nav-button" data-main="DOCUMENTS">▤ Dokumen &amp; pekerjaan</button><span class="hero-project-code" data-project-code></span></div>
+      <div class="hero-context"><span class="hero-context-label">REKAP PROYEK AKTIF</span><strong id="homeCurrentDate"></strong><span>Dokumen · Material · Operasional</span></div>
+    </div>
+    <div class="home-hero-visual" aria-label="Ilustrasi proyek gedung sedang dibangun">
+      <span class="hero-visual-tag">PUSAT KENDALI PROYEK</span>
+      <svg class="home-construction-scene" viewBox="0 0 760 410" role="img" aria-label="Miniatur gedung bertingkat dengan crane dan pekerja">
+        <defs>
+          <linearGradient id="utpRoof" x1="0" x2="1"><stop stop-color="#f25d63"/><stop offset="1" stop-color="#bf1e2e"/></linearGradient>
+          <linearGradient id="utpWall" x1="0" x2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#f1f3f5"/></linearGradient>
+          <filter id="utpShadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#7e1927" flood-opacity=".18"/></filter>
+        </defs>
+        <ellipse cx="430" cy="350" rx="270" ry="35" fill="#b91e2e" opacity=".10"/>
+        <path d="M135 308 372 212 655 285 424 380Z" fill="#e8eaed"/>
+        <path d="M135 308 372 212 372 246 160 330Z" fill="#d7dce2"/>
+        <path d="M424 380 655 285 655 314 424 400Z" fill="#c7cdd5"/>
+        <g filter="url(#utpShadow)">
+          <path d="M250 280 405 217 565 264 404 334Z" fill="url(#utpRoof)"/>
+          <path d="M250 280 404 334 404 359 250 301Z" fill="#d52a39"/>
+          <path d="M404 334 565 264 565 287 404 359Z" fill="#971524"/>
+          <path d="M270 193 405 138 542 180 404 237Z" fill="url(#utpWall)"/>
+          <path d="M270 193 404 237 404 328 270 280Z" fill="#e9edf1"/>
+          <path d="M404 237 542 180 542 264 404 328Z" fill="#d6dce2"/>
+          <path d="M270 193 404 237 542 180" fill="none" stroke="#b91e2e" stroke-width="7"/>
+          <g fill="#b91e2e"><path d="M292 214 327 226 327 249 292 236Z"/><path d="M344 232 379 244 379 267 344 254Z"/></g>
+          <g fill="#fff"><path d="M422 252 453 239 453 262 422 275Z"/><path d="M472 231 503 218 503 241 472 254Z"/></g>
+          <path d="M286 161 405 112 525 149 404 199Z" fill="#fafafa"/>
+          <path d="M286 161 404 199 404 230 286 193Z" fill="#f0f2f4"/>
+          <path d="M404 199 525 149 525 180 404 230Z" fill="#d7dce2"/>
+          <path d="M286 161 404 199 525 149" fill="none" stroke="#dc2b3a" stroke-width="6"/>
+          <g fill="#c51f30"><path d="M304 177 335 187 335 207 304 197Z"/><path d="M351 193 382 203 382 223 351 213Z"/></g>
+          <g fill="#fff"><path d="M421 211 450 199 450 219 421 231Z"/><path d="M468 191 497 179 497 199 468 211Z"/></g>
+        </g>
+        <g class="scene-crane"><path d="M170 324 187 319 210 67 199 64Z" fill="#bf1e2e"/><path d="M187 319 202 324 210 67 199 64Z" fill="#8b1522"/><path d="M173 113 432 67 432 78 173 126Z" fill="#d92737"/><path d="M214 79 523 131 523 143 214 91Z" fill="#bd1c2b"/><path d="M416 69 424 69 424 201 416 201Z" fill="#5e6873"/><path d="M420 199 420 233" stroke="#5e6873" stroke-width="3"/><rect x="408" y="230" width="24" height="12" rx="2" fill="#e23a49"/><path d="M160 324h57l-8 11h-40Z" fill="#4e5965"/></g>
+        <g class="scene-workers"><g transform="translate(205 305)"><circle cx="10" cy="5" r="5" fill="#f1b98a"/><path d="M4 2h12l-2-5H6Z" fill="#be1e2d"/><path d="M6 11h9l4 16H2Z" fill="#536273"/><path d="M6 27 2 42m11-15 7 13" stroke="#384552" stroke-width="4" stroke-linecap="round"/></g><g transform="translate(585 281)"><circle cx="10" cy="5" r="5" fill="#f1b98a"/><path d="M4 2h12l-2-5H6Z" fill="#be1e2d"/><path d="M6 11h9l4 16H2Z" fill="#f2f3f5"/><path d="M6 27 2 42m11-15 7 13" stroke="#384552" stroke-width="4" stroke-linecap="round"/></g></g>
+        <g class="scene-clouds" fill="#fff" opacity=".88"><path d="M55 102c0-14 18-19 27-9 11-17 39-8 36 10H55Z"/><path d="M566 71c0-13 17-18 26-8 10-16 36-8 34 8h-60Z"/></g>
+      </svg>
+      <span class="hero-visual-caption">MINIATUR KONSTRUKSI · GEDUNG BERTUMBUH</span>
+    </div>
+  </header>
   <div class="home-summary-grid workspace-metrics" aria-label="Ringkasan proyek">
     <article class="home-summary-card"><div class="metric-caption"><h3>Dalam review</h3><span class="metric-icon amber" data-icon="clock"></span></div><span id="projectReviewCount" class="home-summary-number">—</span><p>Perlu tindak lanjut</p></article>
     <article class="home-summary-card"><div class="metric-caption"><h3>Menunggu barang</h3><span class="metric-icon blue" data-icon="truck"></span></div><span id="projectFinalCount" class="home-summary-number">—</span><p>Dokumen final aktif</p></article>
