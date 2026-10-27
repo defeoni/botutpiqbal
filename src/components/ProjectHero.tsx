@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUpRight, Files, FolderOpen, Pause, Play, ScanLine, Workflow } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Files, FolderOpen, Maximize2, Pause, Play, ScanLine, Workflow, X } from 'lucide-react';
 import { DocumentRecord } from '../types';
 import { ConstructionScene } from './ConstructionScene';
 
@@ -13,7 +13,16 @@ interface ProjectHeroProps {
 export function ProjectHero({ documents, projectName, onOpenMemory, onOpenUpload }: ProjectHeroProps) {
   const [paused, setPaused] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [visible, setVisible] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const hero = useRef<HTMLElement>(null);
+  const sceneDialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [expanded]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -32,7 +41,7 @@ export function ProjectHero({ documents, projectName, onOpenMemory, onOpenUpload
   ];
 
   return (
-    <section ref={hero} className="project-intro" aria-label="Ringkasan ruang kerja proyek" data-paused={paused || !visible}>
+    <section ref={hero} className="project-intro" aria-label="Ringkasan ruang kerja proyek" data-paused={paused || (!visible && !expanded)}>
       <div className="project-hero">
         <div className="hero-ambient" aria-hidden="true" />
         <div className="hero-copy">
@@ -48,15 +57,27 @@ export function ProjectHero({ documents, projectName, onOpenMemory, onOpenUpload
           <div className="hero-context"><span className="context-line" />{projectName}<span className="hero-context-tag">RUANG KERJA</span></div>
         </div>
         <div className="hero-diorama">
-          <div className="scene-topline"><span><i /> CONSTRUCTION IN MOTION</span><span>01 / UTP</span></div>
+          <div className="scene-topline"><span><i /> MEMBANGUN HARI ESOK</span><span>UTP / CONSTRUCTION</span></div>
           <ConstructionScene />
-          <div className="scene-bottomline"><span>DIORAMA ILUSTRATIF · BUKAN DATA LAPANGAN</span>
+          <div className="scene-bottomline"><span>MINIATUR KONSTRUKSI · ILUSTRASI</span>
+            <div className="scene-controls">
+            <button className="motion-toggle" onClick={() => { setExpanded(true); sceneDialog.current?.showModal(); }} aria-label="Perbesar miniatur konstruksi"><Maximize2 size={13} />Perbesar</button>
             <button className="motion-toggle" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={paused ? 'Putar animasi konstruksi' : 'Jeda animasi konstruksi'}>
               {paused ? <Play size={12} /> : <Pause size={12} />}{paused ? 'Putar animasi' : 'Jeda animasi'}
             </button>
+            </div>
           </div>
         </div>
       </div>
+      <dialog ref={sceneDialog} className="scene-dialog" aria-labelledby="scene-dialog-title" onClose={() => setExpanded(false)}>
+        {expanded && <>
+          <div className="scene-dialog-heading"><div><span className="section-eyebrow">PT UNICORN TOSAN PERKASA</span><h2 id="scene-dialog-title">Membangun hari esok.</h2></div>
+            <div className="scene-controls"><button className="motion-toggle" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={paused ? 'Putar animasi miniatur besar' : 'Jeda animasi miniatur besar'}>{paused ? <Play size={14} /> : <Pause size={14} />}{paused ? 'Putar' : 'Jeda'}</button><button className="motion-toggle" onClick={() => sceneDialog.current?.close()} aria-label="Tutup miniatur besar" autoFocus><X size={18} /></button></div>
+          </div>
+          <ConstructionScene />
+          <p className="scene-dialog-note">Ilustrasi aktivitas pembangunan gedung. Bukan progres atau data lapangan aktual.</p>
+        </>}
+      </dialog>
       <div className="project-stats" aria-label="Statistik metadata proyek">
         {stats.map(({ label, value, icon: Icon, detail }, index) => (
           <div className="project-stat" key={label}>

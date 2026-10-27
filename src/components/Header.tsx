@@ -32,7 +32,7 @@ export function Header({ currentView, onSelectView, projects, selectedProjectId,
       <div className="header-main workspace-width">
         <a href="#" className="workspace-brand" onClick={e => { e.preventDefault(); onSelectView('KANBAN'); }}>
           <span className="brand-symbol" aria-hidden="true"><span /><span /><span /></span>
-          <span>UTP <strong>WORKSPACE</strong><small>PROJECT MEMORY</small></span>
+          <span>PT <strong>UNICORN TOSAN PERKASA</strong><small>UTP / PROJECT OPERATIONS</small></span>
         </a>
         <nav className="workspace-nav" aria-label="Navigasi utama">
           {navigation.map(({ view, title, icon: Icon }) => (

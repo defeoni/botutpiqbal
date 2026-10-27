@@ -92,7 +92,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="utp-workspace min-h-screen text-slate-100 flex flex-col selection:bg-amber-500/20 selection:text-amber-300">
+    <div className="utp-workspace min-h-screen flex flex-col selection:bg-red-100 selection:text-red-800">
       {/* Top Header & Workspace Context Toolbar */}
       <Header
         currentView={currentView}

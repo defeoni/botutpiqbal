@@ -20,7 +20,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',
     reducedMotion: 'no-preference',
-    colorScheme: 'dark',
+    colorScheme: 'light',
     launchOptions: executablePath ? { executablePath } : {},
     viewport: { width: 1366, height: 900 },
     trace: 'retain-on-failure',
