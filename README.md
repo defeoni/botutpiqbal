@@ -1,5 +1,40 @@
 # BOT UTP IQBAL
 
+## Alat lokal dan pemeriksaan finishing (Windows)
+
+Pada PC ini Node/npm, clasp, dan Python portable berada di `.local/tools/`
+(diabaikan Git). Untuk mengaktifkannya pada PowerShell sesi berjalan:
+
+```powershell
+. ./alat/aktifkan-alat.ps1
+```
+
+Jika Windows memblokir skrip, jalankan pemeriksaan dalam proses terpisah:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File alat/periksa-rilis.ps1
+```
+
+Perintah tersebut menjalankan generator clasp, tes backend dan Project Memory,
+generator preview, delapan pemeriksaan browser Apps Script dengan layanan Google
+simulasi, lalu build React dan Playwright desktop. Kegagalan menghentikan proses;
+hasil lokal bukan bukti runtime Google. Chrome/Edge terpasang dipakai otomatis,
+atau tentukan `CHROMIUM_BIN`. Dependency proyek disiapkan dengan `npm.cmd ci`.
+PC lain perlu memasang alat tersebut sendiri; berkas portable tidak ikut clone.
+
+Login Google dilakukan sekali dengan `clasp.cmd login`, lalu verifikasi akses
+dengan `clasp.cmd show-authorized-user` dan `clasp.cmd list-deployments`.
+Kredensial disimpan di profil pengguna, tidak boleh masuk repository. Untuk
+GitHub CLI gunakan `gh auth login --hostname github.com --git-protocol https --web`.
+Koneksi plugin chat dan login CLI merupakan akses yang terpisah.
+
+Saat diminta `finishing`, ikuti AGENTS.md: perbarui source, tes lokal yang relevan,
+perbaiki kegagalan, upload dengan `clasp.cmd`, perbarui deployment web app yang ada,
+lalu commit/push ke GitHub dan laporkan versi/URL. Pemeriksaan gabungan di atas
+hanya digunakan bila seluruh cakupannya relevan. Skrip pemeriksaan tidak melakukan
+commit, push, upload, atau deployment. `.clasp.json` hanya menerbitkan sumber
+Apps Script lama; frontend React di `src/` membutuhkan jalur hosting tersendiri.
+
 ## UTP Project Memory — prototipe lokal
 
 Frontend baru berada di `src/` (React/TypeScript/Vite). Jalankan `npm ci`,

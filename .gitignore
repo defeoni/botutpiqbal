@@ -10,3 +10,5 @@ node_modules/
 __pycache__/
 *.pyc
 dist/
+.clasprc.json
+.clasprc.*.json

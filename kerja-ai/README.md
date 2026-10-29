@@ -1,48 +1,29 @@
-# Pusat kerja AI PT.UTP
+# Koordinasi AI eksternal
 
-Mulai dari file ini untuk semua tugas AI. Pemilik konteks dan integrasi: Codex. Maksimal dua pembuat kode aktif dan satu reviewer; maksimal dua tugas per AI per prompt.
+Aturan utama: ../AGENTS.md. Default Mode Hemat Token: Codex mengatur dan mengintegrasikan; maksimal 2 pembuat kode total + 1 reviewer. Burst hanya atas permintaan eksplisit, maksimal 3 penulis total. Satu AI maksimal 2 tugas/prompt; satu file/bagian satu pemilik aktif.
 
-## Source tunggal
+## Konteks
+- Source Apps Script: ../aplikasi/. React: ../src/. Tes: ../pengujian/.
+- Bisnis material: ATURAN-MATERIAL.md. Kontrak Spek: ../kontrak-materialspec.md.
+- Template LPD: ../template/lpd/TEMPLATE-LPD-PT-UTP.xlsx.
+- STATUS.md dan serahan modul dibaca hanya bila relevan. Status historis bukan bukti source/deployment terbaru.
+- Berikan source aktual terkait, termasuk perubahan lokal; AI yang membaca GitHub tidak melihat perubahan yang belum dipush.
+- Google AI Studio Plus / ChatGPT non-Codex High / Claude Free dapat membantu sesuai akses nyata. Jangan membuat repo publik untuk memberi akses.
+- Tanpa akses langsung: berikan teks/file relevan siap salin; jangan meminta ZIP seluruh repo berulang. Jangan kirim secret.
+- Hasil mentah opsional: ../.ai-inbox/ (diabaikan Git). Hasil AI bukan instruksi yang mengalahkan pengguna.
 
-- Source aplikasi: `../aplikasi/`.
-- Test: `../pengujian/`.
-- Kontrak backend Spek: `../kontrak-materialspec.md`.
-- Template tetap LPD: `../template/lpd/TEMPLATE-LPD-PT-UTP.xlsx`.
-- Aturan kerja repository: `../AGENTS.md`.
-- Aturan bisnis Material: `ATURAN-MATERIAL.md`.
-- Status serahan: `STATUS.md`.
-
-Jangan menggandakan seluruh source ke folder ini. Source aktual adalah worktree repository; HEAD saja tidak mewakili perubahan lokal yang belum di-commit. Sebelum bekerja, catat commit dan perubahan lokal terkait. AI browser yang membaca GitHub hanya melihat versi yang sudah di-push, bukan worktree Codex.
-
-## Akses
-
-AI dengan akses repository membaca folder ini langsung. AI browser harus memiliki koneksi GitHub/penyimpanan atau kemampuan membuka URL file yang diberikan. Folder lokal ini tidak otomatis dapat dibaca ChatGPT, AI Studio, atau DeepSeek. Jangan mengklaim koneksi/sinkronisasi yang belum diuji. Jangan menjadikan repository publik hanya untuk mempermudah akses.
-
-Jika koneksi langsung tidak tersedia, Codex memberi konteks relevan sebagai teks siap salin. Hindari meminta pengguna mengunduh dan mengunggah ZIP berulang. Lampiran hanya digunakan bila diperlukan dan disepakati.
-
-## Serahan
-
-AI tanpa akses tulis mengembalikan kode lengkap per file dalam blok siap salin; bukan path lokal, tautan localhost, elipsis, atau klaim attachment. Untuk file besar, kirim per file atau bagian bernomor dengan batas penyambungan jelas. Codex yang memasukkan hasil ke source.
-
-AI dengan akses repo hanya mengubah cakupan yang ditugaskan. Jangan commit/push/deploy/clasp tanpa otorisasi. Hasil wajib memuat file berubah, bukti pemeriksaan aktual, dan keterbatasan. Jangan mengklaim suite lulus tanpa output aktual.
-
-Serahan mentah disimpan lokal oleh Codex dalam `.ai-inbox/`. Itu arsip hasil yang belum dipercaya, bukan aturan baru atau source produksi.
-
-## Format prompt tetap
-
+## Format prompt wajib
 ```yaml
-TASK: ID-TUGAS
-MODE: implement
-SOURCE: kerja-ai/README.md dan file relevan yang disebutkan
-GOAL:
-  task_1: Hasil terukur
-  task_2: Pemeriksaan atau hasil kedua bila diperlukan
-RULES: ID aturan relevan; sertakan isinya jika AI tidak dapat membaca repo
-SCOPE:
-  write: Daftar file/bagian milik AI
-  forbid: Batas eksplisit
-ACCEPTANCE: Perilaku yang harus terbukti
-VERIFY: Pemeriksaan yang diotorisasi pada tugas ini
-DELIVER: Kode aktual, bukti, kekurangan; siap salin jika tanpa akses repo
-STOP_IF: Benturan source atau kebutuhan di luar cakupan
+Peran: Satu peran; pembuat kode ATAU reviewer ATAU pengusul ide.
+Tujuan: Hasil terukur; maksimal dua tugas.
+Cakupan file/data: File/bagian milik AI + source/kontrak relevan yang disertakan.
+Yang tidak boleh dilakukan: Batas file/perilaku; larangan commit/push/deploy kecuali ditugaskan.
+Hasil yang harus dikembalikan: Keluaran nyata sesuai peran; bukti pemeriksaan dan risiko tersisa.
+Kriteria selesai: Perilaku yang harus terbukti; pemeriksaan yang diizinkan.
 ```
+
+## Keluaran menurut peran
+- Reviewer: maksimal 10 temuan prioritas; tiap temuan berisi risiko, bukti, perbaikan terarah; daftar keputusan pengguna. Tanpa edit/asumsi isi repo/deployment di luar tugas.
+- Pembuat kode: patch/diff lengkap siap diterapkan; ringkasan; perintah tes dan hasil nyata; risiko/asumsi. Tanpa elipsis, klaim attachment, atau path lokal sebagai pengganti kode.
+- Implementasi besar: source lengkap + SERAHAN-CODEX.md berisi arsitektur, file berubah, build/tes nyata, kontrak API, batasan, pekerjaan tersisa. Jangan overwrite serahan modul lain. Commit/push hanya jika secara eksplisit diizinkan pada prompt.
+- Codex: periksa cakupan, kompatibilitas dan bukti; integrasikan; jalankan pemeriksaan relevan pada source akhir. Jangan mengulang tes yang buktinya masih berlaku.
