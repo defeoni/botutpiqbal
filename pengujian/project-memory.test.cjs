@@ -9,7 +9,7 @@ function loadServices() {
   const saved = new Map();
   const cache = new Map();
   function load(relative) {
-    const file = path.resolve(__dirname, '../src/services', relative + '.ts');
+    const file = path.resolve(__dirname, '../cloudflare/frontend/src/services', relative + '.ts');
     if (cache.has(file)) return cache.get(file);
     const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -26,6 +26,44 @@ function loadServices() {
   }
   return { parse: load('parserService').parseDocumentFile, storage: load('storageService').storageService, saved };
 }
+
+test('metadata backup round-trip preserves unrelated documents and rejects corrupt imports before writing', () => {
+  const { storage, saved } = loadServices();
+  const backup = JSON.parse(storage.exportBackup());
+  const original = backup.documents[0];
+  const extra = { ...original, id: 'migration-extra', files: [], relations: [], activityLog: [] };
+  storage.createDocument(extra);
+  storage.toggleArchive(original.id);
+  assert.notEqual(storage.getDocumentById(original.id).isArchived, original.isArchived);
+  assert.equal(storage.importBackup(backup), backup.documents.length);
+  assert.equal(storage.getDocumentById(original.id).isArchived, original.isArchived);
+  assert.ok(storage.getDocumentById('migration-extra'));
+  const before = storage.exportBackup();
+  const storedBefore = saved.get('utp_project_memory_docs_v1');
+  const corrupt = JSON.parse(before);
+  corrupt.documents[0].files = null;
+  assert.throws(() => storage.importBackup(corrupt), /tidak valid/);
+  assert.equal(saved.get('utp_project_memory_docs_v1'), storedBefore);
+  assert.ok(storage.getDocumentById('migration-extra'));
+});
+
+test('failed backup storage restores old values and does not publish partial state', () => {
+  const { storage, saved } = loadServices();
+  const backup = JSON.parse(storage.exportBackup());
+  const id = backup.documents[0].id;
+  storage.toggleArchive(id);
+  const archived = storage.getDocumentById(id).isArchived;
+  const before = saved.get('utp_project_memory_docs_v1');
+  const originalSet = saved.set.bind(saved);
+  let failOnce = true;
+  saved.set = (key, value) => {
+    if (key === 'utp_project_memory_projects_v1' && failOnce) { failOnce = false; throw new Error('quota'); }
+    return originalSet(key, value);
+  };
+  assert.throws(() => storage.importBackup(backup), /Penyimpanan browser gagal/);
+  assert.equal(storage.getDocumentById(id).isArchived, archived);
+  assert.equal(saved.get('utp_project_memory_docs_v1'), before);
+});
 
 test('filename hints never manufacture document facts, dates, manpower, approvals or relationships', () => {
   const { parse } = loadServices();

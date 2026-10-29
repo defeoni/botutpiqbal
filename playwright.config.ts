@@ -9,6 +9,7 @@ const executablePath = [
     .flatMap(base => [path.join(base, 'Google/Chrome/Application/chrome.exe'), path.join(base, 'Microsoft/Edge/Application/msedge.exe')]),
   '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome',
 ].find(candidate => candidate && existsSync(candidate));
+const deployedBaseUrl = process.env.UTP_TEST_BASE_URL;
 
 export default defineConfig({
   testDir: './pengujian',
@@ -17,7 +18,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: deployedBaseUrl || 'http://127.0.0.1:4173',
     browserName: 'chromium',
     reducedMotion: 'no-preference',
     colorScheme: 'light',
@@ -25,7 +26,7 @@ export default defineConfig({
     viewport: { width: 1366, height: 900 },
     trace: 'retain-on-failure',
   },
-  webServer: {
+  webServer: deployedBaseUrl ? undefined : {
     command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: false,

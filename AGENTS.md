@@ -42,17 +42,19 @@
 ## Finishing
 - Pemicu: pengguna meminta finishing. Berlaku sampai selesai, termasuk perbaikan hambatan terkait.
 - Hemat token: tanpa orientasi ulang, audit luas, baca README/riwayat/memory, Graphify/Caveman/Ponytail, atau review diff menyeluruh.
-- Urutan FINAL: source terbaru -> tes lokal relevan -> perbaiki/tes ulang terdampak -> clasp upload -> update deployment Apps Script -> commit/push GitHub -> link/hasil.
+- Default frontend web sekarang Cloudflare Workers Static Assets. Urutan: source terbaru -> tes lokal relevan -> perbaiki -> build/deploy target yang berubah -> commit/push GitHub -> URL/hasil.
+- Frontend `cloudflare/frontend/`: `npm.cmd run build`, tes memory/UI terkait, lalu `npm.cmd run cloudflare:deploy`. Jangan menjalankan clasp untuk perubahan frontend Cloudflare.
+- Apps Script `aplikasi/` saja: source terbaru -> tes lokal relevan -> perbaiki/tes ulang terdampak -> clasp upload -> update deployment Apps Script -> commit/push GitHub -> link/hasil.
 - Gunakan konteks perubahan yang sudah diketahui. Sinkronisasi Git hanya bila perlu untuk kode terbaru; jangan pull menimpa hasil baru secara buta.
 - Aktifkan alat Windows: `. ./alat/aktifkan-alat.ps1` dalam shell yang menjalankan node/npm/python/clasp.
 - Generator Apps Script: `node alat/buat-sumber-clasp.js`.
 - Pilih tes berdasarkan perubahan: backend `node --test pengujian/<file>.test.js`; memory `npm.cmd run test:memory`; React `npm.cmd run build`; UI jalankan tes/browser terkait.
 - `alat/periksa-rilis.ps1` = pemeriksaan gabungan lengkap; gunakan hanya jika cakupan perubahan memerlukan semua pemeriksaan, bukan default setiap finishing.
 - Gunakan bukti yang masih sesuai source akhir; jangan ulang suite lulus tanpa alasan. Jangan skip kegagalan atau melemahkan tes.
-- Setelah tes relevan lulus: `clasp.cmd list-deployments`, `clasp.cmd push`, lalu perbarui deployment web app yang sudah ada. Verifikasi versi/URL; jangan membuat deployment duplikat tanpa kebutuhan.
+- Untuk perubahan Apps Script setelah tes relevan lulus: `clasp.cmd list-deployments`, `clasp.cmd push`, lalu perbarui deployment web app yang sudah ada. Verifikasi versi/URL; jangan membuat deployment duplikat tanpa kebutuhan.
 - Setelah deployment berhasil: commit/push perubahan terkait ke GitHub. Jika kode diperbaiki setelah deploy, tes terdampak lalu upload/deploy ulang agar source akhir cocok.
 - Laporan: commit GitHub + hasil tes + versi deployment + URL aktif. URL dapat tetap sama saat versi diperbarui. Jika terhambat, laporkan blocker konkret.
-- Clasp menerbitkan aplikasi/ lewat .clasp-src/. React src/ dan Cloudflare adalah jalur terpisah; bukan deployment otomatis.
+- Clasp menerbitkan aplikasi/ lewat .clasp-src/. React cloudflare/frontend/src/ memakai Worker Static Assets; izin migrasi pengguna mencakup publikasi pilot Cloudflare. Data produksi perlu integrasi terpisah yang terverifikasi.
 
 ## Plugin/skill dan file
 - Figma: desain lintas halaman/design system/wireframe/review sebelum perubahan frontend besar. GitHub tetap source produksi/backlog/riwayat.

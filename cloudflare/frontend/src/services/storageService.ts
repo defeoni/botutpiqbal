@@ -57,6 +57,69 @@ class StorageService {
     return this.projects;
   }
 
+  public exportBackup(): string {
+    return JSON.stringify({ format: 'utp-project-memory', version: 1,
+      exportedAt: new Date().toISOString(), projects: this.projects, documents: this.docs }, null, 2);
+  }
+
+  public importBackup(value: unknown): number {
+    const fail = () => { throw new Error('Format cadangan tidak valid. Data saat ini tidak diubah.'); };
+    const record = (item: unknown): item is Record<string, unknown> =>
+      typeof item === 'object' && item !== null && !Array.isArray(item);
+    if (!record(value) || value.format !== 'utp-project-memory' || value.version !== 1 ||
+        !Array.isArray(value.projects) || !Array.isArray(value.documents)) return fail();
+    const projectIds = new Set(['PRJ-BDG', 'PRJ-CKR', 'PRJ-IKN', 'PRJ-HO']);
+    const projectKeys = ['id', 'code', 'name', 'location', 'pmName', 'mkName', 'ownerName'];
+    if (!value.projects.every(p => record(p) && projectKeys.every(k => typeof p[k] === 'string') &&
+        projectIds.has(p.id as string) && ['TINGGI', 'SEDANG', 'NORMAL'].includes(p.urgency as string) &&
+        typeof p.activeCardsCount === 'number')) return fail();
+    const categories = ['MEMO_MANPOWER', 'SURAT_KORESPONDENSI', 'RPB_MATERIAL', 'APPROVAL_SPEK',
+      'RPD_KEUANGAN', 'KONTRAK_SEWA', 'SCAN_TANDATANGAN', 'REFERENSI_STANDAR'];
+    const stringFields = ['id', 'title', 'documentNumber', 'documentDate', 'summary', 'nextAction', 'createdAt', 'updatedAt'];
+    for (const doc of value.documents) {
+      if (!record(doc) || !stringFields.every(k => typeof doc[k] === 'string') || !doc.id ||
+          !projectIds.has(doc.projectId as string) || !categories.includes(doc.category as string) ||
+          !['AKTIF', 'MENUNGGU', 'SELESAI'].includes(doc.kanbanStatus as string) ||
+          !['PM', 'MK', 'HO_DIREKSI', 'OWNER', 'VENDOR', 'INTERNAL_ADMIN', 'NONE'].includes(doc.waitingParty as string) ||
+          typeof doc.isArchived !== 'boolean' || typeof doc.isActionable !== 'boolean') return fail();
+      for (const key of ['files', 'facts', 'relations', 'activityLog']) {
+        if (!Array.isArray(doc[key]) || !(doc[key] as unknown[]).every(record)) return fail();
+      }
+      if (!(doc.files as Record<string, unknown>[]).every(f => typeof f.id === 'string' &&
+          typeof f.fileName === 'string' && typeof f.fileSize === 'number' &&
+          typeof f.fileType === 'string' && typeof f.storageLocation === 'string' &&
+          typeof f.uploadedAt === 'string' && ['ASLI', 'REVISI', 'SCAN_BASAH', 'LAMPIRAN', 'SURAT_BALASAN', 'BUKTI_FOTO'].includes(f.fileRole as string))) return fail();
+      if (!(doc.facts as Record<string, unknown>[]).every(f => ['key', 'label', 'value'].every(k => typeof f[k] === 'string') &&
+          ['DOKUMEN_FAKTA', 'DUGAAN_SISTEM', 'KOREKSI_USER'].includes(f.sourceType as string))) return fail();
+      if (!(doc.activityLog as Record<string, unknown>[]).every(e =>
+          ['id', 'timestamp', 'actor', 'action'].every(k => typeof e[k] === 'string'))) return fail();
+      if (!(doc.relations as Record<string, unknown>[]).every(r => typeof r.targetDocId === 'string' &&
+          typeof r.targetDocTitle === 'string' && typeof r.isConfirmed === 'boolean' &&
+          ['REVISI_DARI', 'BALASAN_DARI', 'LAMPIRAN_DARI', 'SURAT_PENGANTAR'].includes(r.relationType as string))) return fail();
+    }
+    const incoming = value.documents as unknown as DocumentRecord[];
+    if (new Set(incoming.map(d => d.id)).size !== incoming.length ||
+        new Set(value.projects.map(p => p.id)).size !== value.projects.length) return fail();
+    const mergedDocs = new Map(this.docs.map(d => [d.id, d]));
+    incoming.forEach(d => mergedDocs.set(d.id, d));
+    const mergedProjects = new Map(this.projects.map(p => [p.id, p]));
+    (value.projects as ProjectInfo[]).forEach(p => mergedProjects.set(p.id, p));
+    const oldDocs = localStorage.getItem(STORAGE_KEY_DOCS);
+    const oldProjects = localStorage.getItem(STORAGE_KEY_PROJECTS);
+    try {
+      localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify([...mergedDocs.values()]));
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify([...mergedProjects.values()]));
+    } catch {
+      // Restore prior browser values before exposing the failed import to the UI.
+      if (oldDocs !== null) localStorage.setItem(STORAGE_KEY_DOCS, oldDocs);
+      if (oldProjects !== null) localStorage.setItem(STORAGE_KEY_PROJECTS, oldProjects);
+      throw new Error('Penyimpanan browser gagal. Cadangan unduhan dapat dipakai untuk pemulihan.');
+    }
+    this.docs = [...mergedDocs.values()];
+    this.projects = [...mergedProjects.values()];
+    return incoming.length;
+  }
+
   public getProject(id: ProjectId): ProjectInfo | undefined {
     return this.projects.find(p => p.id === id);
   }

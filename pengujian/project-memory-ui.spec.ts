@@ -1,5 +1,22 @@
 import { expect, test } from '@playwright/test';
 
+test('Cloudflare pilot exposes metadata export and confirmed restore', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('complementary', { name: 'Status migrasi Cloudflare' })).toContainText('Berkas asli, Google Drive, serta data Apps Script belum terhubung.');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Ekspor metadata' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^utp-memory-.*\.json$/);
+  const file = await download.path();
+  if (!file) throw new Error('Cadangan tidak tersedia');
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('.migration-notice input[type=file]').setInputFiles(file);
+  await expect(page.getByRole('status')).toContainText('dokumen dipulihkan');
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('.migration-notice input[type=file]').setInputFiles({ name: 'rusak.json', mimeType: 'application/json', buffer: Buffer.from('{"format":"lain"}') });
+  await expect(page.getByRole('alert')).toContainText('tidak valid');
+});
+
 for (const width of [1366, 1920]) {
   test(`desktop ${width}: rendered hero, animation control and working navigation`, async ({ page }) => {
     const errors: string[] = [];

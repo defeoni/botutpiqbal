@@ -10,6 +10,7 @@ import { SearchPanel } from './components/SearchPanel';
 import { TelegramSimulator } from './components/TelegramSimulator';
 import { CodexHandoverModal } from './components/CodexHandoverModal';
 import { ProjectHero } from './components/ProjectHero';
+import { DataTransfer } from './components/DataTransfer';
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'KANBAN' | 'MEMORY' | 'SEARCH' | 'TELEGRAM' | 'CODEX'>('KANBAN');
@@ -106,6 +107,7 @@ export const App: React.FC = () => {
 
       {/* Main Viewport Content */}
       <main className="workspace-main workspace-width flex-1 w-full mx-auto">
+        <DataTransfer onRestored={reloadData} />
         {currentView === 'KANBAN' ? <ProjectHero
           documents={documents}
           projectName={projects.find(p => p.id === selectedProjectId)?.name || 'Semua proyek PT UTP'}

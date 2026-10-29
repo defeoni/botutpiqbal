@@ -288,3 +288,11 @@ body { color: var(--utp-ink); background: #f8fafc; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.migration-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 12px 0; padding: 10px 12px; border: 1px solid #e4d6ba; border-radius: 8px; background: #fffaf0; color: #5a4523; font-size: 12px; }
+.migration-notice strong { font-size: 13px; }
+.migration-notice p { margin: 3px 0 0; }
+.migration-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.migration-actions button, .migration-actions a { min-height: 34px; padding: 6px 10px; border: 1px solid #d7c8ac; border-radius: 6px; background: white; color: #5a4523; cursor: pointer; text-decoration: none; }
+.migration-actions :focus-visible { outline: 2px solid #9e333c; outline-offset: 2px; }
+.migration-result { width: 100%; }

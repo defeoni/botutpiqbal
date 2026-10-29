@@ -3,7 +3,7 @@
 Aturan utama: ../AGENTS.md. Default Mode Hemat Token: Codex mengatur dan mengintegrasikan; maksimal 2 pembuat kode total + 1 reviewer. Burst hanya atas permintaan eksplisit, maksimal 3 penulis total. Satu AI maksimal 2 tugas/prompt; satu file/bagian satu pemilik aktif.
 
 ## Konteks
-- Source Apps Script: ../aplikasi/. React: ../src/. Tes: ../pengujian/.
+- Source Apps Script: ../aplikasi/. React: ../cloudflare/frontend/src/. Tes: ../pengujian/.
 - Bisnis material: ATURAN-MATERIAL.md. Kontrak Spek: ../kontrak-materialspec.md.
 - Template LPD: ../template/lpd/TEMPLATE-LPD-PT-UTP.xlsx.
 - STATUS.md dan serahan modul dibaca hanya bila relevan. Status historis bukan bukti source/deployment terbaru.

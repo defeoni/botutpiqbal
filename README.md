@@ -1,5 +1,15 @@
 # BOT UTP IQBAL
 
+## Cloudflare — frontend Project Memory
+
+Frontend AI Studio sekarang berada di `cloudflare/frontend/src/`; cara build,
+deploy, pemulihan metadata, batas pilot, dan lanjutan produksi ada di
+`cloudflare/frontend/README.md`. Build dari root dengan `npm run build`, deploy
+dengan `npm run cloudflare:deploy`. Apps Script lama tetap terpisah.
+
+Pilot: https://utp-project-memory.mini-garden.workers.dev (metadata lokal/data contoh;
+berkas Drive/Sheets produksi belum dipindahkan).
+
 ## Alat lokal dan pemeriksaan finishing (Windows)
 
 Pada PC ini Node/npm, clasp, dan Python portable berada di `.local/tools/`
@@ -33,11 +43,11 @@ perbaiki kegagalan, upload dengan `clasp.cmd`, perbarui deployment web app yang 
 lalu commit/push ke GitHub dan laporkan versi/URL. Pemeriksaan gabungan di atas
 hanya digunakan bila seluruh cakupannya relevan. Skrip pemeriksaan tidak melakukan
 commit, push, upload, atau deployment. `.clasp.json` hanya menerbitkan sumber
-Apps Script lama; frontend React di `src/` membutuhkan jalur hosting tersendiri.
+Apps Script lama; frontend React di `cloudflare/frontend/src/` diterbitkan lewat Cloudflare Workers Static Assets.
 
 ## UTP Project Memory — prototipe lokal
 
-Frontend baru berada di `src/` (React/TypeScript/Vite). Jalankan `npm ci`,
+Frontend baru berada di `cloudflare/frontend/src/` (React/TypeScript/Vite). Jalankan `npm ci`,
 `npm run build`, `npm run test:memory`, lalu `npm run dev` untuk membuka port 3000.
 Source Apps Script lama di bawah tetap dipertahankan.
 
